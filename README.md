@@ -58,18 +58,17 @@ If rewards are not claimed after time X they can be claimed by the owner.
 
 You need to map every user on GitHub for that repo to an Ethereum Address.
 
-### Notes
-
-- use 4626 to dynamically represent shares
-- move more on-chain and less compression through the merkle tree
-
 ## 4626
 
 - `CT` is represented by share tokens.
 - If I own 100 shares and there are 500 shares in total I "own" 20% of the project.
 - For new `PR` new share tokens are minted according to the `PR` score.
+- How new shares are minted can be anything that gives a higher value to most recent `PRs`
+- The contract would loop over a list of `PRs` and mints new shares accordingly.
 - Old contributors are diluted.
 - You can burn your shares to get the underlying rewards.
 - Some shares are frozen waiting for tax clearance etc.
-- Tax clearance if pushed through an oracle.
+- Tax clearance is pushed through an oracle.
 - This allows for "instant" liquidity.
+- To avoid a "bank run" where everyone redeems their share tokesn immediately it make sense to
+  freeze redemeptions in the beginning and only enable it for specific time intervals.
