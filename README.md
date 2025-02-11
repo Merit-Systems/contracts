@@ -72,3 +72,9 @@ You need to map every user on GitHub for that repo to an Ethereum Address.
 - This allows for "instant" liquidity.
 - To avoid a "bank run" where everyone redeems their share tokesn immediately it make sense to
   freeze redemeptions in the beginning and only enable it for specific time intervals.
+- Another approach would be to add a lockup for newly minted shares. So people can not "dump" it immediately.
+
+## Contracts
+
+- Merit Vault
+- Tax Oracle
