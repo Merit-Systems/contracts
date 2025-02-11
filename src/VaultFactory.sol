@@ -16,6 +16,6 @@ contract VaultFactory {
 
     function createVault(address owner, ERC20 asset) public returns (Vault vault) {
         uint _owner = owners.mint(owner, 2);
-        return new Vault(_owner, asset, "", "");
+        return new Vault(owners, _owner, asset, "", "");
     }
 }
