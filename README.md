@@ -24,15 +24,20 @@
 
 Ownership is represented by one NFT.
 
-Only owner can update `CT`
+- can update `CT`
+- can init and adjust the reward mechansim
 
 ### CT Initialization
 
-`CT` is seeded by Repo owners.
+`CT` is seeded by Owner.
 
 ### CT Update
 
 Additive: Add `PR` score to `CT` entry.
+
+Weight newer PRs more: `score'` = `score` + `newScore` \* `W(timeSinceUpdate)`
+
+`W(timeSinceUpdate)` = `1 + (λ * timeSinceUpdate)`
 
 ### Claiming
 
