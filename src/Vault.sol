@@ -1,170 +1,176 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.26;
+pragma solidity ^0.8.26;
 
-import {ERC20}             from "solmate/tokens/ERC20.sol";
-import {SafeTransferLib}   from "solmate/utils/SafeTransferLib.sol";
-import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+contract MeritLedger {
+    uint constant MAX_CONTRIBUTORS = 50;
 
-import {Oracle} from "./Oracle.sol";
-import {Owners} from "./Owners.sol";
-import {Errors} from "../libraries/Errors.sol";
-
-contract Vault {
-    using FixedPointMathLib for uint;
-    using SafeTransferLib   for ERC20;
-
-    event Transfer(address indexed from, address indexed to, uint amount);
-    event Withdraw(
-        address indexed caller,
-        address indexed receiver,
-        address indexed owner,
-        uint assets,
-        uint shares
-    );
-
-    string public name;
-    string public symbol;
-    uint8  public immutable decimals;
-    Owners public immutable owners;
-    uint   public immutable ownerId;
-    ERC20  public immutable asset;
-    Oracle public immutable oracle;
-
-    uint public baseTotalSupply;
-    mapping(address => uint) public baseBalanceOf;
-
-    // cumulative index that grows over time
-    uint public inflationIndex = 1e18; // starts at 1.0
-    uint public lastInflationUpdate;
-    uint public inflationRate = 1e18; // fraction/second, e.g. 1e18 => 0% per second
-
-    struct PullRequest {
-        address owner;
-        uint    score;
-        uint    deadline;
+    enum AttributionCurve {
+        Constant, 
+        Linear
     }
 
-    modifier onlyVaultOwner() {
-        require(msg.sender == owners.ownerOf(ownerId), Errors.NOT_OWNER);
+    struct Ownership {
+        uint shares;  
+        bool exists;
+    }
+
+    struct RepoConfig {
+        AttributionCurve curve;
+        uint inflationRateBps; // e.g., 500 = 5% annual inflation
+        uint lastSnapshotTime; 
+    }
+
+    struct Repo {
+        uint                          totalShares;
+        mapping(address => Ownership) owners;
+        address[]                     contributors;
+        RepoConfig                    config;
+        bool                          initialized;
+    }
+
+    mapping(uint => Repo) private repos;
+
+    modifier onlyInitialized(uint repoId) {
+        require(repos[repoId].initialized);
         _;
     }
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        Owners        _owners,
-        uint          _ownerId, 
-        ERC20         _asset, 
-        address       _admin,
-        uint          _initialInflationRate,
-        PullRequest[] memory _pullRequests
-    ) {
-        name     = _name;
-        symbol   = _symbol;
-        decimals = _asset.decimals();
-        owners   = _owners;
-        ownerId  = _ownerId;
-        asset    = _asset;
-        oracle   = new Oracle(_admin, address(this)); 
+    function initializeRepo(
+        uint               repoId,
+        address[] calldata contributors,
+        uint   [] calldata shares,
+        AttributionCurve   curve,
+        uint               inflationRateBps
+    )
+        external
+    {
+        Repo storage repo = repos[repoId];
+        require(!repo.initialized);
+        require(contributors.length == shares.length);
 
-        inflationRate       = _initialInflationRate;
-        lastInflationUpdate = block.timestamp;
+        uint total;
+        uint totalContributors = contributors.length;
+        for (uint i = 0; i < totalContributors; ++i) {
+            address user = contributors[i];
+            uint userShares = shares[i];
+            require(user != address(0));
+            require(userShares > 0);
 
-        mint(_pullRequests);
-    }
-
-    function setInflationRate(uint newRate) external onlyVaultOwner {
-        _applyInflation();
-        inflationRate = newRate;
-    }
-
-    function _applyInflation() internal {
-        uint current = block.timestamp;
-        uint elapsed = current - lastInflationUpdate;
-        if (elapsed == 0) return; // no time, no change
-
-        lastInflationUpdate = current;
-
-        if (inflationRate == 0) {
-            // no growth in index
-            return; 
+            repo.owners[user] = Ownership({shares: userShares, exists: true});
+            repo.contributors.push(user);
+            total += userShares;
         }
 
-        // factor = 1e18 + (inflationRate * elapsed)
-        // example: if inflationRate = 1e9 => ~0.1% per second, etc.
-        // newIndex = oldIndex * (1e18 + rate * elapsed) / 1e18
-        uint oldIndex  = inflationIndex;
-        uint factor    = 1e18 + (inflationRate * elapsed);
-        inflationIndex = oldIndex.mulDivDown(factor, 1e18);
+        repo.config = RepoConfig({
+            curve:            curve,
+            inflationRateBps: inflationRateBps,
+            lastSnapshotTime: block.timestamp
+        });
+
+        repo.totalShares = total;
+        repo.initialized = true;
     }
 
-    function mint(PullRequest[] memory pullRequests) public onlyVaultOwner {
-        _applyInflation();
-        uint len = pullRequests.length;
-        for (uint i = 0; i < len; ++i) {
-            _mint(pullRequests[i].owner, pullRequests[i].score);
+    function applyInflation(uint repoId) public onlyInitialized(repoId) {
+        Repo storage repo = repos[repoId];
+        uint elapsed = block.timestamp - repo.config.lastSnapshotTime;
+        if (elapsed == 0) return; 
+
+        uint annualBps           = repo.config.inflationRateBps; 
+        uint yearsScaled         = (elapsed * 1e18) / 365 days;
+        uint inflationMultiplier = 1e18 + ((annualBps * yearsScaled) / 10000);
+
+        for (uint i = 0; i < repo.contributors.length; i++) {
+            address user                = repo.contributors[i];
+            Ownership storage ownership = repo.owners[user];
+            uint oldShares              = ownership.shares;
+            uint newShares              = (oldShares * inflationMultiplier) / 1e18;
+            ownership.shares            = newShares;
+        }
+
+        uint oldTotal    = repo.totalShares;
+        uint newTotal    = (oldTotal * inflationMultiplier) / 1e18;
+        repo.totalShares = newTotal;
+        repo.config.lastSnapshotTime = block.timestamp;
+    }
+
+    function updateRepoLedger(
+        uint repoId,
+        address[] calldata contributors
+    )
+        external
+        onlyInitialized(repoId)
+    {
+        applyInflation(repoId);
+
+        Repo storage repo = repos[repoId];
+        require(contributors.length > 0);
+
+        uint totalContributors = contributors.length;
+        uint newSharesPool = repo.totalShares / 10; // TODO: Make this configurable
+
+        uint[] memory curveWeights = new uint[](totalContributors);
+        uint sumWeights = 0;
+
+        for (uint i = 0; i < totalContributors; i++) {
+            uint weight     = _calculateCurveValue(repo.config.curve);
+            curveWeights[i] = weight;
+            sumWeights     += weight;
+        }
+
+        for (uint i = 0; i < totalContributors; i++) {
+            address user   = contributors[i];
+            uint weight    = curveWeights[i];
+            uint newShares = (newSharesPool * weight) / sumWeights;
+
+            if (!repo.owners[user].exists) {
+                repo.contributors.push(user);
+                repo.owners[user] = Ownership({shares: 0, exists: true});
+            }
+            repo.owners[user].shares += newShares;
+            repo.totalShares += newShares;
         }
     }
 
-    function redeem(
-        uint sharesInRebasedUnits,  // user sees "rebased" shares
-        address receiver,
-        address owner
-    ) public returns (uint assets) {
-        _applyInflation();
-        require(msg.sender == owner, Errors.NOT_OWNER);
+    function distributePayment(uint repoId) external payable onlyInitialized(repoId) {
+        require(msg.value > 0);
 
-        uint baseShares = sharesInRebasedUnits.mulDivDown(1e18, inflationIndex);
-
-        uint supplyBase = baseTotalSupply; 
-        if (supplyBase == 0) {
-            // If no supply, you can't really redeem anything, or we do 1:1
-            // for demonstration we handle the zero-supply edge:
-            assets = sharesInRebasedUnits; 
-        } else {
-            uint vaultBalance = asset.balanceOf(address(this));
-            assets = baseShares.mulDivDown(vaultBalance, supplyBase);
+        Repo storage repo = repos[repoId];
+        uint numContributors = repo.contributors.length;
+        if (numContributors == 0 || repo.totalShares == 0) {
+            (bool refunded, ) = msg.sender.call{value: msg.value}("");
+            require(refunded);
+            return;
         }
-        require(assets != 0, "ZERO_ASSETS");
 
-        _burn(owner, baseShares);
+        uint maxContributors = numContributors > MAX_CONTRIBUTORS ? MAX_CONTRIBUTORS : numContributors;
+        uint remaining = msg.value;
 
-        oracle.updateClaimed(msg.sender, assets);
-        asset.safeTransfer(receiver, assets);
+        for (uint i = 0; i < maxContributors; i++) {
+            address user = repo.contributors[i];
+            uint share = repo.owners[user].shares;
+            uint payment = (msg.value * share) / repo.totalShares;
+            if (payment > 0 && payment <= remaining) {
+                remaining -= payment;
+                (bool sent, ) = payable(user).call{value: payment}("");
+                require(sent);
+            }
+        }
 
-        emit Withdraw(msg.sender, receiver, owner, assets, sharesInRebasedUnits);
+        if (remaining > 0) {
+            (bool leftoverSent, ) = msg.sender.call{value: remaining}("");
+            require(leftoverSent);
+        }
+
     }
 
-    function totalSupply() public view returns (uint) {
-        return baseTotalSupply.mulDivDown(inflationIndex, 1e18);
-    }
-
-    function balanceOf(address account) public view returns (uint) {
-        return baseBalanceOf[account].mulDivDown(inflationIndex, 1e18);
-    }
-
-    // optional utility
-    function convertToAssets(uint sharesInRebasedUnits) public view returns (uint) {
-        uint supplyBase = baseTotalSupply;
-        if (supplyBase == 0) return sharesInRebasedUnits; 
-
-        // Convert rebased shares back to base, then compute fraction.
-        uint baseShares = sharesInRebasedUnits.mulDivDown(1e18, inflationIndex);
-        return baseShares.mulDivDown(asset.balanceOf(address(this)), supplyBase);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                        INTERNAL MINT/BURN LOGIC
-    //////////////////////////////////////////////////////////////*/
-    function _mint(address to, uint amountBase) internal {
-        baseTotalSupply += amountBase;
-        unchecked { baseBalanceOf[to] += amountBase; }
-        emit Transfer(address(0), to, amountBase);
-    }
-
-    function _burn(address from, uint amountBase) internal {
-        baseBalanceOf[from] -= amountBase;
-        unchecked { baseTotalSupply -= amountBase; }
-        emit Transfer(from, address(0), amountBase);
+    function _calculateCurveValue(AttributionCurve curve)
+        internal
+        pure
+        returns (uint weight)
+    {
+        if (curve == AttributionCurve.Constant) return 1;
+        if (curve == AttributionCurve.Linear)   return 1; // TODO
+        return 1;
     }
 }
