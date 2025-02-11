@@ -37,7 +37,7 @@ Additive: Add `PR` score to `CT` entry.
 
 Weight newer PRs more: `score'` = `score` + `newScore` \* `W(timeSinceUpdate)`
 
-`W(timeSinceUpdate)` = `1 + (λ * timeSinceUpdate)`
+`W(timeSinceUpdate)` = `1 / timeSinceUpdate`
 
 ### Claiming
 
