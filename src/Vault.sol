@@ -30,8 +30,13 @@ contract Vault {
     ERC20  public immutable asset;
     Oracle public immutable oracle;
 
-    uint public totalSupply;
-    mapping(address => uint) public balanceOf;
+    uint public baseTotalSupply;
+    mapping(address => uint) public baseBalanceOf;
+
+    // cumulative index that grows over time
+    uint public inflationIndex = 1e18; // starts at 1.0
+    uint public lastInflationUpdate;
+    uint public inflationRate = 1e18; // fraction/second, e.g. 1e18 => 0% per second
 
     struct PullRequest {
         address owner;
@@ -51,6 +56,7 @@ contract Vault {
         uint          _ownerId, 
         ERC20         _asset, 
         address       _admin,
+        uint          _initialInflationRate,
         PullRequest[] memory _pullRequests
     ) {
         name     = _name;
@@ -61,58 +67,104 @@ contract Vault {
         asset    = _asset;
         oracle   = new Oracle(_admin, address(this)); 
 
+        inflationRate       = _initialInflationRate;
+        lastInflationUpdate = block.timestamp;
+
         mint(_pullRequests);
     }
 
-    // only way to create new shares
+    function setInflationRate(uint newRate) external onlyVaultOwner {
+        _applyInflation();
+        inflationRate = newRate;
+    }
+
+    function _applyInflation() internal {
+        uint current = block.timestamp;
+        uint elapsed = current - lastInflationUpdate;
+        if (elapsed == 0) return; // no time, no change
+
+        lastInflationUpdate = current;
+
+        if (inflationRate == 0) {
+            // no growth in index
+            return; 
+        }
+
+        // factor = 1e18 + (inflationRate * elapsed)
+        // example: if inflationRate = 1e9 => ~0.1% per second, etc.
+        // newIndex = oldIndex * (1e18 + rate * elapsed) / 1e18
+        uint oldIndex  = inflationIndex;
+        uint factor    = 1e18 + (inflationRate * elapsed);
+        inflationIndex = oldIndex.mulDivDown(factor, 1e18);
+    }
+
     function mint(PullRequest[] memory pullRequests) public onlyVaultOwner {
+        _applyInflation();
         uint len = pullRequests.length;
         for (uint i = 0; i < len; ++i) {
             _mint(pullRequests[i].owner, pullRequests[i].score);
         }
     }
 
-    // TODO: check for freeze
     function redeem(
-        uint shares,
+        uint sharesInRebasedUnits,  // user sees "rebased" shares
         address receiver,
         address owner
-    ) public virtual returns (uint assets) {
+    ) public returns (uint assets) {
+        _applyInflation();
         require(msg.sender == owner, Errors.NOT_OWNER);
 
-        uint supply = totalSupply; 
+        uint baseShares = sharesInRebasedUnits.mulDivDown(1e18, inflationIndex);
 
-        assets = supply == 0 ? shares : shares.mulDivDown(
-            asset.balanceOf(address(this)), 
-            supply
-        );
+        uint supplyBase = baseTotalSupply; 
+        if (supplyBase == 0) {
+            // If no supply, you can't really redeem anything, or we do 1:1
+            // for demonstration we handle the zero-supply edge:
+            assets = sharesInRebasedUnits; 
+        } else {
+            uint vaultBalance = asset.balanceOf(address(this));
+            assets = baseShares.mulDivDown(vaultBalance, supplyBase);
+        }
+        require(assets != 0, "ZERO_ASSETS");
 
-        require(assets != 0);
-        _burn(owner, shares);
-        emit Withdraw(msg.sender, receiver, owner, assets, shares);
-        asset.safeTransfer(receiver, assets);
+        _burn(owner, baseShares);
+
         oracle.updateClaimed(msg.sender, assets);
+        asset.safeTransfer(receiver, assets);
+
+        emit Withdraw(msg.sender, receiver, owner, assets, sharesInRebasedUnits);
     }
 
-    function convertToAssets(uint shares) public view virtual returns (uint) {
-        uint supply = totalSupply; 
-        return supply == 0 ? shares : shares.mulDivDown(
-            asset.balanceOf(address(this)),
-            supply
-        );
+    function totalSupply() public view returns (uint) {
+        return baseTotalSupply.mulDivDown(inflationIndex, 1e18);
     }
 
-    // @audit from Solmate ERC20
-    function _mint(address to, uint amount) internal virtual {
-        totalSupply += amount;
-        unchecked { balanceOf[to] += amount; }
-        emit Transfer(address(0), to, amount);
+    function balanceOf(address account) public view returns (uint) {
+        return baseBalanceOf[account].mulDivDown(inflationIndex, 1e18);
     }
 
-    // @audit from Solmate ERC20
-    function _burn(address from, uint amount) internal virtual {
-        balanceOf[from] -= amount;
-        unchecked { totalSupply -= amount; }
-        emit Transfer(from, address(0), amount);
+    // optional utility
+    function convertToAssets(uint sharesInRebasedUnits) public view returns (uint) {
+        uint supplyBase = baseTotalSupply;
+        if (supplyBase == 0) return sharesInRebasedUnits; 
+
+        // Convert rebased shares back to base, then compute fraction.
+        uint baseShares = sharesInRebasedUnits.mulDivDown(1e18, inflationIndex);
+        return baseShares.mulDivDown(asset.balanceOf(address(this)), supplyBase);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        INTERNAL MINT/BURN LOGIC
+    //////////////////////////////////////////////////////////////*/
+    function _mint(address to, uint amountBase) internal {
+        baseTotalSupply += amountBase;
+        unchecked { baseBalanceOf[to] += amountBase; }
+        emit Transfer(address(0), to, amountBase);
+    }
+
+    function _burn(address from, uint amountBase) internal {
+        baseBalanceOf[from] -= amountBase;
+        unchecked { baseTotalSupply -= amountBase; }
+        emit Transfer(from, address(0), amountBase);
     }
 }
