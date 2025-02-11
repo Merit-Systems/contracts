@@ -12,7 +12,7 @@
 
 3. `CT` (Cap Table)
 
-   Mapping from `address` => `weight`
+   Mapping from `address` => `score`
 
 4. `F` State Update Function
 
@@ -23,6 +23,8 @@
 ### Ownership
 
 Ownership is represented by one NFT.
+
+Only owner can update `CT`
 
 ### CT Initialization
 
