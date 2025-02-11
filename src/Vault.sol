@@ -5,20 +5,21 @@ import {ERC20}             from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib}   from "solmate/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
+import {Oracle} from "./Oracle.sol";
 import {Owners} from "./Owners.sol";
 import {Errors} from "../libraries/Errors.sol";
 
 contract Vault {
-    using SafeTransferLib for ERC20;
-    using FixedPointMathLib for uint256;
+    using FixedPointMathLib for uint;
+    using SafeTransferLib   for ERC20;
 
-    event Transfer(address indexed from, address indexed to, uint256 amount);
+    event Transfer(address indexed from, address indexed to, uint amount);
     event Withdraw(
         address indexed caller,
         address indexed receiver,
         address indexed owner,
-        uint256 assets,
-        uint256 shares
+        uint assets,
+        uint shares
     );
 
     string public name;
@@ -27,9 +28,10 @@ contract Vault {
     Owners public immutable owners;
     uint   public immutable ownerId;
     ERC20  public immutable asset;
+    Oracle public immutable oracle;
 
-    uint256 public totalSupply;
-    mapping(address => uint256) public balanceOf;
+    uint public totalSupply;
+    mapping(address => uint) public balanceOf;
 
     struct PullRequest {
         address owner;
@@ -37,7 +39,7 @@ contract Vault {
         uint    deadline;
     }
 
-    modifier onlyOwner() {
+    modifier onlyVaultOwner() {
         require(msg.sender == owners.ownerOf(ownerId), Errors.NOT_OWNER);
         _;
     }
@@ -47,7 +49,9 @@ contract Vault {
         string memory _symbol,
         Owners        _owners,
         uint          _ownerId, 
-        ERC20         _asset
+        ERC20         _asset, 
+        address       _admin,
+        PullRequest[] memory _pullRequests
     ) {
         name     = _name;
         symbol   = _symbol;
@@ -55,24 +59,28 @@ contract Vault {
         owners   = _owners;
         ownerId  = _ownerId;
         asset    = _asset;
+        oracle   = new Oracle(_admin, address(this)); 
+
+        mint(_pullRequests);
     }
 
     // only way to create new shares
-    function mint(PullRequest[] calldata pullRequests) public onlyOwner {
+    function mint(PullRequest[] memory pullRequests) public onlyVaultOwner {
         uint len = pullRequests.length;
         for (uint i = 0; i < len; ++i) {
             _mint(pullRequests[i].owner, pullRequests[i].score);
         }
     }
 
+    // TODO: check for freeze
     function redeem(
-        uint256 shares,
+        uint shares,
         address receiver,
         address owner
-    ) public virtual returns (uint256 assets) {
+    ) public virtual returns (uint assets) {
         require(msg.sender == owner, Errors.NOT_OWNER);
 
-        uint256 supply = totalSupply; 
+        uint supply = totalSupply; 
 
         assets = supply == 0 ? shares : shares.mulDivDown(
             asset.balanceOf(address(this)), 
@@ -80,27 +88,29 @@ contract Vault {
         );
 
         require(assets != 0);
-
         _burn(owner, shares);
-
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
-
         asset.safeTransfer(receiver, assets);
+        oracle.updateClaimed(msg.sender, assets);
     }
 
-    function totalAssets() public view virtual returns (uint256) {
-        return asset.balanceOf(address(this));
+    function convertToAssets(uint shares) public view virtual returns (uint) {
+        uint supply = totalSupply; 
+        return supply == 0 ? shares : shares.mulDivDown(
+            asset.balanceOf(address(this)),
+            supply
+        );
     }
 
     // @audit from Solmate ERC20
-    function _mint(address to, uint256 amount) internal virtual {
+    function _mint(address to, uint amount) internal virtual {
         totalSupply += amount;
         unchecked { balanceOf[to] += amount; }
         emit Transfer(address(0), to, amount);
     }
 
     // @audit from Solmate ERC20
-    function _burn(address from, uint256 amount) internal virtual {
+    function _burn(address from, uint amount) internal virtual {
         balanceOf[from] -= amount;
         unchecked { totalSupply -= amount; }
         emit Transfer(from, address(0), amount);

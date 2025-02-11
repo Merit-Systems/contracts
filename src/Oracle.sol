@@ -1,15 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.26;
 
-import {Owned} from "solmate/auth/Owned.sol";
+contract Oracle {
 
-contract Oracle is Owned {
+    address public immutable admin;
+    address public immutable vault;
 
     mapping(address => uint) public unlocked;
+    mapping(address => uint) public claimed;
 
-    constructor() Owned(msg.sender) {}
+    constructor(address _admin, address _vault) {
+        admin = _admin;
+        vault = _vault;
+    }
 
-    function unlock(address to, uint amount) public onlyOwner {
-        unlocked[to] = amount;
+    // called by us
+    function updateUnlocked(address to, uint newAmount) public {
+        require(msg.sender == admin);
+        unlocked[to] += newAmount;
+    }
+
+    // called by vault
+    function updateClaimed(address to, uint newAmount) public {
+        require(msg.sender == vault);
+        claimed[to] += newAmount;
     }
 }
