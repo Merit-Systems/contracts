@@ -57,3 +57,8 @@ If rewards are not claimed after time X they can be claimed by the owner.
 ### Wallet Abstraction
 
 You need to map every user on GitHub for that repo to an Ethereum Address.
+
+### Notes
+
+- use 4626 to dynamically represent shares
+- move more on-chain and less compression through the merkle tree
