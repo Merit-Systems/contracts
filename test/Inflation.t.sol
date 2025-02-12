@@ -28,7 +28,10 @@ contract Inflation_Test is Base_Test {
         vm.warp(block.timestamp + 365 days);
         ledger.inflate(repoId);
 
-        assertEq(totalSharesBefore, 300);
-        assertEq(totalSharesBefore + (totalSharesBefore * 0.1e18 / 1e18),  330);
+        assertEq(totalSharesBefore, 300e18);
+        assertEq(
+            totalSharesBefore + (totalSharesBefore * inflationRate*1e14 / 1e18),
+            330e18
+        );
     }
 }

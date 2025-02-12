@@ -22,7 +22,7 @@ contract Init_Test is Base_Test {
             uint    newSharesPerUpdate
         ) = ledger.repos(repoId);
 
-        assertEq(totalShares,        300);
+        assertEq(totalShares,        300e18);
         assertEq(inflationRate,      1_000);
         assertEq(lastSnapshotTime,   block.timestamp);
         assertEq(initialized,        true);

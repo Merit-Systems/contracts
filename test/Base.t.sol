@@ -34,8 +34,8 @@ contract Base_Test is Test {
         contributors[1] = bob;
 
         uint   [] memory shares       = new uint   [](2);
-        shares[0] = 100;
-        shares[1] = 200;
+        shares[0] = 100e18;
+        shares[1] = 200e18;
 
         uint inflationRate = 1_000;
 
