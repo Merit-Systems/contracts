@@ -124,18 +124,18 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint lenPullRequests = pullRequests.length;
         uint newShares = repo.totalShares * repo.newSharesPerUpdate; 
 
-        uint[] memory curveWeights = new uint[](lenPullRequests);
+        uint[] memory weights = new uint[](lenPullRequests);
         uint sumWeights = 0;
 
         for (uint i = 0; i < lenPullRequests; i++) {
-            uint weight     = pullRequests[i].weight;
-            curveWeights[i] = weight;
-            sumWeights     += weight;
+            uint weight = pullRequests[i].weight;
+            weights[i]  = weight;
+            sumWeights += weight;
         }
 
         for (uint i = 0; i < lenPullRequests; i++) {
             PullRequest memory pullRequest = pullRequests[i];
-            uint newSharesContributor = (newShares * curveWeights[i]) / sumWeights;
+            uint newSharesContributor = (newShares * weights[i]) / sumWeights;
             repo.shares[pullRequest.contributor] += newSharesContributor;
             repo.totalShares                     += newSharesContributor;
         }
