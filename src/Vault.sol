@@ -23,7 +23,7 @@ contract MeritLedger is ERC721Enumerable {
         mapping(uint => bool)    claimed;
     }
 
-    struct Contribution {
+    struct PullRequest {
         address contributor;
         uint    weight;
     }
@@ -101,7 +101,7 @@ contract MeritLedger is ERC721Enumerable {
 
     function update(
         uint repoId,
-        Contribution[] calldata contributions
+        PullRequest[] calldata pullRequests
     )
         external
         onlyInitialized(repoId)
@@ -109,25 +109,25 @@ contract MeritLedger is ERC721Enumerable {
         applyInflation(repoId);
 
         MeritRepo storage repo = repos[repoId];
-        require(contributions.length > 0);
+        require(pullRequests.length > 0);
 
-        uint totalContributions = contributions.length;
+        uint totalContributions = pullRequests.length;
         uint newSharesPool = repo.totalShares / 10; // TODO: Make this configurable
 
         uint[] memory curveWeights = new uint[](totalContributions);
         uint sumWeights = 0;
 
         for (uint i = 0; i < totalContributions; i++) {
-            uint weight     = contributions[i].weight;
+            uint weight     = pullRequests[i].weight;
             curveWeights[i] = weight;
             sumWeights     += weight;
         }
 
         for (uint i = 0; i < totalContributions; i++) {
-            Contribution memory contribution = contributions[i];
+            PullRequest memory pullRequest = pullRequests[i];
             uint weight    = curveWeights[i];
             uint newShares = (newSharesPool * weight) / sumWeights;
-            address contributor = contribution.contributor;
+            address contributor = pullRequest.contributor;
             repo.shares[contributor] += newShares;
             repo.totalShares += newShares;
         }
