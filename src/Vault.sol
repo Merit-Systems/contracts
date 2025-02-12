@@ -5,8 +5,9 @@ import {MerkleProof}              from "openzeppelin/utils/cryptography/MerklePr
 import {ERC721, ERC721Enumerable} from "openzeppelin/token/ERC721/extensions/ERC721Enumerable.sol";
 import {ERC20}                    from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib}          from "solmate/utils/SafeTransferLib.sol";
+import {Owned}                    from "solmate/auth/Owned.sol";
 
-contract MeritLedger is ERC721Enumerable {
+contract MeritLedger is ERC721Enumerable, Owned {
     using SafeTransferLib for ERC20;
 
     uint constant MAX_CONTRIBUTORS = 50;
@@ -37,7 +38,10 @@ contract MeritLedger is ERC721Enumerable {
         _;
     }
 
-    constructor(ERC20 _paymentToken) ERC721("Merit Repository Owners", "MRO") {
+    constructor(ERC20 _paymentToken) 
+        Owned (msg.sender)
+        ERC721("Merit Repository Owners", "MRO") 
+    {
         paymentToken = _paymentToken;
     }
 
@@ -49,6 +53,7 @@ contract MeritLedger is ERC721Enumerable {
         uint               inflationRate
     )
         external
+        onlyOwner
     {
         MeritRepo storage repo = repos[repoId];
         require(!repo.initialized);
@@ -71,13 +76,13 @@ contract MeritLedger is ERC721Enumerable {
         _mint(owner, ownerId);
 
         repo.ownerId          = ownerId;
-        repo.inflationRate = inflationRate;
+        repo.inflationRate    = inflationRate;
         repo.lastSnapshotTime = block.timestamp;
         repo.totalShares      = totalShares;
         repo.initialized      = true;
     }
 
-    function applyInflation(uint repoId) public onlyInitialized(repoId) {
+    function applyInflation(uint repoId) public onlyInitialized(repoId) onlyOwner {
         MeritRepo storage repo = repos[repoId];
         uint elapsed = block.timestamp - repo.lastSnapshotTime;
         if (elapsed == 0) return; 
