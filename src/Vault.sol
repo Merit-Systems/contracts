@@ -55,7 +55,7 @@ contract MeritLedger {
         uint totalContributors = contributors.length;
         for (uint i = 0; i < totalContributors; ++i) {
             address contributor = contributors[i];
-            uint    share      = shares[i];
+            uint    share       = shares[i];
             require(contributor != address(0));
             require(share > 0);
 
