@@ -3,13 +3,12 @@ pragma solidity ^0.8.26;
 
 import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 
+import {Owners} from "./Owners.sol";
+
 contract MeritLedger {
     uint constant MAX_CONTRIBUTORS = 50;
 
-    struct Ownership {
-        uint shares;  
-        bool exists;
-    }
+    Owners public owners;
 
     struct MeritRepoConfig {
         uint inflationRateBps; // e.g., 500 = 5% annual inflation
@@ -17,13 +16,14 @@ contract MeritLedger {
     }
 
     struct MeritRepo {
-        uint                          totalShares;
-        mapping(address => Ownership) owners;
-        address[]                     contributors;
-        MeritRepoConfig               config;
-        bool                          initialized;
-        bytes32                       paymentMerkleRoot;
-        mapping(uint => bool)         claimed;
+        uint                     totalShares;
+        mapping(address => uint) shares;
+        address[]                contributors;
+        MeritRepoConfig          config;
+        bool                     initialized;
+        uint                     ownerId;
+        bytes32                  paymentMerkleRoot;
+        mapping(uint => bool)    claimed;
     }
 
     struct Contribution {
@@ -38,8 +38,13 @@ contract MeritLedger {
         _;
     }
 
+    constructor(Owners _owners) {
+        owners = _owners;
+    }
+
     function initializeRepo(
         uint               repoId,
+        address            owner,
         address[] calldata contributors,
         uint   [] calldata shares,
         uint               inflationRateBps
@@ -58,7 +63,7 @@ contract MeritLedger {
             require(user != address(0));
             require(userShares > 0);
 
-            repo.owners[user] = Ownership({shares: userShares, exists: true});
+            repo.shares[user] = userShares;
             repo.contributors.push(user);
             total += userShares;
         }
@@ -69,6 +74,7 @@ contract MeritLedger {
         });
 
         repo.totalShares = total;
+        repo.ownerId     = owners.mint(owner);
         repo.initialized = true;
     }
 
@@ -82,11 +88,10 @@ contract MeritLedger {
         uint inflationMultiplier = 1e18 + ((annualBps * yearsScaled) / 10000);
 
         for (uint i = 0; i < repo.contributors.length; i++) {
-            address user                = repo.contributors[i];
-            Ownership storage ownership = repo.owners[user];
-            uint oldShares              = ownership.shares;
-            uint newShares              = (oldShares * inflationMultiplier) / 1e18;
-            ownership.shares            = newShares;
+            address user      = repo.contributors[i];
+            uint oldShares    = repo.shares[user];
+            uint newShares    = (oldShares * inflationMultiplier) / 1e18;
+            repo.shares[user] = newShares;
         }
 
         uint oldTotal    = repo.totalShares;
@@ -124,12 +129,7 @@ contract MeritLedger {
             uint weight    = curveWeights[i];
             uint newShares = (newSharesPool * weight) / sumWeights;
             address contributor = contribution.contributor;
-
-            if (!repo.owners[contributor].exists) {
-                repo.contributors.push(contributor);
-                repo.owners[contributor] = Ownership({shares: 0, exists: true});
-            }
-            repo.owners[contributor].shares += newShares;
+            repo.shares[contributor] += newShares;
             repo.totalShares += newShares;
         }
     }
