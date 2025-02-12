@@ -42,7 +42,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
 
     constructor(ERC20 _paymentToken) 
         Owned (msg.sender)
-        ERC721("Merit Repository Owners", "MRO") 
+        ERC721("Merit Repositories", "MR") 
     {
         paymentToken = _paymentToken;
     }
