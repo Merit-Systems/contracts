@@ -1,118 +1,155 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.26;
+pragma solidity ^0.8.26;
 
-import {ERC20}             from "solmate/tokens/ERC20.sol";
-import {SafeTransferLib}   from "solmate/utils/SafeTransferLib.sol";
-import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
 
-import {Oracle} from "./Oracle.sol";
 import {Owners} from "./Owners.sol";
-import {Errors} from "../libraries/Errors.sol";
 
-contract Vault {
-    using FixedPointMathLib for uint;
-    using SafeTransferLib   for ERC20;
+contract MeritLedger {
+    uint constant MAX_CONTRIBUTORS = 50;
 
-    event Transfer(address indexed from, address indexed to, uint amount);
-    event Withdraw(
-        address indexed caller,
-        address indexed receiver,
-        address indexed owner,
-        uint assets,
-        uint shares
-    );
+    Owners public owners;
 
-    string public name;
-    string public symbol;
-    uint8  public immutable decimals;
-    Owners public immutable owners;
-    uint   public immutable ownerId;
-    ERC20  public immutable asset;
-    Oracle public immutable oracle;
-
-    uint public totalSupply;
-    mapping(address => uint) public balanceOf;
-
-    struct PullRequest {
-        address owner;
-        uint    score;
-        uint    deadline;
+    struct MeritRepo {
+        uint                     totalShares;
+        mapping(address => uint) shares;
+        address[]                contributors;
+        uint                     inflationRateBps; // e.g., 500 = 5% annual inflation
+        uint                     lastSnapshotTime; 
+        bool                     initialized;
+        uint                     ownerId;
+        bytes32                  paymentMerkleRoot;
+        mapping(uint => bool)    claimed;
     }
 
-    modifier onlyVaultOwner() {
-        require(msg.sender == owners.ownerOf(ownerId), Errors.NOT_OWNER);
+    struct Contribution {
+        address contributor;
+        uint    weight;
+    }
+
+    mapping(uint => MeritRepo) private repos;
+
+    modifier onlyInitialized(uint repoId) {
+        require(repos[repoId].initialized);
         _;
     }
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        Owners        _owners,
-        uint          _ownerId, 
-        ERC20         _asset, 
-        address       _admin,
-        PullRequest[] memory _pullRequests
-    ) {
-        name     = _name;
-        symbol   = _symbol;
-        decimals = _asset.decimals();
-        owners   = _owners;
-        ownerId  = _ownerId;
-        asset    = _asset;
-        oracle   = new Oracle(_admin, address(this)); 
-
-        mint(_pullRequests);
+    constructor(Owners _owners) {
+        owners = _owners;
     }
 
-    // only way to create new shares
-    function mint(PullRequest[] memory pullRequests) public onlyVaultOwner {
-        uint len = pullRequests.length;
-        for (uint i = 0; i < len; ++i) {
-            _mint(pullRequests[i].owner, pullRequests[i].score);
+    function initializeRepo(
+        uint               repoId,
+        address            owner,
+        address[] calldata contributors,
+        uint   [] calldata shares,
+        uint               inflationRateBps
+    )
+        external
+    {
+        MeritRepo storage repo = repos[repoId];
+        require(!repo.initialized);
+        require(contributors.length == shares.length);
+
+        uint totalShares;
+        uint totalContributors = contributors.length;
+        for (uint i = 0; i < totalContributors; ++i) {
+            address contributor = contributors[i];
+            uint    share       = shares[i];
+            require(contributor != address(0));
+            require(share > 0);
+
+            repo.shares[contributor] = share;
+            repo.contributors.push(contributor);
+            totalShares += share;
+        }
+
+        repo.inflationRateBps = inflationRateBps;
+        repo.lastSnapshotTime = block.timestamp;
+        repo.totalShares      = totalShares;
+        repo.ownerId          = owners.mint(owner);
+        repo.initialized      = true;
+    }
+
+    function applyInflation(uint repoId) public onlyInitialized(repoId) {
+        MeritRepo storage repo = repos[repoId];
+        uint elapsed = block.timestamp - repo.lastSnapshotTime;
+        if (elapsed == 0) return; 
+
+        uint annualBps           = repo.inflationRateBps; 
+        uint yearsScaled         = (elapsed * 1e18) / 365 days;
+        uint inflationMultiplier = 1e18 + ((annualBps * yearsScaled) / 10000);
+
+        for (uint i = 0; i < repo.contributors.length; i++) {
+            address user      = repo.contributors[i];
+            uint oldShares    = repo.shares[user];
+            uint newShares    = (oldShares * inflationMultiplier) / 1e18;
+            repo.shares[user] = newShares;
+        }
+
+        uint oldTotal    = repo.totalShares;
+        uint newTotal    = (oldTotal * inflationMultiplier) / 1e18;
+        repo.totalShares = newTotal;
+        repo.lastSnapshotTime = block.timestamp;
+    }
+
+    function updateRepoLedger(
+        uint repoId,
+        Contribution[] calldata contributions
+    )
+        external
+        onlyInitialized(repoId)
+    {
+        applyInflation(repoId);
+
+        MeritRepo storage repo = repos[repoId];
+        require(contributions.length > 0);
+
+        uint totalContributions = contributions.length;
+        uint newSharesPool = repo.totalShares / 10; // TODO: Make this configurable
+
+        uint[] memory curveWeights = new uint[](totalContributions);
+        uint sumWeights = 0;
+
+        for (uint i = 0; i < totalContributions; i++) {
+            uint weight     = contributions[i].weight;
+            curveWeights[i] = weight;
+            sumWeights     += weight;
+        }
+
+        for (uint i = 0; i < totalContributions; i++) {
+            Contribution memory contribution = contributions[i];
+            uint weight    = curveWeights[i];
+            uint newShares = (newSharesPool * weight) / sumWeights;
+            address contributor = contribution.contributor;
+            repo.shares[contributor] += newShares;
+            repo.totalShares += newShares;
         }
     }
 
-    // TODO: check for freeze
-    function redeem(
-        uint shares,
-        address receiver,
-        address owner
-    ) public virtual returns (uint assets) {
-        require(msg.sender == owner, Errors.NOT_OWNER);
-
-        uint supply = totalSupply; 
-
-        assets = supply == 0 ? shares : shares.mulDivDown(
-            asset.balanceOf(address(this)), 
-            supply
-        );
-
-        require(assets != 0);
-        _burn(owner, shares);
-        emit Withdraw(msg.sender, receiver, owner, assets, shares);
-        asset.safeTransfer(receiver, assets);
-        oracle.updateClaimed(msg.sender, assets);
+    function setPaymentMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyInitialized(repoId) {
+        MeritRepo storage repo = repos[repoId];
+        // require(msg.sender == repo.admin, "Only admin can set merkle root");
+        repo.paymentMerkleRoot = merkleRoot;
     }
 
-    function convertToAssets(uint shares) public view virtual returns (uint) {
-        uint supply = totalSupply; 
-        return supply == 0 ? shares : shares.mulDivDown(
-            asset.balanceOf(address(this)),
-            supply
-        );
-    }
-
-    // @audit from Solmate ERC20
-    function _mint(address to, uint amount) internal virtual {
-        totalSupply += amount;
-        unchecked { balanceOf[to] += amount; }
-        emit Transfer(address(0), to, amount);
-    }
-
-    // @audit from Solmate ERC20
-    function _burn(address from, uint amount) internal virtual {
-        balanceOf[from] -= amount;
-        unchecked { totalSupply -= amount; }
-        emit Transfer(from, address(0), amount);
+    function claimPayment(
+        uint               repoId,
+        uint               index,
+        address            account,
+        uint               amount,
+        bytes32[] calldata merkleProof
+    )
+        external
+        onlyInitialized(repoId)
+    {
+        MeritRepo storage repo = repos[repoId];
+        require(msg.sender == account);
+        require(!repo.claimed[index]);
+        bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
+        require(MerkleProof.verify(merkleProof, repo.paymentMerkleRoot, leaf), "Invalid merkle proof");
+        repo.claimed[index] = true;
+        (bool sent, ) = payable(account).call{value: amount}("");
+        require(sent, "Transfer failed");
     }
 }
