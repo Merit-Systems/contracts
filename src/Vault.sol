@@ -10,16 +10,12 @@ contract MeritLedger {
 
     Owners public owners;
 
-    struct MeritRepoConfig {
-        uint inflationRateBps; // e.g., 500 = 5% annual inflation
-        uint lastSnapshotTime; 
-    }
-
     struct MeritRepo {
         uint                     totalShares;
         mapping(address => uint) shares;
         address[]                contributors;
-        MeritRepoConfig          config;
+        uint                     inflationRateBps; // e.g., 500 = 5% annual inflation
+        uint                     lastSnapshotTime; 
         bool                     initialized;
         uint                     ownerId;
         bytes32                  paymentMerkleRoot;
@@ -55,35 +51,32 @@ contract MeritLedger {
         require(!repo.initialized);
         require(contributors.length == shares.length);
 
-        uint total;
+        uint totalShares;
         uint totalContributors = contributors.length;
         for (uint i = 0; i < totalContributors; ++i) {
-            address user = contributors[i];
-            uint userShares = shares[i];
-            require(user != address(0));
-            require(userShares > 0);
+            address contributor = contributors[i];
+            uint    share      = shares[i];
+            require(contributor != address(0));
+            require(share > 0);
 
-            repo.shares[user] = userShares;
-            repo.contributors.push(user);
-            total += userShares;
+            repo.shares[contributor] = share;
+            repo.contributors.push(contributor);
+            totalShares += share;
         }
 
-        repo.config = MeritRepoConfig({
-            inflationRateBps: inflationRateBps,
-            lastSnapshotTime: block.timestamp
-        });
-
-        repo.totalShares = total;
-        repo.ownerId     = owners.mint(owner);
-        repo.initialized = true;
+        repo.inflationRateBps = inflationRateBps;
+        repo.lastSnapshotTime = block.timestamp;
+        repo.totalShares      = totalShares;
+        repo.ownerId          = owners.mint(owner);
+        repo.initialized      = true;
     }
 
     function applyInflation(uint repoId) public onlyInitialized(repoId) {
         MeritRepo storage repo = repos[repoId];
-        uint elapsed = block.timestamp - repo.config.lastSnapshotTime;
+        uint elapsed = block.timestamp - repo.lastSnapshotTime;
         if (elapsed == 0) return; 
 
-        uint annualBps           = repo.config.inflationRateBps; 
+        uint annualBps           = repo.inflationRateBps; 
         uint yearsScaled         = (elapsed * 1e18) / 365 days;
         uint inflationMultiplier = 1e18 + ((annualBps * yearsScaled) / 10000);
 
@@ -97,7 +90,7 @@ contract MeritLedger {
         uint oldTotal    = repo.totalShares;
         uint newTotal    = (oldTotal * inflationMultiplier) / 1e18;
         repo.totalShares = newTotal;
-        repo.config.lastSnapshotTime = block.timestamp;
+        repo.lastSnapshotTime = block.timestamp;
     }
 
     function updateRepoLedger(
