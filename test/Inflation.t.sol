@@ -17,7 +17,7 @@ contract Inflation_Test is Base_Test {
 
         (
             uint totalSharesBefore,
-            ,
+            uint inflationRate,
             ,
             ,
             ,
@@ -25,18 +25,10 @@ contract Inflation_Test is Base_Test {
         ) = ledger.repos(repoId);
 
         vm.startPrank(alice);
-        vm.warp(block.timestamp + 2 days);
+        vm.warp(block.timestamp + 365 days);
         ledger.inflate(repoId);
 
-        (
-            uint totalSharesAfter,
-            ,
-            ,
-            ,
-            ,
-            ,
-        ) = ledger.repos(repoId);
-
-        console.log(totalSharesBefore, totalSharesAfter);
+        assertEq(totalSharesBefore, 300);
+        assertEq(totalSharesBefore + (totalSharesBefore * 0.1e18 / 1e18),  330);
     }
 }
