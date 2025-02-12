@@ -83,7 +83,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         repo.initialized      = true;
     }
 
-    function applyInflation(
+    function inflate(
         uint repoId
     ) 
         public 
@@ -103,9 +103,9 @@ contract MeritLedger is ERC721Enumerable, Owned {
             repo.shares[user] = newShares;
         }
 
-        uint oldTotal    = repo.totalShares;
-        uint newTotal    = (oldTotal * inflationMultiplier) / 1e18;
-        repo.totalShares = newTotal;
+        uint oldTotal         = repo.totalShares;
+        uint newTotal         = (oldTotal * inflationMultiplier) / 1e18;
+        repo.totalShares      = newTotal;
         repo.lastSnapshotTime = block.timestamp;
     }
 
@@ -116,7 +116,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         external
         onlyRepoOwner(repoId)
     {
-        applyInflation(repoId);
+        inflate(repoId);
 
         MeritRepo storage repo = repos[repoId];
         require(pullRequests.length > 0);

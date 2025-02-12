@@ -23,7 +23,7 @@ contract Init_Test is Base_Test {
         ) = ledger.repos(repoId);
 
         assertEq(totalShares,        300);
-        assertEq(inflationRate,      10);
+        assertEq(inflationRate,      10e18);
         assertEq(lastSnapshotTime,   block.timestamp);
         assertEq(initialized,        true);
         assertEq(ownerId,            0);
@@ -33,7 +33,7 @@ contract Init_Test is Base_Test {
 
     function test_init_fail_alreadyInitialized() 
         public 
-        _init() 
+        _init 
     {
         expectRevert(Errors.ALREADY_INITIALIZED);
         init();
