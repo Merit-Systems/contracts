@@ -10,8 +10,6 @@ import {Owned}                    from "solmate/auth/Owned.sol";
 contract MeritLedger is ERC721Enumerable, Owned {
     using SafeTransferLib for ERC20;
 
-    uint constant MAX_CONTRIBUTORS = 50;
-
     struct MeritRepo {
         uint                     totalShares;
         mapping(address => uint) shares;
@@ -22,6 +20,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint                     ownerId;
         bytes32                  paymentMerkleRoot;
         mapping(uint => bool)    claimed;
+        uint                     newSharesPerUpdate;
     }
 
     struct PullRequest {
@@ -33,8 +32,9 @@ contract MeritLedger is ERC721Enumerable, Owned {
 
     mapping(uint => MeritRepo) public repos;
 
-    modifier onlyInitialized(uint repoId) {
+    modifier onlyRepoOwner(uint repoId) {
         require(repos[repoId].initialized);
+        require(msg.sender == ownerOf(repos[repoId].ownerId));
         _;
     }
 
@@ -82,7 +82,12 @@ contract MeritLedger is ERC721Enumerable, Owned {
         repo.initialized      = true;
     }
 
-    function applyInflation(uint repoId) public onlyInitialized(repoId) onlyOwner {
+    function applyInflation(
+        uint repoId
+    ) 
+        public 
+        onlyRepoOwner(repoId) 
+    {
         MeritRepo storage repo = repos[repoId];
         uint elapsed = block.timestamp - repo.lastSnapshotTime;
         if (elapsed == 0) return; 
@@ -109,39 +114,39 @@ contract MeritLedger is ERC721Enumerable, Owned {
         PullRequest[] calldata pullRequests
     )
         external
-        onlyInitialized(repoId)
+        onlyRepoOwner(repoId)
     {
         applyInflation(repoId);
 
         MeritRepo storage repo = repos[repoId];
         require(pullRequests.length > 0);
 
-        uint totalContributions = pullRequests.length;
-        uint newSharesPool = repo.totalShares / 10; // TODO: Make this configurable
+        uint lenPullRequests = pullRequests.length;
+        uint newShares = repo.totalShares * repo.newSharesPerUpdate; 
 
-        uint[] memory curveWeights = new uint[](totalContributions);
+        uint[] memory curveWeights = new uint[](lenPullRequests);
         uint sumWeights = 0;
 
-        for (uint i = 0; i < totalContributions; i++) {
+        for (uint i = 0; i < lenPullRequests; i++) {
             uint weight     = pullRequests[i].weight;
             curveWeights[i] = weight;
             sumWeights     += weight;
         }
 
-        for (uint i = 0; i < totalContributions; i++) {
+        for (uint i = 0; i < lenPullRequests; i++) {
             PullRequest memory pullRequest = pullRequests[i];
-            uint weight    = curveWeights[i];
-            uint newShares = (newSharesPool * weight) / sumWeights;
-            address contributor = pullRequest.contributor;
-            repo.shares[contributor] += newShares;
-            repo.totalShares += newShares;
+            uint newSharesContributor = (newShares * curveWeights[i]) / sumWeights;
+            repo.shares[pullRequest.contributor] += newSharesContributor;
+            repo.totalShares                     += newSharesContributor;
         }
     }
 
-    function setPaymentMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyInitialized(repoId) {
-        MeritRepo storage repo = repos[repoId];
-        require(msg.sender == ownerOf(repo.ownerId));
-        repo.paymentMerkleRoot = merkleRoot;
+    function setNewSharesPerUpdate(uint repoId, uint sharesPerUpdate) external onlyRepoOwner(repoId) {
+        repos[repoId].newSharesPerUpdate = sharesPerUpdate;
+    }
+
+    function setPaymentMerkleRoot(uint repoId, bytes32 paymentMerkleRoot) external onlyRepoOwner(repoId) {
+        repos[repoId].paymentMerkleRoot = paymentMerkleRoot;
     }
 
     function claim(
@@ -150,10 +155,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         address            account,
         uint               amount,
         bytes32[] calldata merkleProof
-    )
-        external
-        onlyInitialized(repoId)
-    {
+    ) external {
         MeritRepo storage repo = repos[repoId];
         require(msg.sender == account);
         require(!repo.claimed[index]);
