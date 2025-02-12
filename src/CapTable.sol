@@ -14,21 +14,21 @@ contract CapTable {
         bool exists;
     }
 
-    struct RepoConfig {
+    struct MeritRepoConfig {
         AttributionCurve curve;
         uint inflationRateBps; // e.g., 500 = 5% annual inflation
         uint lastSnapshotTime; 
     }
 
-    struct Repo {
+    struct MeritRepo {
         uint                          totalShares;
         mapping(address => Ownership) owners;
         address[]                     contributors;
-        RepoConfig                    config;
+        MeritRepoConfig               config;
         bool                          initialized;
     }
 
-    mapping(uint => Repo) private repos;
+    mapping(uint => MeritRepo) private repos;
 
     modifier onlyInitialized(uint repoId) {
         require(repos[repoId].initialized);
@@ -44,7 +44,7 @@ contract CapTable {
     )
         external
     {
-        Repo storage repo = repos[repoId];
+        MeritRepo storage repo = repos[repoId];
         require(!repo.initialized);
         require(contributors.length == shares.length);
 
@@ -61,7 +61,7 @@ contract CapTable {
             total += userShares;
         }
 
-        repo.config = RepoConfig({
+        repo.config = MeritRepoConfig({
             curve:            curve,
             inflationRateBps: inflationRateBps,
             lastSnapshotTime: block.timestamp
@@ -72,7 +72,7 @@ contract CapTable {
     }
 
     function applyInflation(uint repoId) public onlyInitialized(repoId) {
-        Repo storage repo = repos[repoId];
+        MeritRepo storage repo = repos[repoId];
         uint elapsed = block.timestamp - repo.config.lastSnapshotTime;
         if (elapsed == 0) return; 
 
@@ -103,7 +103,7 @@ contract CapTable {
     {
         applyInflation(repoId);
 
-        Repo storage repo = repos[repoId];
+        MeritRepo storage repo = repos[repoId];
         require(contributors.length > 0);
 
         uint totalContributors = contributors.length;
@@ -135,7 +135,7 @@ contract CapTable {
     function distributePayment(uint repoId) external payable onlyInitialized(repoId) {
         require(msg.value > 0);
 
-        Repo storage repo = repos[repoId];
+        MeritRepo storage repo = repos[repoId];
         uint numContributors = repo.contributors.length;
         if (numContributors == 0 || repo.totalShares == 0) {
             (bool refunded, ) = msg.sender.call{value: msg.value}("");
