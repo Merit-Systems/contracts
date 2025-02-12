@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
+import {MerkleProof}      from "openzeppelin/utils/cryptography/MerkleProof.sol";
+import {ERC721, ERC721Enumerable} from "openzeppelin/token/ERC721/extensions/ERC721Enumerable.sol";
 
-import {Owners} from "./Owners.sol";
-
-contract MeritLedger {
+contract MeritLedger is ERC721Enumerable {
     uint constant MAX_CONTRIBUTORS = 50;
-
-    Owners public owners;
 
     struct MeritRepo {
         uint                     totalShares;
@@ -27,16 +24,14 @@ contract MeritLedger {
         uint    weight;
     }
 
-    mapping(uint => MeritRepo) private repos;
+    mapping(uint => MeritRepo) public repos;
 
     modifier onlyInitialized(uint repoId) {
         require(repos[repoId].initialized);
         _;
     }
 
-    constructor(Owners _owners) {
-        owners = _owners;
-    }
+    constructor() ERC721("Merit Repository Owners", "MRO") {}
 
     function initializeRepo(
         uint               repoId,
@@ -64,10 +59,13 @@ contract MeritLedger {
             totalShares += share;
         }
 
+        uint ownerId = totalSupply();
+        _mint(owner, ownerId);
+
+        repo.ownerId          = ownerId;
         repo.inflationRateBps = inflationRateBps;
         repo.lastSnapshotTime = block.timestamp;
         repo.totalShares      = totalShares;
-        repo.ownerId          = owners.mint(owner);
         repo.initialized      = true;
     }
 
@@ -147,9 +145,9 @@ contract MeritLedger {
         require(msg.sender == account);
         require(!repo.claimed[index]);
         bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
-        require(MerkleProof.verify(merkleProof, repo.paymentMerkleRoot, leaf), "Invalid merkle proof");
+        require(MerkleProof.verify(merkleProof, repo.paymentMerkleRoot, leaf));
         repo.claimed[index] = true;
         (bool sent, ) = payable(account).call{value: amount}("");
-        require(sent, "Transfer failed");
+        require(sent);
     }
 }
