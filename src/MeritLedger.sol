@@ -93,18 +93,18 @@ contract MeritLedger is ERC721Enumerable, Owned {
         MeritRepo storage repo = repos[repoId];
 
         uint elapsed = block.timestamp - repo.lastSnapshotTime;
-        require(elapsed > 0);
+        require(elapsed > 0, Errors.NO_TIME_ELAPSED);
 
         uint yearsScaled       = (elapsed * 1e18) / 365 days;
         uint inflationFraction = (repo.inflationRate * yearsScaled) / 10000; // e.g. 0.05 in 1e18 form
 
         uint mintedForPRs = (repo.totalShares * inflationFraction) / 1e18;
-        require(mintedForPRs        > 0);
-        require(pullRequests.length > 0);
+        require(mintedForPRs        > 0, Errors.NO_NEW_MINTED_SHARES);
+        require(pullRequests.length > 0, Errors.NO_PULL_REQUESTS);
 
         uint sumWeights;
         for (uint i = 0; i < pullRequests.length; i++) { sumWeights += pullRequests[i].weight; }
-        require(sumWeights > 0);
+        require(sumWeights > 0, Errors.NO_WEIGHTS);
 
         for (uint i = 0; i < pullRequests.length; i++) {
             uint newSharesContributor = (mintedForPRs * pullRequests[i].weight) / sumWeights;
