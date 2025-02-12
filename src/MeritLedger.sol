@@ -102,11 +102,12 @@ contract MeritLedger is ERC721Enumerable, Owned {
         require(mintedForPRs        > 0, Errors.NO_NEW_MINTED_SHARES);
         require(pullRequests.length > 0, Errors.NO_PULL_REQUESTS);
 
+        uint lenPullRequests = pullRequests.length;
         uint sumWeights;
-        for (uint i = 0; i < pullRequests.length; i++) { sumWeights += pullRequests[i].weight; }
+        for (uint i = 0; i < lenPullRequests; ++i) { sumWeights += pullRequests[i].weight; }
         require(sumWeights > 0, Errors.NO_WEIGHTS);
 
-        for (uint i = 0; i < pullRequests.length; i++) {
+        for (uint i = 0; i < lenPullRequests; ++i) {
             uint newSharesContributor = (mintedForPRs * pullRequests[i].weight) / sumWeights;
             repo.shares[pullRequests[i].contributor] += newSharesContributor;
             repo.totalShares += newSharesContributor;
