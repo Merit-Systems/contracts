@@ -10,8 +10,14 @@ contract Base_Test is Test {
 
     MeritLedger ledger;
 
+    address alice;
+    address bob;
+
     function setUp() public {
         Deploy deploy = new Deploy();
         ledger = MeritLedger(deploy.run());
+
+        alice = makeAddr("alice");
+        bob   = makeAddr("bob");
     }
 }

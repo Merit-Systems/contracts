@@ -92,9 +92,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint elapsed = block.timestamp - repo.lastSnapshotTime;
         if (elapsed == 0) return; 
 
-        uint annualBps           = repo.inflationRate; 
         uint yearsScaled         = (elapsed * 1e18) / 365 days;
-        uint inflationMultiplier = 1e18 + ((annualBps * yearsScaled) / 10000);
+        uint inflationMultiplier = 1e18 + ((repo.inflationRate * yearsScaled) / 10000);
 
         for (uint i = 0; i < repo.contributors.length; i++) {
             address user      = repo.contributors[i];
