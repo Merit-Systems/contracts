@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {MerkleProof}      from "openzeppelin/utils/cryptography/MerkleProof.sol";
+import {MerkleProof}              from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {ERC721, ERC721Enumerable} from "openzeppelin/token/ERC721/extensions/ERC721Enumerable.sol";
 
 contract MeritLedger is ERC721Enumerable {
@@ -11,7 +11,7 @@ contract MeritLedger is ERC721Enumerable {
         uint                     totalShares;
         mapping(address => uint) shares;
         address[]                contributors;
-        uint                     inflationRateBps; // e.g., 500 = 5% annual inflation
+        uint                     inflationRate;    // in basis points, e.g. 500 = 5% annual inflation
         uint                     lastSnapshotTime; 
         bool                     initialized;
         uint                     ownerId;
@@ -38,7 +38,7 @@ contract MeritLedger is ERC721Enumerable {
         address            owner,
         address[] calldata contributors,
         uint   [] calldata shares,
-        uint               inflationRateBps
+        uint               inflationRate
     )
         external
     {
@@ -63,7 +63,7 @@ contract MeritLedger is ERC721Enumerable {
         _mint(owner, ownerId);
 
         repo.ownerId          = ownerId;
-        repo.inflationRateBps = inflationRateBps;
+        repo.inflationRate = inflationRate;
         repo.lastSnapshotTime = block.timestamp;
         repo.totalShares      = totalShares;
         repo.initialized      = true;
@@ -74,7 +74,7 @@ contract MeritLedger is ERC721Enumerable {
         uint elapsed = block.timestamp - repo.lastSnapshotTime;
         if (elapsed == 0) return; 
 
-        uint annualBps           = repo.inflationRateBps; 
+        uint annualBps           = repo.inflationRate; 
         uint yearsScaled         = (elapsed * 1e18) / 365 days;
         uint inflationMultiplier = 1e18 + ((annualBps * yearsScaled) / 10000);
 
@@ -91,7 +91,7 @@ contract MeritLedger is ERC721Enumerable {
         repo.lastSnapshotTime = block.timestamp;
     }
 
-    function updateRepoLedger(
+    function updateLedger(
         uint repoId,
         Contribution[] calldata contributions
     )
@@ -127,7 +127,7 @@ contract MeritLedger is ERC721Enumerable {
 
     function setPaymentMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyInitialized(repoId) {
         MeritRepo storage repo = repos[repoId];
-        // require(msg.sender == repo.admin, "Only admin can set merkle root");
+        require(msg.sender == ownerOf(repo.ownerId));
         repo.paymentMerkleRoot = merkleRoot;
     }
 
