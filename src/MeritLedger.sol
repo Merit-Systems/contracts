@@ -7,6 +7,8 @@ import {ERC20}                    from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib}          from "solmate/utils/SafeTransferLib.sol";
 import {Owned}                    from "solmate/auth/Owned.sol";
 
+import {Errors} from "libraries/Errors.sol";
+
 contract MeritLedger is ERC721Enumerable, Owned {
     using SafeTransferLib for ERC20;
 
@@ -56,16 +58,15 @@ contract MeritLedger is ERC721Enumerable, Owned {
         onlyOwner
     {
         MeritRepo storage repo = repos[repoId];
-        require(!repo.initialized);
-        require(contributors.length == shares.length);
+        require(!repo.initialized,                    Errors.ALREADY_INITIALIZED);
+        require(contributors.length == shares.length, Errors.LENGTH_MISMATCH);
 
         uint totalShares;
         uint totalContributors = contributors.length;
         for (uint i = 0; i < totalContributors; ++i) {
             address contributor = contributors[i];
             uint    share       = shares[i];
-            require(contributor != address(0));
-            require(share > 0);
+            require(share > 0, Errors.ZERO_SHARE);
 
             repo.shares[contributor] = share;
             repo.contributors.push(contributor);
@@ -92,9 +93,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint elapsed = block.timestamp - repo.lastSnapshotTime;
         if (elapsed == 0) return; 
 
-        uint annualBps           = repo.inflationRate; 
         uint yearsScaled         = (elapsed * 1e18) / 365 days;
-        uint inflationMultiplier = 1e18 + ((annualBps * yearsScaled) / 10000);
+        uint inflationMultiplier = 1e18 + ((repo.inflationRate * yearsScaled) / 10000);
 
         for (uint i = 0; i < repo.contributors.length; i++) {
             address user      = repo.contributors[i];
