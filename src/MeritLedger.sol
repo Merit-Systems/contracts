@@ -83,32 +83,6 @@ contract MeritLedger is ERC721Enumerable, Owned {
         repo.initialized      = true;
     }
 
-    function inflate(
-        uint repoId
-    ) 
-        public 
-        onlyRepoOwner(repoId) 
-    {
-        MeritRepo storage repo = repos[repoId];
-        uint elapsed = block.timestamp - repo.lastSnapshotTime;
-        if (elapsed == 0) return; 
-
-        uint yearsScaled         = (elapsed * 1e18) / 365 days;
-        uint inflationMultiplier = 1e18 + ((repo.inflationRate * yearsScaled) / 10000);
-
-        for (uint i = 0; i < repo.contributors.length; i++) {
-            address user      = repo.contributors[i];
-            uint oldShares    = repo.shares[user];
-            uint newShares    = (oldShares * inflationMultiplier) / 1e18;
-            repo.shares[user] = newShares;
-        }
-
-        uint oldTotal         = repo.totalShares;
-        uint newTotal         = (oldTotal * inflationMultiplier) / 1e18;
-        repo.totalShares      = newTotal;
-        repo.lastSnapshotTime = block.timestamp;
-    }
-
     function update(
         uint repoId,
         PullRequest[] calldata pullRequests
@@ -116,29 +90,29 @@ contract MeritLedger is ERC721Enumerable, Owned {
         external
         onlyRepoOwner(repoId)
     {
-        inflate(repoId);
-
         MeritRepo storage repo = repos[repoId];
+
+        uint elapsed = block.timestamp - repo.lastSnapshotTime;
+        require(elapsed > 0);
+
+        uint yearsScaled       = (elapsed * 1e18) / 365 days;
+        uint inflationFraction = (repo.inflationRate * yearsScaled) / 10000; // e.g. 0.05 in 1e18 form
+
+        uint mintedForPRs = (repo.totalShares * inflationFraction) / 1e18;
+        require(mintedForPRs        > 0);
         require(pullRequests.length > 0);
 
-        uint lenPullRequests = pullRequests.length;
-        uint newShares = repo.totalShares * repo.newSharesPerUpdate; 
+        uint sumWeights;
+        for (uint i = 0; i < pullRequests.length; i++) { sumWeights += pullRequests[i].weight; }
+        require(sumWeights > 0);
 
-        uint[] memory weights = new uint[](lenPullRequests);
-        uint sumWeights = 0;
-
-        for (uint i = 0; i < lenPullRequests; i++) {
-            uint weight = pullRequests[i].weight;
-            weights[i]  = weight;
-            sumWeights += weight;
+        for (uint i = 0; i < pullRequests.length; i++) {
+            uint newSharesContributor = (mintedForPRs * pullRequests[i].weight) / sumWeights;
+            repo.shares[pullRequests[i].contributor] += newSharesContributor;
+            repo.totalShares += newSharesContributor;
         }
 
-        for (uint i = 0; i < lenPullRequests; i++) {
-            PullRequest memory pullRequest = pullRequests[i];
-            uint newSharesContributor = (newShares * weights[i]) / sumWeights;
-            repo.shares[pullRequest.contributor] += newSharesContributor;
-            repo.totalShares                     += newSharesContributor;
-        }
+        repo.lastSnapshotTime = block.timestamp;
     }
 
     function claim(
