@@ -20,6 +20,8 @@ contract MeritLedger {
         address[]                     contributors;
         MeritRepoConfig               config;
         bool                          initialized;
+        bytes32                       paymentMerkleRoot;
+        mapping(uint => bool)         claimed;
     }
 
     struct Contribution {
@@ -128,6 +130,12 @@ contract MeritLedger {
             repo.owners[contributor].shares += newShares;
             repo.totalShares += newShares;
         }
+    }
+
+    function setPaymentMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyInitialized(repoId) {
+        MeritRepo storage repo = repos[repoId];
+        // require(msg.sender == repo.admin, "Only admin can set merkle root");
+        repo.paymentMerkleRoot = merkleRoot;
     }
 
     function distributePayment(uint repoId) external payable onlyInitialized(repoId) {
