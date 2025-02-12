@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
+
 contract MeritLedger {
     uint constant MAX_CONTRIBUTORS = 50;
 
@@ -138,35 +140,23 @@ contract MeritLedger {
         repo.paymentMerkleRoot = merkleRoot;
     }
 
-    function distributePayment(uint repoId) external payable onlyInitialized(repoId) {
-        require(msg.value > 0);
-
+    function claimPayment(
+        uint               repoId,
+        uint               index,
+        address            account,
+        uint               amount,
+        bytes32[] calldata merkleProof
+    )
+        external
+        onlyInitialized(repoId)
+    {
         MeritRepo storage repo = repos[repoId];
-        uint numContributors = repo.contributors.length;
-        if (numContributors == 0 || repo.totalShares == 0) {
-            (bool refunded, ) = msg.sender.call{value: msg.value}("");
-            require(refunded);
-            return;
-        }
-
-        uint maxContributors = numContributors > MAX_CONTRIBUTORS ? MAX_CONTRIBUTORS : numContributors;
-        uint remaining = msg.value;
-
-        for (uint i = 0; i < maxContributors; i++) {
-            address user = repo.contributors[i];
-            uint share = repo.owners[user].shares;
-            uint payment = (msg.value * share) / repo.totalShares;
-            if (payment > 0 && payment <= remaining) {
-                remaining -= payment;
-                (bool sent, ) = payable(user).call{value: payment}("");
-                require(sent);
-            }
-        }
-
-        if (remaining > 0) {
-            (bool leftoverSent, ) = msg.sender.call{value: remaining}("");
-            require(leftoverSent);
-        }
-
+        require(msg.sender == account);
+        require(!repo.claimed[index]);
+        bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
+        require(MerkleProof.verify(merkleProof, repo.paymentMerkleRoot, leaf), "Invalid merkle proof");
+        repo.claimed[index] = true;
+        (bool sent, ) = payable(account).call{value: amount}("");
+        require(sent, "Transfer failed");
     }
 }
