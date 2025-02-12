@@ -141,14 +141,6 @@ contract MeritLedger is ERC721Enumerable, Owned {
         }
     }
 
-    function setNewSharesPerUpdate(uint repoId, uint sharesPerUpdate) external onlyRepoOwner(repoId) {
-        repos[repoId].newSharesPerUpdate = sharesPerUpdate;
-    }
-
-    function setPaymentMerkleRoot(uint repoId, bytes32 paymentMerkleRoot) external onlyRepoOwner(repoId) {
-        repos[repoId].paymentMerkleRoot = paymentMerkleRoot;
-    }
-
     function claim(
         uint               repoId,
         uint               index,
@@ -163,5 +155,13 @@ contract MeritLedger is ERC721Enumerable, Owned {
         require(MerkleProof.verify(merkleProof, repo.paymentMerkleRoot, leaf));
         repo.claimed[index] = true;
         paymentToken.safeTransfer(account, amount);
+    }
+
+    function setNewSharesPerUpdate(uint repoId, uint sharesPerUpdate) external onlyRepoOwner(repoId) {
+        repos[repoId].newSharesPerUpdate = sharesPerUpdate;
+    }
+
+    function setPaymentMerkleRoot(uint repoId, bytes32 paymentMerkleRoot) external onlyRepoOwner(repoId) {
+        repos[repoId].paymentMerkleRoot = paymentMerkleRoot;
     }
 }
