@@ -59,7 +59,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
     {
         MeritRepo storage repo = repos[repoId];
         require(!repo.initialized, Errors.ALREADY_INITIALIZED);
-        require(contributors.length == shares.length);
+        require(contributors.length == shares.length, Errors.LENGTH_MISMATCH);
 
         uint totalShares;
         uint totalContributors = contributors.length;

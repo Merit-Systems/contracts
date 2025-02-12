@@ -5,4 +5,5 @@ library Errors {
     string internal constant NOT_OWNER           = "Not Owner";
     string internal constant NOT_SUPPORTED       = "Not Supported";
     string internal constant ALREADY_INITIALIZED = "Already Initialized";
+    string internal constant LENGTH_MISMATCH     = "Length Mismatch";
 }
