@@ -4,18 +4,12 @@ pragma solidity ^0.8.26;
 contract MeritLedger {
     uint constant MAX_CONTRIBUTORS = 50;
 
-    enum AttributionCurve {
-        Constant, 
-        Linear
-    }
-
     struct Ownership {
         uint shares;  
         bool exists;
     }
 
     struct MeritRepoConfig {
-        AttributionCurve curve;
         uint inflationRateBps; // e.g., 500 = 5% annual inflation
         uint lastSnapshotTime; 
     }
@@ -26,6 +20,11 @@ contract MeritLedger {
         address[]                     contributors;
         MeritRepoConfig               config;
         bool                          initialized;
+    }
+
+    struct Contribution {
+        address contributor;
+        uint    weight;
     }
 
     mapping(uint => MeritRepo) private repos;
@@ -39,7 +38,6 @@ contract MeritLedger {
         uint               repoId,
         address[] calldata contributors,
         uint   [] calldata shares,
-        AttributionCurve   curve,
         uint               inflationRateBps
     )
         external
@@ -62,7 +60,6 @@ contract MeritLedger {
         }
 
         repo.config = MeritRepoConfig({
-            curve:            curve,
             inflationRateBps: inflationRateBps,
             lastSnapshotTime: block.timestamp
         });
@@ -96,7 +93,7 @@ contract MeritLedger {
 
     function updateRepoLedger(
         uint repoId,
-        address[] calldata contributors
+        Contribution[] calldata contributions
     )
         external
         onlyInitialized(repoId)
@@ -104,30 +101,31 @@ contract MeritLedger {
         applyInflation(repoId);
 
         MeritRepo storage repo = repos[repoId];
-        require(contributors.length > 0);
+        require(contributions.length > 0);
 
-        uint totalContributors = contributors.length;
+        uint totalContributions = contributions.length;
         uint newSharesPool = repo.totalShares / 10; // TODO: Make this configurable
 
-        uint[] memory curveWeights = new uint[](totalContributors);
+        uint[] memory curveWeights = new uint[](totalContributions);
         uint sumWeights = 0;
 
-        for (uint i = 0; i < totalContributors; i++) {
-            uint weight     = _calculateCurveValue(repo.config.curve);
+        for (uint i = 0; i < totalContributions; i++) {
+            uint weight     = contributions[i].weight;
             curveWeights[i] = weight;
             sumWeights     += weight;
         }
 
-        for (uint i = 0; i < totalContributors; i++) {
-            address user   = contributors[i];
+        for (uint i = 0; i < totalContributions; i++) {
+            Contribution memory contribution = contributions[i];
             uint weight    = curveWeights[i];
             uint newShares = (newSharesPool * weight) / sumWeights;
+            address contributor = contribution.contributor;
 
-            if (!repo.owners[user].exists) {
-                repo.contributors.push(user);
-                repo.owners[user] = Ownership({shares: 0, exists: true});
+            if (!repo.owners[contributor].exists) {
+                repo.contributors.push(contributor);
+                repo.owners[contributor] = Ownership({shares: 0, exists: true});
             }
-            repo.owners[user].shares += newShares;
+            repo.owners[contributor].shares += newShares;
             repo.totalShares += newShares;
         }
     }
@@ -162,15 +160,5 @@ contract MeritLedger {
             require(leftoverSent);
         }
 
-    }
-
-    function _calculateCurveValue(AttributionCurve curve)
-        internal
-        pure
-        returns (uint weight)
-    {
-        if (curve == AttributionCurve.Constant) return 1;
-        if (curve == AttributionCurve.Linear)   return 1; // TODO
-        return 1;
     }
 }
