@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import {MerkleProof} from "openzeppelin/utils/cryptography/MerkleProof.sol";
+
 contract MeritLedger {
     uint constant MAX_CONTRIBUTORS = 50;
-
-    enum AttributionCurve {
-        Constant, 
-        Linear
-    }
 
     struct Ownership {
         uint shares;  
@@ -15,7 +12,6 @@ contract MeritLedger {
     }
 
     struct MeritRepoConfig {
-        AttributionCurve curve;
         uint inflationRateBps; // e.g., 500 = 5% annual inflation
         uint lastSnapshotTime; 
     }
@@ -26,6 +22,13 @@ contract MeritLedger {
         address[]                     contributors;
         MeritRepoConfig               config;
         bool                          initialized;
+        bytes32                       paymentMerkleRoot;
+        mapping(uint => bool)         claimed;
+    }
+
+    struct Contribution {
+        address contributor;
+        uint    weight;
     }
 
     mapping(uint => MeritRepo) private repos;
@@ -39,7 +42,6 @@ contract MeritLedger {
         uint               repoId,
         address[] calldata contributors,
         uint   [] calldata shares,
-        AttributionCurve   curve,
         uint               inflationRateBps
     )
         external
@@ -62,7 +64,6 @@ contract MeritLedger {
         }
 
         repo.config = MeritRepoConfig({
-            curve:            curve,
             inflationRateBps: inflationRateBps,
             lastSnapshotTime: block.timestamp
         });
@@ -96,7 +97,7 @@ contract MeritLedger {
 
     function updateRepoLedger(
         uint repoId,
-        address[] calldata contributors
+        Contribution[] calldata contributions
     )
         external
         onlyInitialized(repoId)
@@ -104,73 +105,58 @@ contract MeritLedger {
         applyInflation(repoId);
 
         MeritRepo storage repo = repos[repoId];
-        require(contributors.length > 0);
+        require(contributions.length > 0);
 
-        uint totalContributors = contributors.length;
+        uint totalContributions = contributions.length;
         uint newSharesPool = repo.totalShares / 10; // TODO: Make this configurable
 
-        uint[] memory curveWeights = new uint[](totalContributors);
+        uint[] memory curveWeights = new uint[](totalContributions);
         uint sumWeights = 0;
 
-        for (uint i = 0; i < totalContributors; i++) {
-            uint weight     = _calculateCurveValue(repo.config.curve);
+        for (uint i = 0; i < totalContributions; i++) {
+            uint weight     = contributions[i].weight;
             curveWeights[i] = weight;
             sumWeights     += weight;
         }
 
-        for (uint i = 0; i < totalContributors; i++) {
-            address user   = contributors[i];
+        for (uint i = 0; i < totalContributions; i++) {
+            Contribution memory contribution = contributions[i];
             uint weight    = curveWeights[i];
             uint newShares = (newSharesPool * weight) / sumWeights;
+            address contributor = contribution.contributor;
 
-            if (!repo.owners[user].exists) {
-                repo.contributors.push(user);
-                repo.owners[user] = Ownership({shares: 0, exists: true});
+            if (!repo.owners[contributor].exists) {
+                repo.contributors.push(contributor);
+                repo.owners[contributor] = Ownership({shares: 0, exists: true});
             }
-            repo.owners[user].shares += newShares;
+            repo.owners[contributor].shares += newShares;
             repo.totalShares += newShares;
         }
     }
 
-    function distributePayment(uint repoId) external payable onlyInitialized(repoId) {
-        require(msg.value > 0);
-
+    function setPaymentMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyInitialized(repoId) {
         MeritRepo storage repo = repos[repoId];
-        uint numContributors = repo.contributors.length;
-        if (numContributors == 0 || repo.totalShares == 0) {
-            (bool refunded, ) = msg.sender.call{value: msg.value}("");
-            require(refunded);
-            return;
-        }
-
-        uint maxContributors = numContributors > MAX_CONTRIBUTORS ? MAX_CONTRIBUTORS : numContributors;
-        uint remaining = msg.value;
-
-        for (uint i = 0; i < maxContributors; i++) {
-            address user = repo.contributors[i];
-            uint share = repo.owners[user].shares;
-            uint payment = (msg.value * share) / repo.totalShares;
-            if (payment > 0 && payment <= remaining) {
-                remaining -= payment;
-                (bool sent, ) = payable(user).call{value: payment}("");
-                require(sent);
-            }
-        }
-
-        if (remaining > 0) {
-            (bool leftoverSent, ) = msg.sender.call{value: remaining}("");
-            require(leftoverSent);
-        }
-
+        // require(msg.sender == repo.admin, "Only admin can set merkle root");
+        repo.paymentMerkleRoot = merkleRoot;
     }
 
-    function _calculateCurveValue(AttributionCurve curve)
-        internal
-        pure
-        returns (uint weight)
+    function claimPayment(
+        uint               repoId,
+        uint               index,
+        address            account,
+        uint               amount,
+        bytes32[] calldata merkleProof
+    )
+        external
+        onlyInitialized(repoId)
     {
-        if (curve == AttributionCurve.Constant) return 1;
-        if (curve == AttributionCurve.Linear)   return 1; // TODO
-        return 1;
+        MeritRepo storage repo = repos[repoId];
+        require(msg.sender == account);
+        require(!repo.claimed[index]);
+        bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
+        require(MerkleProof.verify(merkleProof, repo.paymentMerkleRoot, leaf), "Invalid merkle proof");
+        repo.claimed[index] = true;
+        (bool sent, ) = payable(account).call{value: amount}("");
+        require(sent, "Transfer failed");
     }
 }
