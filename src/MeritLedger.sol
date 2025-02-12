@@ -9,6 +9,11 @@ import {Owned}                    from "solmate/auth/Owned.sol";
 
 import {Errors} from "libraries/Errors.sol";
 
+struct PullRequest {
+    address contributor;
+    uint    weight;
+}
+
 contract MeritLedger is ERC721Enumerable, Owned {
     using SafeTransferLib for ERC20;
 
@@ -23,11 +28,6 @@ contract MeritLedger is ERC721Enumerable, Owned {
         bytes32                  paymentMerkleRoot;
         mapping(uint => bool)    claimed;
         uint                     newSharesPerUpdate;
-    }
-
-    struct PullRequest {
-        address contributor;
-        uint    weight;
     }
 
     ERC20 public paymentToken;
