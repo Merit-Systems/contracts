@@ -43,4 +43,12 @@ contract Base_Test is Test {
         ledger.init(repoId, alice, contributors, shares, inflationRate);
         return repoId;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+    modifier _init() {
+        init();
+        _;
+    }
 }

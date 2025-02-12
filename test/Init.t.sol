@@ -31,9 +31,10 @@ contract Init_Test is Base_Test {
         assertEq(newSharesPerUpdate, 0);
     }
 
-    function test_init_fail_alreadyInitialized() public {
-        init();
-
+    function test_init_fail_alreadyInitialized() 
+        public 
+        _init() 
+    {
         expectRevert(Errors.ALREADY_INITIALIZED);
         init();
     }
