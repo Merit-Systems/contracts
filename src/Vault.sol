@@ -33,7 +33,7 @@ contract MeritLedger is ERC721Enumerable {
 
     constructor() ERC721("Merit Repository Owners", "MRO") {}
 
-    function initializeRepo(
+    function init(
         uint               repoId,
         address            owner,
         address[] calldata contributors,
@@ -91,7 +91,7 @@ contract MeritLedger is ERC721Enumerable {
         repo.lastSnapshotTime = block.timestamp;
     }
 
-    function updateLedger(
+    function update(
         uint repoId,
         Contribution[] calldata contributions
     )
@@ -131,7 +131,7 @@ contract MeritLedger is ERC721Enumerable {
         repo.paymentMerkleRoot = merkleRoot;
     }
 
-    function claimPayment(
+    function claim(
         uint               repoId,
         uint               index,
         address            account,
