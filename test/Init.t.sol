@@ -22,13 +22,13 @@ contract Init_Test is Base_Test {
             uint    newSharesPerUpdate
         ) = ledger.repos(repoId);
 
-        assertEq  (totalShares,      300);
-        assertEq  (inflationRate,    10);
-        assertEq  (lastSnapshotTime, block.timestamp);
-        assertTrue(initialized);
-        assertEq  (ownerId,          0);
-        assertEq  (paymentMerkleRoot, bytes32(0));
-        assertEq  (newSharesPerUpdate, 0);
+        assertEq(totalShares,        300);
+        assertEq(inflationRate,      10);
+        assertEq(lastSnapshotTime,   block.timestamp);
+        assertEq(initialized,        true);
+        assertEq(ownerId,            0);
+        assertEq(paymentMerkleRoot,  bytes32(0));
+        assertEq(newSharesPerUpdate, 0);
     }
 
     function test_init_fail_alreadyInitialized() public {
