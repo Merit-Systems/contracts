@@ -7,6 +7,8 @@ import {ERC20}                    from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib}          from "solmate/utils/SafeTransferLib.sol";
 import {Owned}                    from "solmate/auth/Owned.sol";
 
+import {Errors} from "libraries/Errors.sol";
+
 contract MeritLedger is ERC721Enumerable, Owned {
     using SafeTransferLib for ERC20;
 
@@ -56,7 +58,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         onlyOwner
     {
         MeritRepo storage repo = repos[repoId];
-        require(!repo.initialized);
+        require(!repo.initialized, Errors.ALREADY_INITIALIZED);
         require(contributors.length == shares.length);
 
         uint totalShares;

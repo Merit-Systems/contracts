@@ -11,6 +11,7 @@ import {Params}      from "libraries/Params.sol";
 contract Deploy is Script {
     function run() public returns (address) {
         MeritLedger ledger = new MeritLedger(ERC20(Params.MAINNET_USDC));
+        ledger.transferOwnership(Params.OWNER);
         return address(ledger);
     }
 }
