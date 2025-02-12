@@ -3,8 +3,12 @@ pragma solidity ^0.8.26;
 
 import {MerkleProof}              from "openzeppelin/utils/cryptography/MerkleProof.sol";
 import {ERC721, ERC721Enumerable} from "openzeppelin/token/ERC721/extensions/ERC721Enumerable.sol";
+import {ERC20}                    from "solmate/tokens/ERC20.sol";
+import {SafeTransferLib}          from "solmate/utils/SafeTransferLib.sol";
 
 contract MeritLedger is ERC721Enumerable {
+    using SafeTransferLib for ERC20;
+
     uint constant MAX_CONTRIBUTORS = 50;
 
     struct MeritRepo {
@@ -24,6 +28,8 @@ contract MeritLedger is ERC721Enumerable {
         uint    weight;
     }
 
+    ERC20 public paymentToken;
+
     mapping(uint => MeritRepo) public repos;
 
     modifier onlyInitialized(uint repoId) {
@@ -31,7 +37,9 @@ contract MeritLedger is ERC721Enumerable {
         _;
     }
 
-    constructor() ERC721("Merit Repository Owners", "MRO") {}
+    constructor(ERC20 _paymentToken) ERC721("Merit Repository Owners", "MRO") {
+        paymentToken = _paymentToken;
+    }
 
     function init(
         uint               repoId,
@@ -147,7 +155,6 @@ contract MeritLedger is ERC721Enumerable {
         bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
         require(MerkleProof.verify(merkleProof, repo.paymentMerkleRoot, leaf));
         repo.claimed[index] = true;
-        (bool sent, ) = payable(account).call{value: amount}("");
-        require(sent);
+        paymentToken.safeTransfer(account, amount);
     }
 }
