@@ -58,7 +58,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         onlyOwner
     {
         MeritRepo storage repo = repos[repoId];
-        require(!repo.initialized, Errors.ALREADY_INITIALIZED);
+        require(!repo.initialized,                    Errors.ALREADY_INITIALIZED);
         require(contributors.length == shares.length, Errors.LENGTH_MISMATCH);
 
         uint totalShares;
@@ -66,8 +66,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         for (uint i = 0; i < totalContributors; ++i) {
             address contributor = contributors[i];
             uint    share       = shares[i];
-            require(contributor != address(0));
-            require(share > 0);
+            require(share > 0, Errors.ZERO_SHARE);
 
             repo.shares[contributor] = share;
             repo.contributors.push(contributor);

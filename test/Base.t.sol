@@ -26,7 +26,7 @@ contract Base_Test is Test {
         vm.expectRevert(bytes(message));
     }
 
-    function init() public {
+    function init() internal returns (uint) {
         uint repoId = 0;
 
         address[] memory contributors = new address[](2);
@@ -41,5 +41,6 @@ contract Base_Test is Test {
 
         vm.prank(Params.OWNER);
         ledger.init(repoId, alice, contributors, shares, inflationRate);
+        return repoId;
     }
 }
