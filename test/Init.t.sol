@@ -18,8 +18,7 @@ contract Init_Test is Base_Test {
             uint    lastSnapshotTime,
             bool    initialized,
             uint    ownerId,
-            bytes32 paymentMerkleRoot,
-            uint    newSharesPerUpdate
+            bytes32 paymentMerkleRoot
         ) = ledger.repos(repoId);
 
         assertEq(totalShares,        300e18);
@@ -28,7 +27,6 @@ contract Init_Test is Base_Test {
         assertEq(initialized,        true);
         assertEq(ownerId,            0);
         assertEq(paymentMerkleRoot,  bytes32(0));
-        assertEq(newSharesPerUpdate, 0);
     }
 
     function test_init_1Contributor_fuzz(uint weight) public {
@@ -61,7 +59,7 @@ contract Init_Test is Base_Test {
         vm.prank(Params.OWNER);
         ledger.init(repoId, alice, contributors, shares, 1_000);
 
-        (uint totalShares,,,,,,) = ledger.repos(repoId);
+        (uint totalShares,,,,,) = ledger.repos(repoId);
 
         assertEq(totalShares, weight * 2);
     }
