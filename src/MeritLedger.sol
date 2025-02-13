@@ -17,6 +17,9 @@ struct PullRequest {
 contract MeritLedger is ERC721Enumerable, Owned {
     using SafeTransferLib for ERC20;
 
+    uint constant MAX_NUMBER_OF_INITIAL_CONTRIBUTORS     = 100;
+    uint constant MAX_NUMBER_OF_PULL_REQUESTS_PER_UPDATE = 100;
+
     struct MeritRepo {
         uint                     totalShares;
         mapping(address => uint) shares;
@@ -59,8 +62,10 @@ contract MeritLedger is ERC721Enumerable, Owned {
         onlyOwner
     {
         MeritRepo storage repo = repos[repoId];
-        require(!repo.initialized,                    Errors.ALREADY_INITIALIZED);
-        require(contributors.length == shares.length, Errors.LENGTH_MISMATCH);
+        require(!repo.initialized,                                         Errors.ALREADY_INITIALIZED);
+        require(contributors.length == shares.length,                      Errors.LENGTH_MISMATCH);
+        require(contributors.length > 0,                                   Errors.NO_CONTRIBUTORS);
+        require(contributors.length <= MAX_NUMBER_OF_INITIAL_CONTRIBUTORS, Errors.TOO_MANY_CONTRIBUTORS);
 
         uint totalShares;
         uint totalContributors = contributors.length;
@@ -91,7 +96,9 @@ contract MeritLedger is ERC721Enumerable, Owned {
         external
         onlyRepoOwner(repoId)
     {
-        require(pullRequests.length > 0, Errors.NO_PULL_REQUESTS);
+        uint lenPullRequests = pullRequests.length;
+        require(lenPullRequests > 0,                                       Errors.NO_PULL_REQUESTS);
+        require(lenPullRequests <= MAX_NUMBER_OF_PULL_REQUESTS_PER_UPDATE, Errors.TOO_MANY_PULL_REQUESTS);
         MeritRepo storage repo = repos[repoId];
 
         uint elapsed = block.timestamp - repo.lastSnapshot;
@@ -100,8 +107,6 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint yearsScaled       = (elapsed * 1e18) / 365 days;
         uint inflationFraction = (repo.dilutionRate * yearsScaled) / 10000; // e.g. 0.05 in 1e18 form
         uint mintedForPRs      = (repo.totalShares * inflationFraction) / 1e18;
-
-        uint lenPullRequests = pullRequests.length;
 
         uint sumWeights;
         for (uint i = 0; i < lenPullRequests; ++i) { sumWeights += pullRequests[i].weight; }
