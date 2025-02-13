@@ -25,8 +25,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint                     lastSnapshotTime; 
         bool                     initialized;
         uint                     ownerId;
-        bytes32                  paymentMerkleRoot;
-        mapping(uint => bool)    claimed;
+        bytes32                  merkleRoot;
+        mapping(uint => mapping(bytes32 => bool)) claimed;
     }
 
     ERC20 public paymentToken;
@@ -122,10 +122,10 @@ contract MeritLedger is ERC721Enumerable, Owned {
     ) external {
         MeritRepo storage repo = repos[repoId];
         require(msg.sender == account);
-        require(!repo.claimed[index]);
+        require(!repo.claimed[index][repo.merkleRoot]);
         bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
-        require(MerkleProof.verify(merkleProof, repo.paymentMerkleRoot, leaf));
-        repo.claimed[index] = true;
+        require(MerkleProof.verify(merkleProof, repo.merkleRoot, leaf));
+        repo.claimed[index][repo.merkleRoot] = true;
         paymentToken.safeTransfer(account, amount);
     }
 
@@ -133,7 +133,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         repos[repoId].inflationRate = inflationRate;
     }
 
-    function setPaymentMerkleRoot(uint repoId, bytes32 paymentMerkleRoot) external onlyRepoOwner(repoId) {
-        repos[repoId].paymentMerkleRoot = paymentMerkleRoot;
+    function setMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyRepoOwner(repoId) {
+        repos[repoId].merkleRoot = merkleRoot;
     }
 }
