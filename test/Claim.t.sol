@@ -20,7 +20,7 @@ contract Claim_Test is Base_Test {
         vm.startPrank(alice);
         vm.warp(block.timestamp + 365 days);
 
-        ledger.addMerkleRoot(repoId, merkleRoot);
+        ledger.setMerkleRoot(repoId, merkleRoot, true);
         ledger.claim(repoId, 0, alice, 100e18, proof, merkleRoot);
     }
 
@@ -33,7 +33,7 @@ contract Claim_Test is Base_Test {
 
         vm.startPrank(alice);
 
-        ledger.addMerkleRoot(repoId, merkleRoot);
+        ledger.setMerkleRoot(repoId, merkleRoot, true);
 
         expectRevert(Errors.NOT_ACCOUNT_OWNER);
         ledger.claim(repoId, 0, bob, 100e18, proof, merkleRoot);
@@ -47,8 +47,6 @@ contract Claim_Test is Base_Test {
         (bytes32 merkleRoot, bytes32[] memory proof) = getSingleLeafRootAndProof(0, alice, 100e18);
 
         vm.startPrank(alice);
-
-        // ledger.addMerkleRoot(repoId, merkleRoot);
 
         expectRevert(Errors.INVALID_ROOT);
         ledger.claim(repoId, 0, alice, 100e18, proof, merkleRoot);
@@ -64,7 +62,7 @@ contract Claim_Test is Base_Test {
 
         vm.startPrank(alice);
 
-        ledger.addMerkleRoot(repoId, merkleRoot);
+        ledger.setMerkleRoot(repoId, merkleRoot, true);
         ledger.claim(repoId, 0, alice, 100e18, proof, merkleRoot);
 
         expectRevert(Errors.ALREADY_CLAIMED);
