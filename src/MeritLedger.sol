@@ -133,15 +133,20 @@ contract MeritLedger is ERC721Enumerable, Owned {
         paymentToken.safeTransfer(account, amount);
     }
 
-    function setDilutionRate(uint repoId, uint dilutionRate) external onlyRepoOwner(repoId) {
+    /*//////////////////////////////////////////////////////////////
+                            SETTERS
+    //////////////////////////////////////////////////////////////*/
+    function setMerkleRoot(uint repoId, bytes32 merkleRoot, bool isSet)
+    external 
+    onlyRepoOwner(repoId)
+    {
+        repos[repoId].merkleRoots[merkleRoot] = isSet;
+    }
+
+    function setDilutionRate(uint repoId, uint dilutionRate) 
+        external 
+        onlyRepoOwner(repoId) 
+    {
         repos[repoId].dilutionRate = dilutionRate;
-    }
-
-    function addMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyRepoOwner(repoId) {
-        repos[repoId].merkleRoots[merkleRoot] = true;
-    }
-
-    function removeMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyRepoOwner(repoId) {
-        repos[repoId].merkleRoots[merkleRoot] = false;
     }
 }
