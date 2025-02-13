@@ -9,11 +9,6 @@ import {Owned}                    from "solmate/auth/Owned.sol";
 
 import {Errors} from "libraries/Errors.sol";
 
-struct PullRequest {
-    address contributor;
-    uint    weight;
-}
-
 contract MeritLedger is ERC721Enumerable, Owned {
     using SafeTransferLib for ERC20;
 
@@ -25,6 +20,11 @@ contract MeritLedger is ERC721Enumerable, Owned {
 
     uint constant MAX_NUMBER_OF_INITIAL_CONTRIBUTORS     = 100;
     uint constant MAX_NUMBER_OF_PULL_REQUESTS_PER_UPDATE = 100;
+
+    struct PullRequest {
+        address contributor;
+        uint    weight;
+    }
 
     struct MeritRepo {
         uint                     totalShares;
