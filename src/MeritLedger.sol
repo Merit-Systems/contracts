@@ -26,6 +26,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
         bool                     initialized;
         uint                     ownerId;
         bytes32                  merkleRoot;
+
+        // map index to merkleRoot
         mapping(uint => mapping(bytes32 => bool)) claimed;
     }
 
