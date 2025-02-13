@@ -124,7 +124,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         bytes32            merkleRoot
     ) external {
         MeritRepo storage repo = repos[repoId];
-        require(msg.sender == account,            Errors.NOT_ACCOUNT);
+        require(msg.sender == account,            Errors.NOT_ACCOUNT_OWNER);
         require(repo.merkleRoots[merkleRoot],     Errors.INVALID_ROOT);
         require(!repo.claimed[index][merkleRoot], Errors.ALREADY_CLAIMED);
         bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
