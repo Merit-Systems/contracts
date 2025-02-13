@@ -27,7 +27,6 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint                     ownerId;
         bytes32                  paymentMerkleRoot;
         mapping(uint => bool)    claimed;
-        uint                     newSharesPerUpdate;
     }
 
     ERC20 public paymentToken;
@@ -130,8 +129,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
         paymentToken.safeTransfer(account, amount);
     }
 
-    function setNewSharesPerUpdate(uint repoId, uint sharesPerUpdate) external onlyRepoOwner(repoId) {
-        repos[repoId].newSharesPerUpdate = sharesPerUpdate;
+    function setInflationRate(uint repoId, uint inflationRate) external onlyRepoOwner(repoId) {
+        repos[repoId].inflationRate = inflationRate;
     }
 
     function setPaymentMerkleRoot(uint repoId, bytes32 paymentMerkleRoot) external onlyRepoOwner(repoId) {
