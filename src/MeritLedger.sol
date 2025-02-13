@@ -35,8 +35,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
     mapping(uint => MeritRepo) public repos;
 
     modifier onlyRepoOwner(uint repoId) {
-        require(repos[repoId].initialized);
-        require(msg.sender == ownerOf(repos[repoId].ownerId));
+        require(repos[repoId].initialized,                    Errors.NOT_INITIALIZED);
+        require(msg.sender == ownerOf(repos[repoId].ownerId), Errors.NOT_OWNER);
         _;
     }
 
@@ -91,18 +91,16 @@ contract MeritLedger is ERC721Enumerable, Owned {
         onlyRepoOwner(repoId)
     {
         MeritRepo storage repo = repos[repoId];
+        require(pullRequests.length > 0, Errors.NO_PULL_REQUESTS);
 
         uint elapsed = block.timestamp - repo.lastSnapshotTime;
         require(elapsed > 0, Errors.NO_TIME_ELAPSED);
 
         uint yearsScaled       = (elapsed * 1e18) / 365 days;
         uint inflationFraction = (repo.inflationRate * yearsScaled) / 10000; // e.g. 0.05 in 1e18 form
+        uint mintedForPRs      = (repo.totalShares * inflationFraction) / 1e18;
+        uint lenPullRequests   = pullRequests.length;
 
-        uint mintedForPRs = (repo.totalShares * inflationFraction) / 1e18;
-        require(mintedForPRs        > 0, Errors.NO_NEW_MINTED_SHARES);
-        require(pullRequests.length > 0, Errors.NO_PULL_REQUESTS);
-
-        uint lenPullRequests = pullRequests.length;
         uint sumWeights;
         for (uint i = 0; i < lenPullRequests; ++i) { sumWeights += pullRequests[i].weight; }
         require(sumWeights > 0, Errors.NO_WEIGHTS);
