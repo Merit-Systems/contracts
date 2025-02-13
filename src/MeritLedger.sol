@@ -9,16 +9,22 @@ import {Owned}                    from "solmate/auth/Owned.sol";
 
 import {Errors} from "libraries/Errors.sol";
 
-struct PullRequest {
-    address contributor;
-    uint    weight;
-}
-
 contract MeritLedger is ERC721Enumerable, Owned {
     using SafeTransferLib for ERC20;
 
+    event Initialized    (uint repoId, address owner, address[] contributors, uint[] shares, uint dilutionRate);
+    event Updated        (uint repoId, PullRequest[] pullRequests);
+    event Claimed        (uint repoId, uint index, address account, uint amount, bytes32 merkleRoot);
+    event MerkleRootSet  (uint repoId, bytes32 merkleRoot, bool isSet);
+    event DilutionRateSet(uint repoId, uint dilutionRate);
+
     uint constant MAX_NUMBER_OF_INITIAL_CONTRIBUTORS     = 100;
     uint constant MAX_NUMBER_OF_PULL_REQUESTS_PER_UPDATE = 100;
+
+    struct PullRequest {
+        address contributor;
+        uint    weight;
+    }
 
     struct MeritRepo {
         uint                     totalShares;
@@ -87,6 +93,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
         repo.lastSnapshot = block.timestamp;
         repo.totalShares  = totalShares;
         repo.initialized  = true;
+
+        emit Initialized(repoId, owner, contributors, shares, dilutionRate);
     }
 
     function update(
@@ -119,6 +127,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
         }
 
         repo.lastSnapshot = block.timestamp;
+
+        emit Updated(repoId, pullRequests);
     }
 
     function claim(
@@ -137,6 +147,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         require(MerkleProof.verify(merkleProof, merkleRoot, leaf), Errors.INVALID_PROOF);
         repo.claimed[index][merkleRoot] = true;
         paymentToken.safeTransfer(account, amount);
+        emit Claimed(repoId, index, account, amount, merkleRoot);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -147,6 +158,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         onlyRepoOwner(repoId)
     {
         repos[repoId].merkleRoots[merkleRoot] = isSet;
+        emit MerkleRootSet(repoId, merkleRoot, isSet);
     }
 
     function setDilutionRate(uint repoId, uint dilutionRate) 
@@ -154,5 +166,6 @@ contract MeritLedger is ERC721Enumerable, Owned {
         onlyRepoOwner(repoId) 
     {
         repos[repoId].dilutionRate = dilutionRate;
+        emit DilutionRateSet(repoId, dilutionRate);
     }
 }

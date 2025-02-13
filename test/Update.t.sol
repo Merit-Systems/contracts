@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {Errors}      from "libraries/Errors.sol";
 import {Params}      from "libraries/Params.sol";
 import {Base_Test}   from "./Base.t.sol";
-import {PullRequest} from "../src/MeritLedger.sol";
+import {MeritLedger} from "../src/MeritLedger.sol";
 
 contract Update_Test is Base_Test {
     function test_update() 
@@ -18,9 +18,9 @@ contract Update_Test is Base_Test {
         vm.startPrank(alice);
         vm.warp(block.timestamp + 365 days);
 
-        PullRequest[] memory pullRequests = new PullRequest[](2);
-        pullRequests[0] = PullRequest(alice, 100e18);
-        pullRequests[1] = PullRequest(bob,   200e18);
+        MeritLedger.PullRequest[] memory pullRequests = new MeritLedger.PullRequest[](2);
+        pullRequests[0] = MeritLedger.PullRequest(alice, 100e18);
+        pullRequests[1] = MeritLedger.PullRequest(bob,   200e18);
 
         ledger.update(0, pullRequests);
 
@@ -40,7 +40,7 @@ contract Update_Test is Base_Test {
         vm.startPrank(alice);
         vm.warp(block.timestamp + 1);
 
-        PullRequest[] memory pullRequests = new PullRequest[](0);
+        MeritLedger.PullRequest[] memory pullRequests = new MeritLedger.PullRequest[](0);
 
         expectRevert(Errors.NOT_INITIALIZED);
         ledger.update(0, pullRequests);
@@ -53,7 +53,7 @@ contract Update_Test is Base_Test {
         vm.startPrank(alice);
         vm.warp(block.timestamp + 1);
 
-        PullRequest[] memory pullRequests = new PullRequest[](0);
+        MeritLedger.PullRequest[] memory pullRequests = new MeritLedger.PullRequest[](0);
 
         expectRevert(Errors.NO_PULL_REQUESTS);
         ledger.update(0, pullRequests);
@@ -65,8 +65,8 @@ contract Update_Test is Base_Test {
     {
         vm.startPrank(alice);
 
-        PullRequest[] memory pullRequests = new PullRequest[](1);
-        pullRequests[0] = PullRequest(alice, 100e18);
+        MeritLedger.PullRequest[] memory pullRequests = new MeritLedger.PullRequest[](1);
+        pullRequests[0] = MeritLedger.PullRequest(alice, 100e18);
 
         expectRevert(Errors.NO_TIME_ELAPSED);
         ledger.update(0, pullRequests);
@@ -79,8 +79,8 @@ contract Update_Test is Base_Test {
         vm.startPrank(alice);
         vm.warp(block.timestamp + 1 days);
 
-        PullRequest[] memory pullRequests = new PullRequest[](1);
-        pullRequests[0] = PullRequest(alice, 0);
+        MeritLedger.PullRequest[] memory pullRequests = new MeritLedger.PullRequest[](1);
+        pullRequests[0] = MeritLedger.PullRequest(alice, 0);
 
         expectRevert(Errors.NO_WEIGHTS);
         ledger.update(0, pullRequests);

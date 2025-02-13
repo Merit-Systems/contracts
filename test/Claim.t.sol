@@ -6,7 +6,6 @@ import "forge-std/Test.sol";
 import {Errors}      from "libraries/Errors.sol";
 import {Params}      from "libraries/Params.sol";
 import {Base_Test}   from "./Base.t.sol";
-import {PullRequest} from "../src/MeritLedger.sol";
 
 contract Claim_Test is Base_Test {
     function test_claim() 
