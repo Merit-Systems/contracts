@@ -137,8 +137,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
                             SETTERS
     //////////////////////////////////////////////////////////////*/
     function setMerkleRoot(uint repoId, bytes32 merkleRoot, bool isSet)
-    external 
-    onlyRepoOwner(repoId)
+        external 
+        onlyRepoOwner(repoId)
     {
         repos[repoId].merkleRoots[merkleRoot] = isSet;
     }
