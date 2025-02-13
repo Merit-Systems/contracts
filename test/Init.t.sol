@@ -31,6 +31,41 @@ contract Init_Test is Base_Test {
         assertEq(newSharesPerUpdate, 0);
     }
 
+    function test_init_1Contributor_fuzz(uint weight) public {
+        vm.assume(weight > 0);
+
+        address[] memory contributors = new address[](1);
+        contributors[0] = alice;
+
+        uint   [] memory shares       = new uint   [](1);
+        shares[0] = weight;
+
+        vm.prank(Params.OWNER);
+        ledger.init(0, alice, contributors, shares, 1_000);
+    }
+
+    function test_init_2Contributors_fuzz(uint weight) public {
+        uint repoId = 0;
+
+        vm.assume(weight > 0);
+        vm.assume(weight < type(uint).max/2);
+
+        address[] memory contributors = new address[](2);
+        contributors[0] = alice;
+        contributors[1] = bob;
+
+        uint   [] memory shares       = new uint   [](2);
+        shares[0] = weight;
+        shares[1] = weight;
+
+        vm.prank(Params.OWNER);
+        ledger.init(repoId, alice, contributors, shares, 1_000);
+
+        (uint totalShares,,,,,,) = ledger.repos(repoId);
+
+        assertEq(totalShares, weight * 2);
+    }
+
     function test_init_fail_alreadyInitialized() 
         public 
         _init 
