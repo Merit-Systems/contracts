@@ -21,12 +21,14 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint                     totalShares;
         mapping(address => uint) shares;
         address[]                contributors;
-        uint                     inflationRate;    // in basis points, e.g. 500 = 5% annual inflation
+        uint                     dilutionRate;    // in basis points, e.g. 500 = 5% annual dilution
         uint                     lastSnapshotTime; 
         bool                     initialized;
         uint                     ownerId;
-        bytes32                  paymentMerkleRoot;
-        mapping(uint => bool)    claimed;
+        mapping(bytes32 => bool) merkleRoots;
+
+        // index => (merkleRoot => claimed)
+        mapping(uint => mapping(bytes32 => bool)) claimed;
     }
 
     ERC20 public paymentToken;
@@ -51,7 +53,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         address            owner,
         address[] calldata contributors,
         uint   [] calldata shares,
-        uint               inflationRate
+        uint               dilutionRate
     )
         external
         onlyOwner
@@ -76,7 +78,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         _mint(owner, ownerId);
 
         repo.ownerId          = ownerId;
-        repo.inflationRate    = inflationRate;
+        repo.dilutionRate     = dilutionRate;
         repo.lastSnapshotTime = block.timestamp;
         repo.totalShares      = totalShares;
         repo.initialized      = true;
@@ -96,7 +98,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         require(elapsed > 0, Errors.NO_TIME_ELAPSED);
 
         uint yearsScaled       = (elapsed * 1e18) / 365 days;
-        uint inflationFraction = (repo.inflationRate * yearsScaled) / 10000; // e.g. 0.05 in 1e18 form
+        uint inflationFraction = (repo.dilutionRate * yearsScaled) / 10000; // e.g. 0.05 in 1e18 form
         uint mintedForPRs      = (repo.totalShares * inflationFraction) / 1e18;
         uint lenPullRequests   = pullRequests.length;
 
@@ -118,22 +120,28 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint               index,
         address            account,
         uint               amount,
-        bytes32[] calldata merkleProof
+        bytes32[] calldata merkleProof,
+        bytes32            merkleRoot
     ) external {
         MeritRepo storage repo = repos[repoId];
-        require(msg.sender == account);
-        require(!repo.claimed[index]);
+        require(msg.sender == account,            Errors.NOT_ACCOUNT);
+        require(repo.merkleRoots[merkleRoot],     Errors.INVALID_ROOT);
+        require(!repo.claimed[index][merkleRoot], Errors.ALREADY_CLAIMED);
         bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
-        require(MerkleProof.verify(merkleProof, repo.paymentMerkleRoot, leaf));
-        repo.claimed[index] = true;
+        require(MerkleProof.verify(merkleProof, merkleRoot, leaf), Errors.INVALID_PROOF);
+        repo.claimed[index][merkleRoot] = true;
         paymentToken.safeTransfer(account, amount);
     }
 
-    function setInflationRate(uint repoId, uint inflationRate) external onlyRepoOwner(repoId) {
-        repos[repoId].inflationRate = inflationRate;
+    function setDilutionRate(uint repoId, uint dilutionRate) external onlyRepoOwner(repoId) {
+        repos[repoId].dilutionRate = dilutionRate;
     }
 
-    function setPaymentMerkleRoot(uint repoId, bytes32 paymentMerkleRoot) external onlyRepoOwner(repoId) {
-        repos[repoId].paymentMerkleRoot = paymentMerkleRoot;
+    function addMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyRepoOwner(repoId) {
+        repos[repoId].merkleRoots[merkleRoot] = true;
+    }
+
+    function removeMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyRepoOwner(repoId) {
+        repos[repoId].merkleRoots[merkleRoot] = false;
     }
 }

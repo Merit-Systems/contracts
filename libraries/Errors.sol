@@ -12,4 +12,8 @@ library Errors {
     string internal constant NO_PULL_REQUESTS     = "No Pull Requests";
     string internal constant NO_WEIGHTS           = "No Weights";
     string internal constant NOT_INITIALIZED      = "Not Initialized";
+    string internal constant NOT_ACCOUNT          = "Not Account";
+    string internal constant ALREADY_CLAIMED      = "Already Claimed";
+    string internal constant INVALID_PROOF        = "Invalid Proof";
+    string internal constant INVALID_ROOT         = "Invalid Root";
 }
