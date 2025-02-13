@@ -21,8 +21,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint                     totalShares;
         mapping(address => uint) shares;
         address[]                contributors;
-        uint                     dilutionRate;    // in basis points, e.g. 500 = 5% annual dilution
-        uint                     lastSnapshotTime; 
+        uint                     dilutionRate; // in basis points, e.g. 500 = 5% annual dilution
+        uint                     lastSnapshot; 
         bool                     initialized;
         uint                     ownerId;
         mapping(bytes32 => bool) merkleRoots;
@@ -77,11 +77,11 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint ownerId = totalSupply();
         _mint(owner, ownerId);
 
-        repo.ownerId          = ownerId;
-        repo.dilutionRate     = dilutionRate;
-        repo.lastSnapshotTime = block.timestamp;
-        repo.totalShares      = totalShares;
-        repo.initialized      = true;
+        repo.ownerId      = ownerId;
+        repo.dilutionRate = dilutionRate;
+        repo.lastSnapshot = block.timestamp;
+        repo.totalShares  = totalShares;
+        repo.initialized  = true;
     }
 
     function update(
@@ -91,28 +91,29 @@ contract MeritLedger is ERC721Enumerable, Owned {
         external
         onlyRepoOwner(repoId)
     {
-        MeritRepo storage repo = repos[repoId];
         require(pullRequests.length > 0, Errors.NO_PULL_REQUESTS);
+        MeritRepo storage repo = repos[repoId];
 
-        uint elapsed = block.timestamp - repo.lastSnapshotTime;
+        uint elapsed = block.timestamp - repo.lastSnapshot;
         require(elapsed > 0, Errors.NO_TIME_ELAPSED);
 
         uint yearsScaled       = (elapsed * 1e18) / 365 days;
         uint inflationFraction = (repo.dilutionRate * yearsScaled) / 10000; // e.g. 0.05 in 1e18 form
         uint mintedForPRs      = (repo.totalShares * inflationFraction) / 1e18;
-        uint lenPullRequests   = pullRequests.length;
+
+        uint lenPullRequests = pullRequests.length;
 
         uint sumWeights;
         for (uint i = 0; i < lenPullRequests; ++i) { sumWeights += pullRequests[i].weight; }
         require(sumWeights > 0, Errors.NO_WEIGHTS);
 
         for (uint i = 0; i < lenPullRequests; ++i) {
-            uint newSharesContributor = (mintedForPRs * pullRequests[i].weight) / sumWeights;
-            repo.shares[pullRequests[i].contributor] += newSharesContributor;
-            repo.totalShares += newSharesContributor;
+            uint newShares = (mintedForPRs * pullRequests[i].weight) / sumWeights;
+            repo.shares[pullRequests[i].contributor] += newShares;
+            repo.totalShares += newShares;
         }
 
-        repo.lastSnapshotTime = block.timestamp;
+        repo.lastSnapshot = block.timestamp;
     }
 
     function claim(
