@@ -11,5 +11,5 @@ library Errors {
     string internal constant NO_NEW_MINTED_SHARES = "No New Minted Shares";
     string internal constant NO_PULL_REQUESTS     = "No Pull Requests";
     string internal constant NO_WEIGHTS           = "No Weights";
-
+    string internal constant NOT_INITIALIZED      = "Not Initialized";
 }
