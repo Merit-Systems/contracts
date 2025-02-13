@@ -21,7 +21,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint                     totalShares;
         mapping(address => uint) shares;
         address[]                contributors;
-        uint                     inflationRate;    // in basis points, e.g. 500 = 5% annual inflation
+        uint                     dilutionRate;    // in basis points, e.g. 500 = 5% annual dilution
         uint                     lastSnapshotTime; 
         bool                     initialized;
         uint                     ownerId;
@@ -51,7 +51,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         address            owner,
         address[] calldata contributors,
         uint   [] calldata shares,
-        uint               inflationRate
+        uint               dilutionRate
     )
         external
         onlyOwner
@@ -76,7 +76,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         _mint(owner, ownerId);
 
         repo.ownerId          = ownerId;
-        repo.inflationRate    = inflationRate;
+        repo.dilutionRate     = dilutionRate;
         repo.lastSnapshotTime = block.timestamp;
         repo.totalShares      = totalShares;
         repo.initialized      = true;
@@ -96,7 +96,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         require(elapsed > 0, Errors.NO_TIME_ELAPSED);
 
         uint yearsScaled       = (elapsed * 1e18) / 365 days;
-        uint inflationFraction = (repo.inflationRate * yearsScaled) / 10000; // e.g. 0.05 in 1e18 form
+        uint inflationFraction = (repo.dilutionRate * yearsScaled) / 10000; // e.g. 0.05 in 1e18 form
         uint mintedForPRs      = (repo.totalShares * inflationFraction) / 1e18;
         uint lenPullRequests   = pullRequests.length;
 
@@ -129,8 +129,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
         paymentToken.safeTransfer(account, amount);
     }
 
-    function setInflationRate(uint repoId, uint inflationRate) external onlyRepoOwner(repoId) {
-        repos[repoId].inflationRate = inflationRate;
+    function setDilutionRate(uint repoId, uint dilutionRate) external onlyRepoOwner(repoId) {
+        repos[repoId].dilutionRate = dilutionRate;
     }
 
     function setMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyRepoOwner(repoId) {

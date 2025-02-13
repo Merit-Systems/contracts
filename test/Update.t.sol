@@ -13,7 +13,7 @@ contract Update_Test is Base_Test {
         public 
         _init
     {
-        (uint totalSharesBefore, uint inflationRate,,,,) = ledger.repos(0);
+        (uint totalSharesBefore, uint dilutionRate,,,,) = ledger.repos(0);
 
         vm.startPrank(alice);
         vm.warp(block.timestamp + 365 days);
@@ -30,7 +30,7 @@ contract Update_Test is Base_Test {
         assertEq(totalSharesAfter,  totalSharesBefore + 30e18);
         assertEq(
             totalSharesAfter,
-            totalSharesBefore + (totalSharesBefore * (inflationRate * 1e14) / 1e18)
+            totalSharesBefore + (totalSharesBefore * (dilutionRate * 1e14) / 1e18)
         );
     }
 

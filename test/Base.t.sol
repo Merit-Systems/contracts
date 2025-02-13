@@ -41,10 +41,10 @@ contract Base_Test is Test {
         shares[0] = 100e18;
         shares[1] = 200e18;
 
-        uint inflationRate = 1_000;
+        uint dilutionRate = 1_000;
 
         vm.prank(Params.OWNER);
-        ledger.init(repoId, alice, contributors, shares, inflationRate);
+        ledger.init(repoId, alice, contributors, shares, dilutionRate);
         return repoId;
     }
 
