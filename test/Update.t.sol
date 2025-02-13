@@ -85,26 +85,4 @@ contract Update_Test is Base_Test {
         expectRevert(Errors.NO_WEIGHTS);
         ledger.update(0, pullRequests);
     }
-
-    function test_updateX() 
-        public 
-        _init
-    {
-        vm.startPrank(alice);
-        vm.warp(block.timestamp + 365 days);
-
-        uint size = 300;
-
-        PullRequest[] memory pullRequests = new PullRequest[](size);
-
-        for (uint i = 0; i < size; i++) {
-            pullRequests[i] = PullRequest(alice, 100e18);
-        }
-
-        uint gasBefore = gasleft();
-        ledger.update(0, pullRequests);
-        uint gasAfter = gasleft();
-
-        console.log("gas used", gasBefore - gasAfter);
-    }
 }
