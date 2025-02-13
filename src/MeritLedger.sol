@@ -25,7 +25,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint                     lastSnapshotTime; 
         bool                     initialized;
         uint                     ownerId;
-        bytes32                  merkleRoot;
+        mapping(bytes32 => bool) merkleRoots;
 
         // map index to merkleRoot
         mapping(uint => mapping(bytes32 => bool)) claimed;
@@ -120,14 +120,16 @@ contract MeritLedger is ERC721Enumerable, Owned {
         uint               index,
         address            account,
         uint               amount,
-        bytes32[] calldata merkleProof
+        bytes32[] calldata merkleProof,
+        bytes32            merkleRoot
     ) external {
         MeritRepo storage repo = repos[repoId];
-        require(msg.sender == account,                 Errors.NOT_ACCOUNT);
-        require(!repo.claimed[index][repo.merkleRoot], Errors.ALREADY_CLAIMED);
+        require(msg.sender == account,            Errors.NOT_ACCOUNT);
+        require(repo.merkleRoots[merkleRoot],     Errors.INVALID_ROOT);
+        require(!repo.claimed[index][merkleRoot], Errors.ALREADY_CLAIMED);
         bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
-        require(MerkleProof.verify(merkleProof, repo.merkleRoot, leaf), Errors.INVALID_PROOF);
-        repo.claimed[index][repo.merkleRoot] = true;
+        require(MerkleProof.verify(merkleProof, merkleRoot, leaf), Errors.INVALID_PROOF);
+        repo.claimed[index][merkleRoot] = true;
         paymentToken.safeTransfer(account, amount);
     }
 
@@ -135,7 +137,11 @@ contract MeritLedger is ERC721Enumerable, Owned {
         repos[repoId].dilutionRate = dilutionRate;
     }
 
-    function setMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyRepoOwner(repoId) {
-        repos[repoId].merkleRoot = merkleRoot;
+    function addMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyRepoOwner(repoId) {
+        repos[repoId].merkleRoots[merkleRoot] = true;
+    }
+
+    function removeMerkleRoot(uint repoId, bytes32 merkleRoot) external onlyRepoOwner(repoId) {
+        repos[repoId].merkleRoots[merkleRoot] = false;
     }
 }

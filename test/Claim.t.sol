@@ -19,7 +19,7 @@ contract Claim_Test is Base_Test {
         vm.warp(block.timestamp + 365 days);
 
         (bytes32 merkleRoot, bytes32[] memory proof) = getSingleLeafRootAndProof(0, alice, 100e18);
-        ledger.setMerkleRoot(repoId, merkleRoot);
-        ledger.claim(repoId, 0, alice, 100e18, proof);
+        ledger.addMerkleRoot(repoId, merkleRoot);
+        ledger.claim(repoId, 0, alice, 100e18, proof, merkleRoot);
     }
 }
