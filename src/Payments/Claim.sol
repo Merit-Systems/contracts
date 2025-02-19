@@ -7,7 +7,7 @@ import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.so
 
 contract MerkleClaim is Ownable(msg.sender) {
     bytes32 public merkleRoot;
-    IERC20 public usdcToken;
+    IERC20  public usdcToken;
     uint256 public perClaimAmount;
     mapping(address => bool) public hasClaimed;
 
@@ -19,17 +19,14 @@ contract MerkleClaim is Ownable(msg.sender) {
     }
 
     function claim(bytes32[] calldata _merkleProof) external {
-        require(!hasClaimed[msg.sender], "Already claimed");
-
+        require(!hasClaimed[msg.sender]);
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
-
-        require(MerkleProof.verify(_merkleProof, merkleRoot, leaf), "Invalid Merkle proof");
+        require(MerkleProof.verify(_merkleProof, merkleRoot, leaf));
 
         hasClaimed[msg.sender] = true;
 
-        require(usdcToken.balanceOf(address(this)) >= perClaimAmount, "Insufficient USDC in contract");
-
-        require(usdcToken.transfer(msg.sender, perClaimAmount), "USDC transfer failed");
+        require(usdcToken.balanceOf(address(this)) >= perClaimAmount);
+        require(usdcToken.transfer(msg.sender, perClaimAmount));
     }
 
     function setMerkleRoot(bytes32 _newMerkleRoot, uint256 _perClaimAmount, uint256 _amount) external onlyOwner {
