@@ -11,3 +11,8 @@ deploy:
 		--via-ir \
 		--verify \
 		--optimize
+
+flatten:
+	forge clean
+	forge flatten src/MeritLedger.sol > flatten.sol
+	echo "Saved in flatten.sol"
