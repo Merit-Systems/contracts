@@ -12,11 +12,12 @@ import {Errors} from "libraries/Errors.sol";
 contract MeritLedger is ERC721Enumerable, Owned {
     using SafeTransferLib for ERC20;
 
-    event Initialized    (uint repoId, address owner, address[] contributors, uint[] shares, uint dilutionRate);
-    event Updated        (uint repoId, PullRequest[] pullRequests);
-    event Claimed        (uint repoId, uint index, address account, uint amount, bytes32 merkleRoot);
-    event MerkleRootSet  (uint repoId, bytes32 merkleRoot, bool isSet);
-    event DilutionRateSet(uint repoId, uint dilutionRate);
+    event Initialized         (uint repoId, address owner, address[] contributors, uint[] shares, uint dilutionRate);
+    event Updated             (uint repoId, PullRequest[] pullRequests);
+    event Claimed             (uint repoId, uint index, address account, uint amount, bytes32 merkleRoot);
+    event MerkleRootSet       (uint repoId, bytes32 merkleRoot, bool isSet);
+    event DilutionRateSet     (uint repoId, uint dilutionRate);
+    event PaymentPermissionSet(address user, bool allowed);
 
     uint constant MAX_NUMBER_OF_INITIAL_CONTRIBUTORS     = 100;
     uint constant MAX_NUMBER_OF_PULL_REQUESTS_PER_UPDATE = 100;
@@ -174,5 +175,6 @@ contract MeritLedger is ERC721Enumerable, Owned {
 
     function setPaymentPermission(address user, bool allowed) external onlyOwner {
         canReceivePayment[user] = allowed;
+        emit PaymentPermissionSet(user, allowed);
     }
 }
