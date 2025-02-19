@@ -6,7 +6,7 @@ import { ud60x18 } from "@prb/math/src/UD60x18.sol";
 import { ISablierLockup } from "@sablier/lockup/src/interfaces/ISablierLockup.sol";
 import { Broker, Lockup, LockupLinear } from "@sablier/lockup/src/types/DataTypes.sol";
 
-contract LockupLinearStreamCreator {
+contract Stream {
     IERC20 public constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     ISablierLockup public constant LOCKUP = ISablierLockup(0x7C01AA3783577E15fD7e272443D44B92d5b21056);
 
