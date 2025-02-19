@@ -154,6 +154,34 @@ contract MeritLedger is ERC721Enumerable, Owned {
         emit Claimed(repoId, index, account, amount, merkleRoot);
     }
 
+    function distribute(uint repoId, uint amount) external {
+        MeritRepo storage repo = repos[repoId];
+        require(repo.initialized);
+
+        paymentToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        uint totalShares = repo.totalShares;
+        require(totalShares > 0);
+
+        uint distributed;
+        uint lenContributors = repo.contributors.length;
+        for (uint i = 0; i < lenContributors; i++) {
+            address contributor       = repo.contributors[i];
+            uint    contributorShares = repo.shares[contributor];
+            if (!canReceivePayment[contributor]) continue; 
+
+            uint shareAmount = (amount * contributorShares) / totalShares;
+            if (shareAmount > 0) {
+                distributed += shareAmount;
+                paymentToken.safeTransfer(contributor, shareAmount);
+            }
+        }
+
+        uint leftover = amount - distributed;
+        if (leftover > 0) paymentToken.safeTransfer(msg.sender, leftover); 
+    }
+
+
     /*//////////////////////////////////////////////////////////////
                             SETTERS
     //////////////////////////////////////////////////////////////*/
