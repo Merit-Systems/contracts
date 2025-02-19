@@ -1,2 +1,4 @@
 solmate/=lib/solmate/src
-openzeppelin/=lib/openzeppelin-contracts/contracts
+@sablier/lockup/=lib/lockup/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@prb/math/=lib/prb-math/
