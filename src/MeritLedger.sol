@@ -42,6 +42,8 @@ contract MeritLedger is ERC721Enumerable, Owned {
 
     ERC20 public paymentToken;
 
+    mapping(address => bool) public canReceivePayment;
+
     mapping(uint => MeritRepo) public repos;
 
     modifier onlyRepoOwner(uint repoId) {
@@ -142,6 +144,7 @@ contract MeritLedger is ERC721Enumerable, Owned {
         MeritRepo storage repo = repos[repoId];
         require(msg.sender == account,            Errors.NOT_ACCOUNT_OWNER);
         require(repo.merkleRoots[merkleRoot],     Errors.INVALID_ROOT);
+        require(canReceivePayment[account],       Errors.NO_PAYMENT_PERMISSION);
         require(!repo.claimed[index][merkleRoot], Errors.ALREADY_CLAIMED);
         bytes32 leaf = keccak256(abi.encodePacked(index, account, amount));
         require(MerkleProof.verify(merkleProof, merkleRoot, leaf), Errors.INVALID_PROOF);
@@ -167,5 +170,9 @@ contract MeritLedger is ERC721Enumerable, Owned {
     {
         repos[repoId].dilutionRate = dilutionRate;
         emit DilutionRateSet(repoId, dilutionRate);
+    }
+
+    function setPaymentPermission(address user, bool allowed) external onlyOwner {
+        canReceivePayment[user] = allowed;
     }
 }

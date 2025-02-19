@@ -1,0 +1,1130 @@
+// SPDX-License-Identifier: MIT
+pragma solidity =0.8.26 >=0.8.0 ^0.8.20 ^0.8.26;
+
+// lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol
+
+// OpenZeppelin Contracts (last updated v5.1.0) (interfaces/draft-IERC6093.sol)
+
+/**
+ * @dev Standard ERC-20 Errors
+ * Interface of the https://eips.ethereum.org/EIPS/eip-6093[ERC-6093] custom errors for ERC-20 tokens.
+ */
+interface IERC20Errors {
+    /**
+     * @dev Indicates an error related to the current `balance` of a `sender`. Used in transfers.
+     * @param sender Address whose tokens are being transferred.
+     * @param balance Current balance for the interacting account.
+     * @param needed Minimum amount required to perform a transfer.
+     */
+    error ERC20InsufficientBalance(address sender, uint256 balance, uint256 needed);
+
+    /**
+     * @dev Indicates a failure with the token `sender`. Used in transfers.
+     * @param sender Address whose tokens are being transferred.
+     */
+    error ERC20InvalidSender(address sender);
+
+    /**
+     * @dev Indicates a failure with the token `receiver`. Used in transfers.
+     * @param receiver Address to which tokens are being transferred.
+     */
+    error ERC20InvalidReceiver(address receiver);
+
+    /**
+     * @dev Indicates a failure with the `spender`’s `allowance`. Used in transfers.
+     * @param spender Address that may be allowed to operate on tokens without being their owner.
+     * @param allowance Amount of tokens a `spender` is allowed to operate with.
+     * @param needed Minimum amount required to perform a transfer.
+     */
+    error ERC20InsufficientAllowance(address spender, uint256 allowance, uint256 needed);
+
+    /**
+     * @dev Indicates a failure with the `approver` of a token to be approved. Used in approvals.
+     * @param approver Address initiating an approval operation.
+     */
+    error ERC20InvalidApprover(address approver);
+
+    /**
+     * @dev Indicates a failure with the `spender` to be approved. Used in approvals.
+     * @param spender Address that may be allowed to operate on tokens without being their owner.
+     */
+    error ERC20InvalidSpender(address spender);
+}
+
+/**
+ * @dev Standard ERC-721 Errors
+ * Interface of the https://eips.ethereum.org/EIPS/eip-6093[ERC-6093] custom errors for ERC-721 tokens.
+ */
+interface IERC721Errors {
+    /**
+     * @dev Indicates that an address can't be an owner. For example, `address(0)` is a forbidden owner in ERC-20.
+     * Used in balance queries.
+     * @param owner Address of the current owner of a token.
+     */
+    error ERC721InvalidOwner(address owner);
+
+    /**
+     * @dev Indicates a `tokenId` whose `owner` is the zero address.
+     * @param tokenId Identifier number of a token.
+     */
+    error ERC721NonexistentToken(uint256 tokenId);
+
+    /**
+     * @dev Indicates an error related to the ownership over a particular token. Used in transfers.
+     * @param sender Address whose tokens are being transferred.
+     * @param tokenId Identifier number of a token.
+     * @param owner Address of the current owner of a token.
+     */
+    error ERC721IncorrectOwner(address sender, uint256 tokenId, address owner);
+
+    /**
+     * @dev Indicates a failure with the token `sender`. Used in transfers.
+     * @param sender Address whose tokens are being transferred.
+     */
+    error ERC721InvalidSender(address sender);
+
+    /**
+     * @dev Indicates a failure with the token `receiver`. Used in transfers.
+     * @param receiver Address to which tokens are being transferred.
+     */
+    error ERC721InvalidReceiver(address receiver);
+
+    /**
+     * @dev Indicates a failure with the `operator`’s approval. Used in transfers.
+     * @param operator Address that may be allowed to operate on tokens without being their owner.
+     * @param tokenId Identifier number of a token.
+     */
+    error ERC721InsufficientApproval(address operator, uint256 tokenId);
+
+    /**
+     * @dev Indicates a failure with the `approver` of a token to be approved. Used in approvals.
+     * @param approver Address initiating an approval operation.
+     */
+    error ERC721InvalidApprover(address approver);
+
+    /**
+     * @dev Indicates a failure with the `operator` to be approved. Used in approvals.
+     * @param operator Address that may be allowed to operate on tokens without being their owner.
+     */
+    error ERC721InvalidOperator(address operator);
+}
+
+/**
+ * @dev Standard ERC-1155 Errors
+ * Interface of the https://eips.ethereum.org/EIPS/eip-6093[ERC-6093] custom errors for ERC-1155 tokens.
+ */
+interface IERC1155Errors {
+    /**
+     * @dev Indicates an error related to the current `balance` of a `sender`. Used in transfers.
+     * @param sender Address whose tokens are being transferred.
+     * @param balance Current balance for the interacting account.
+     * @param needed Minimum amount required to perform a transfer.
+     * @param tokenId Identifier number of a token.
+     */
+    error ERC1155InsufficientBalance(address sender, uint256 balance, uint256 needed, uint256 tokenId);
+
+    /**
+     * @dev Indicates a failure with the token `sender`. Used in transfers.
+     * @param sender Address whose tokens are being transferred.
+     */
+    error ERC1155InvalidSender(address sender);
+
+    /**
+     * @dev Indicates a failure with the token `receiver`. Used in transfers.
+     * @param receiver Address to which tokens are being transferred.
+     */
+    error ERC1155InvalidReceiver(address receiver);
+
+    /**
+     * @dev Indicates a failure with the `operator`’s approval. Used in transfers.
+     * @param operator Address that may be allowed to operate on tokens without being their owner.
+     * @param owner Address of the current owner of a token.
+     */
+    error ERC1155MissingApprovalForAll(address operator, address owner);
+
+    /**
+     * @dev Indicates a failure with the `approver` of a token to be approved. Used in approvals.
+     * @param approver Address initiating an approval operation.
+     */
+    error ERC1155InvalidApprover(address approver);
+
+    /**
+     * @dev Indicates a failure with the `operator` to be approved. Used in approvals.
+     * @param operator Address that may be allowed to operate on tokens without being their owner.
+     */
+    error ERC1155InvalidOperator(address operator);
+
+    /**
+     * @dev Indicates an array length mismatch between ids and values in a safeBatchTransferFrom operation.
+     * Used in batch transfers.
+     * @param idsLength Length of the array of token identifiers
+     * @param valuesLength Length of the array of token amounts
+     */
+    error ERC1155InvalidArrayLength(uint256 idsLength, uint256 valuesLength);
+}
+
+// lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol
+
+// OpenZeppelin Contracts (last updated v5.1.0) (token/ERC721/IERC721Receiver.sol)
+
+/**
+ * @title ERC-721 token receiver interface
+ * @dev Interface for any contract that wants to support safeTransfers
+ * from ERC-721 asset contracts.
+ */
+interface IERC721Receiver {
+    /**
+     * @dev Whenever an {IERC721} `tokenId` token is transferred to this contract via {IERC721-safeTransferFrom}
+     * by `operator` from `from`, this function is called.
+     *
+     * It must return its Solidity selector to confirm the token transfer.
+     * If any other value is returned or the interface is not implemented by the recipient, the transfer will be
+     * reverted.
+     *
+     * The selector can be obtained in Solidity with `IERC721Receiver.onERC721Received.selector`.
+     */
+    function onERC721Received(
+        address operator,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external returns (bytes4);
+}
+
+// lib/openzeppelin-contracts/contracts/utils/Context.sol
+
+// OpenZeppelin Contracts (last updated v5.0.1) (utils/Context.sol)
+
+/**
+ * @dev Provides information about the current execution context, including the
+ * sender of the transaction and its data. While these are generally available
+ * via msg.sender and msg.data, they should not be accessed in such a direct
+ * manner, since when dealing with meta-transactions the account sending and
+ * paying for execution may not be the actual sender (as far as an application
+ * is concerned).
+ *
+ * This contract is only required for intermediate, library-like contracts.
+ */
+abstract contract Context {
+    function _msgSender() internal view virtual returns (address) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes calldata) {
+        return msg.data;
+    }
+
+    function _contextSuffixLength() internal view virtual returns (uint256) {
+        return 0;
+    }
+}
+
+// lib/openzeppelin-contracts/contracts/utils/Panic.sol
+
+// OpenZeppelin Contracts (last updated v5.1.0) (utils/Panic.sol)
+
+/**
+ * @dev Helper library for emitting standardized panic codes.
+ *
+ * ```solidity
+ * contract Example {
+ *      using Panic for uint256;
+ *
+ *      // Use any of the declared internal constants
+ *      function foo() { Panic.GENERIC.panic(); }
+ *
+ *      // Alternatively
+ *      function foo() { Panic.panic(Panic.GENERIC); }
+ * }
+ * ```
+ *
+ * Follows the list from https://github.com/ethereum/solidity/blob/v0.8.24/libsolutil/ErrorCodes.h[libsolutil].
+ *
+ * _Available since v5.1._
+ */
+// slither-disable-next-line unused-state
+library Panic {
+    /// @dev generic / unspecified error
+    uint256 internal constant GENERIC = 0x00;
+    /// @dev used by the assert() builtin
+    uint256 internal constant ASSERT = 0x01;
+    /// @dev arithmetic underflow or overflow
+    uint256 internal constant UNDER_OVERFLOW = 0x11;
+    /// @dev division or modulo by zero
+    uint256 internal constant DIVISION_BY_ZERO = 0x12;
+    /// @dev enum conversion error
+    uint256 internal constant ENUM_CONVERSION_ERROR = 0x21;
+    /// @dev invalid encoding in storage
+    uint256 internal constant STORAGE_ENCODING_ERROR = 0x22;
+    /// @dev empty array pop
+    uint256 internal constant EMPTY_ARRAY_POP = 0x31;
+    /// @dev array out of bounds access
+    uint256 internal constant ARRAY_OUT_OF_BOUNDS = 0x32;
+    /// @dev resource error (too large allocation or too large array)
+    uint256 internal constant RESOURCE_ERROR = 0x41;
+    /// @dev calling invalid internal function
+    uint256 internal constant INVALID_INTERNAL_FUNCTION = 0x51;
+
+    /// @dev Reverts with a panic code. Recommended to use with
+    /// the internal constants with predefined codes.
+    function panic(uint256 code) internal pure {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x4e487b71)
+            mstore(0x20, code)
+            revert(0x1c, 0x24)
+        }
+    }
+}
+
+// lib/openzeppelin-contracts/contracts/utils/cryptography/Hashes.sol
+
+// OpenZeppelin Contracts (last updated v5.1.0) (utils/cryptography/Hashes.sol)
+
+/**
+ * @dev Library of standard hash functions.
+ *
+ * _Available since v5.1._
+ */
+library Hashes {
+    /**
+     * @dev Commutative Keccak256 hash of a sorted pair of bytes32. Frequently used when working with merkle proofs.
+     *
+     * NOTE: Equivalent to the `standardNodeHash` in our https://github.com/OpenZeppelin/merkle-tree[JavaScript library].
+     */
+    function commutativeKeccak256(bytes32 a, bytes32 b) internal pure returns (bytes32) {
+        return a < b ? _efficientKeccak256(a, b) : _efficientKeccak256(b, a);
+    }
+
+    /**
+     * @dev Implementation of keccak256(abi.encode(a, b)) that doesn't allocate or expand memory.
+     */
+    function _efficientKeccak256(bytes32 a, bytes32 b) private pure returns (bytes32 value) {
+        assembly ("memory-safe") {
+            mstore(0x00, a)
+            mstore(0x20, b)
+            value := keccak256(0x00, 0x40)
+        }
+    }
+}
+
+// lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol
+
+// OpenZeppelin Contracts (last updated v5.1.0) (utils/introspection/IERC165.sol)
+
+/**
+ * @dev Interface of the ERC-165 standard, as defined in the
+ * https://eips.ethereum.org/EIPS/eip-165[ERC].
+ *
+ * Implementers can declare support of contract interfaces, which can then be
+ * queried by others ({ERC165Checker}).
+ *
+ * For an implementation, see {ERC165}.
+ */
+interface IERC165 {
+    /**
+     * @dev Returns true if this contract implements the interface defined by
+     * `interfaceId`. See the corresponding
+     * https://eips.ethereum.org/EIPS/eip-165#how-interfaces-are-identified[ERC section]
+     * to learn more about how these ids are created.
+     *
+     * This function call must use less than 30 000 gas.
+     */
+    function supportsInterface(bytes4 interfaceId) external view returns (bool);
+}
+
+// lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol
+
+// OpenZeppelin Contracts (last updated v5.1.0) (utils/math/SafeCast.sol)
+// This file was procedurally generated from scripts/generate/templates/SafeCast.js.
+
+/**
+ * @dev Wrappers over Solidity's uintXX/intXX/bool casting operators with added overflow
+ * checks.
+ *
+ * Downcasting from uint256/int256 in Solidity does not revert on overflow. This can
+ * easily result in undesired exploitation or bugs, since developers usually
+ * assume that overflows raise errors. `SafeCast` restores this intuition by
+ * reverting the transaction when such an operation overflows.
+ *
+ * Using this library instead of the unchecked operations eliminates an entire
+ * class of bugs, so it's recommended to use it always.
+ */
+library SafeCast {
+    /**
+     * @dev Value doesn't fit in an uint of `bits` size.
+     */
+    error SafeCastOverflowedUintDowncast(uint8 bits, uint256 value);
+
+    /**
+     * @dev An int value doesn't fit in an uint of `bits` size.
+     */
+    error SafeCastOverflowedIntToUint(int256 value);
+
+    /**
+     * @dev Value doesn't fit in an int of `bits` size.
+     */
+    error SafeCastOverflowedIntDowncast(uint8 bits, int256 value);
+
+    /**
+     * @dev An uint value doesn't fit in an int of `bits` size.
+     */
+    error SafeCastOverflowedUintToInt(uint256 value);
+
+    /**
+     * @dev Returns the downcasted uint248 from uint256, reverting on
+     * overflow (when the input is greater than largest uint248).
+     *
+     * Counterpart to Solidity's `uint248` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 248 bits
+     */
+    function toUint248(uint256 value) internal pure returns (uint248) {
+        if (value > type(uint248).max) {
+            revert SafeCastOverflowedUintDowncast(248, value);
+        }
+        return uint248(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint240 from uint256, reverting on
+     * overflow (when the input is greater than largest uint240).
+     *
+     * Counterpart to Solidity's `uint240` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 240 bits
+     */
+    function toUint240(uint256 value) internal pure returns (uint240) {
+        if (value > type(uint240).max) {
+            revert SafeCastOverflowedUintDowncast(240, value);
+        }
+        return uint240(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint232 from uint256, reverting on
+     * overflow (when the input is greater than largest uint232).
+     *
+     * Counterpart to Solidity's `uint232` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 232 bits
+     */
+    function toUint232(uint256 value) internal pure returns (uint232) {
+        if (value > type(uint232).max) {
+            revert SafeCastOverflowedUintDowncast(232, value);
+        }
+        return uint232(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint224 from uint256, reverting on
+     * overflow (when the input is greater than largest uint224).
+     *
+     * Counterpart to Solidity's `uint224` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 224 bits
+     */
+    function toUint224(uint256 value) internal pure returns (uint224) {
+        if (value > type(uint224).max) {
+            revert SafeCastOverflowedUintDowncast(224, value);
+        }
+        return uint224(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint216 from uint256, reverting on
+     * overflow (when the input is greater than largest uint216).
+     *
+     * Counterpart to Solidity's `uint216` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 216 bits
+     */
+    function toUint216(uint256 value) internal pure returns (uint216) {
+        if (value > type(uint216).max) {
+            revert SafeCastOverflowedUintDowncast(216, value);
+        }
+        return uint216(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint208 from uint256, reverting on
+     * overflow (when the input is greater than largest uint208).
+     *
+     * Counterpart to Solidity's `uint208` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 208 bits
+     */
+    function toUint208(uint256 value) internal pure returns (uint208) {
+        if (value > type(uint208).max) {
+            revert SafeCastOverflowedUintDowncast(208, value);
+        }
+        return uint208(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint200 from uint256, reverting on
+     * overflow (when the input is greater than largest uint200).
+     *
+     * Counterpart to Solidity's `uint200` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 200 bits
+     */
+    function toUint200(uint256 value) internal pure returns (uint200) {
+        if (value > type(uint200).max) {
+            revert SafeCastOverflowedUintDowncast(200, value);
+        }
+        return uint200(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint192 from uint256, reverting on
+     * overflow (when the input is greater than largest uint192).
+     *
+     * Counterpart to Solidity's `uint192` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 192 bits
+     */
+    function toUint192(uint256 value) internal pure returns (uint192) {
+        if (value > type(uint192).max) {
+            revert SafeCastOverflowedUintDowncast(192, value);
+        }
+        return uint192(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint184 from uint256, reverting on
+     * overflow (when the input is greater than largest uint184).
+     *
+     * Counterpart to Solidity's `uint184` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 184 bits
+     */
+    function toUint184(uint256 value) internal pure returns (uint184) {
+        if (value > type(uint184).max) {
+            revert SafeCastOverflowedUintDowncast(184, value);
+        }
+        return uint184(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint176 from uint256, reverting on
+     * overflow (when the input is greater than largest uint176).
+     *
+     * Counterpart to Solidity's `uint176` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 176 bits
+     */
+    function toUint176(uint256 value) internal pure returns (uint176) {
+        if (value > type(uint176).max) {
+            revert SafeCastOverflowedUintDowncast(176, value);
+        }
+        return uint176(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint168 from uint256, reverting on
+     * overflow (when the input is greater than largest uint168).
+     *
+     * Counterpart to Solidity's `uint168` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 168 bits
+     */
+    function toUint168(uint256 value) internal pure returns (uint168) {
+        if (value > type(uint168).max) {
+            revert SafeCastOverflowedUintDowncast(168, value);
+        }
+        return uint168(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint160 from uint256, reverting on
+     * overflow (when the input is greater than largest uint160).
+     *
+     * Counterpart to Solidity's `uint160` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 160 bits
+     */
+    function toUint160(uint256 value) internal pure returns (uint160) {
+        if (value > type(uint160).max) {
+            revert SafeCastOverflowedUintDowncast(160, value);
+        }
+        return uint160(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint152 from uint256, reverting on
+     * overflow (when the input is greater than largest uint152).
+     *
+     * Counterpart to Solidity's `uint152` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 152 bits
+     */
+    function toUint152(uint256 value) internal pure returns (uint152) {
+        if (value > type(uint152).max) {
+            revert SafeCastOverflowedUintDowncast(152, value);
+        }
+        return uint152(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint144 from uint256, reverting on
+     * overflow (when the input is greater than largest uint144).
+     *
+     * Counterpart to Solidity's `uint144` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 144 bits
+     */
+    function toUint144(uint256 value) internal pure returns (uint144) {
+        if (value > type(uint144).max) {
+            revert SafeCastOverflowedUintDowncast(144, value);
+        }
+        return uint144(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint136 from uint256, reverting on
+     * overflow (when the input is greater than largest uint136).
+     *
+     * Counterpart to Solidity's `uint136` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 136 bits
+     */
+    function toUint136(uint256 value) internal pure returns (uint136) {
+        if (value > type(uint136).max) {
+            revert SafeCastOverflowedUintDowncast(136, value);
+        }
+        return uint136(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint128 from uint256, reverting on
+     * overflow (when the input is greater than largest uint128).
+     *
+     * Counterpart to Solidity's `uint128` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 128 bits
+     */
+    function toUint128(uint256 value) internal pure returns (uint128) {
+        if (value > type(uint128).max) {
+            revert SafeCastOverflowedUintDowncast(128, value);
+        }
+        return uint128(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint120 from uint256, reverting on
+     * overflow (when the input is greater than largest uint120).
+     *
+     * Counterpart to Solidity's `uint120` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 120 bits
+     */
+    function toUint120(uint256 value) internal pure returns (uint120) {
+        if (value > type(uint120).max) {
+            revert SafeCastOverflowedUintDowncast(120, value);
+        }
+        return uint120(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint112 from uint256, reverting on
+     * overflow (when the input is greater than largest uint112).
+     *
+     * Counterpart to Solidity's `uint112` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 112 bits
+     */
+    function toUint112(uint256 value) internal pure returns (uint112) {
+        if (value > type(uint112).max) {
+            revert SafeCastOverflowedUintDowncast(112, value);
+        }
+        return uint112(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint104 from uint256, reverting on
+     * overflow (when the input is greater than largest uint104).
+     *
+     * Counterpart to Solidity's `uint104` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 104 bits
+     */
+    function toUint104(uint256 value) internal pure returns (uint104) {
+        if (value > type(uint104).max) {
+            revert SafeCastOverflowedUintDowncast(104, value);
+        }
+        return uint104(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint96 from uint256, reverting on
+     * overflow (when the input is greater than largest uint96).
+     *
+     * Counterpart to Solidity's `uint96` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 96 bits
+     */
+    function toUint96(uint256 value) internal pure returns (uint96) {
+        if (value > type(uint96).max) {
+            revert SafeCastOverflowedUintDowncast(96, value);
+        }
+        return uint96(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint88 from uint256, reverting on
+     * overflow (when the input is greater than largest uint88).
+     *
+     * Counterpart to Solidity's `uint88` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 88 bits
+     */
+    function toUint88(uint256 value) internal pure returns (uint88) {
+        if (value > type(uint88).max) {
+            revert SafeCastOverflowedUintDowncast(88, value);
+        }
+        return uint88(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint80 from uint256, reverting on
+     * overflow (when the input is greater than largest uint80).
+     *
+     * Counterpart to Solidity's `uint80` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 80 bits
+     */
+    function toUint80(uint256 value) internal pure returns (uint80) {
+        if (value > type(uint80).max) {
+            revert SafeCastOverflowedUintDowncast(80, value);
+        }
+        return uint80(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint72 from uint256, reverting on
+     * overflow (when the input is greater than largest uint72).
+     *
+     * Counterpart to Solidity's `uint72` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 72 bits
+     */
+    function toUint72(uint256 value) internal pure returns (uint72) {
+        if (value > type(uint72).max) {
+            revert SafeCastOverflowedUintDowncast(72, value);
+        }
+        return uint72(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint64 from uint256, reverting on
+     * overflow (when the input is greater than largest uint64).
+     *
+     * Counterpart to Solidity's `uint64` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 64 bits
+     */
+    function toUint64(uint256 value) internal pure returns (uint64) {
+        if (value > type(uint64).max) {
+            revert SafeCastOverflowedUintDowncast(64, value);
+        }
+        return uint64(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint56 from uint256, reverting on
+     * overflow (when the input is greater than largest uint56).
+     *
+     * Counterpart to Solidity's `uint56` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 56 bits
+     */
+    function toUint56(uint256 value) internal pure returns (uint56) {
+        if (value > type(uint56).max) {
+            revert SafeCastOverflowedUintDowncast(56, value);
+        }
+        return uint56(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint48 from uint256, reverting on
+     * overflow (when the input is greater than largest uint48).
+     *
+     * Counterpart to Solidity's `uint48` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 48 bits
+     */
+    function toUint48(uint256 value) internal pure returns (uint48) {
+        if (value > type(uint48).max) {
+            revert SafeCastOverflowedUintDowncast(48, value);
+        }
+        return uint48(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint40 from uint256, reverting on
+     * overflow (when the input is greater than largest uint40).
+     *
+     * Counterpart to Solidity's `uint40` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 40 bits
+     */
+    function toUint40(uint256 value) internal pure returns (uint40) {
+        if (value > type(uint40).max) {
+            revert SafeCastOverflowedUintDowncast(40, value);
+        }
+        return uint40(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint32 from uint256, reverting on
+     * overflow (when the input is greater than largest uint32).
+     *
+     * Counterpart to Solidity's `uint32` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 32 bits
+     */
+    function toUint32(uint256 value) internal pure returns (uint32) {
+        if (value > type(uint32).max) {
+            revert SafeCastOverflowedUintDowncast(32, value);
+        }
+        return uint32(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint24 from uint256, reverting on
+     * overflow (when the input is greater than largest uint24).
+     *
+     * Counterpart to Solidity's `uint24` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 24 bits
+     */
+    function toUint24(uint256 value) internal pure returns (uint24) {
+        if (value > type(uint24).max) {
+            revert SafeCastOverflowedUintDowncast(24, value);
+        }
+        return uint24(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint16 from uint256, reverting on
+     * overflow (when the input is greater than largest uint16).
+     *
+     * Counterpart to Solidity's `uint16` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 16 bits
+     */
+    function toUint16(uint256 value) internal pure returns (uint16) {
+        if (value > type(uint16).max) {
+            revert SafeCastOverflowedUintDowncast(16, value);
+        }
+        return uint16(value);
+    }
+
+    /**
+     * @dev Returns the downcasted uint8 from uint256, reverting on
+     * overflow (when the input is greater than largest uint8).
+     *
+     * Counterpart to Solidity's `uint8` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 8 bits
+     */
+    function toUint8(uint256 value) internal pure returns (uint8) {
+        if (value > type(uint8).max) {
+            revert SafeCastOverflowedUintDowncast(8, value);
+        }
+        return uint8(value);
+    }
+
+    /**
+     * @dev Converts a signed int256 into an unsigned uint256.
+     *
+     * Requirements:
+     *
+     * - input must be greater than or equal to 0.
+     */
+    function toUint256(int256 value) internal pure returns (uint256) {
+        if (value < 0) {
+            revert SafeCastOverflowedIntToUint(value);
+        }
+        return uint256(value);
+    }
+
+    /**
+     * @dev Returns the downcasted int248 from int256, reverting on
+     * overflow (when the input is less than smallest int248 or
+     * greater than largest int248).
+     *
+     * Counterpart to Solidity's `int248` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 248 bits
+     */
+    function toInt248(int256 value) internal pure returns (int248 downcasted) {
+        downcasted = int248(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(248, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int240 from int256, reverting on
+     * overflow (when the input is less than smallest int240 or
+     * greater than largest int240).
+     *
+     * Counterpart to Solidity's `int240` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 240 bits
+     */
+    function toInt240(int256 value) internal pure returns (int240 downcasted) {
+        downcasted = int240(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(240, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int232 from int256, reverting on
+     * overflow (when the input is less than smallest int232 or
+     * greater than largest int232).
+     *
+     * Counterpart to Solidity's `int232` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 232 bits
+     */
+    function toInt232(int256 value) internal pure returns (int232 downcasted) {
+        downcasted = int232(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(232, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int224 from int256, reverting on
+     * overflow (when the input is less than smallest int224 or
+     * greater than largest int224).
+     *
+     * Counterpart to Solidity's `int224` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 224 bits
+     */
+    function toInt224(int256 value) internal pure returns (int224 downcasted) {
+        downcasted = int224(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(224, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int216 from int256, reverting on
+     * overflow (when the input is less than smallest int216 or
+     * greater than largest int216).
+     *
+     * Counterpart to Solidity's `int216` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 216 bits
+     */
+    function toInt216(int256 value) internal pure returns (int216 downcasted) {
+        downcasted = int216(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(216, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int208 from int256, reverting on
+     * overflow (when the input is less than smallest int208 or
+     * greater than largest int208).
+     *
+     * Counterpart to Solidity's `int208` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 208 bits
+     */
+    function toInt208(int256 value) internal pure returns (int208 downcasted) {
+        downcasted = int208(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(208, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int200 from int256, reverting on
+     * overflow (when the input is less than smallest int200 or
+     * greater than largest int200).
+     *
+     * Counterpart to Solidity's `int200` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 200 bits
+     */
+    function toInt200(int256 value) internal pure returns (int200 downcasted) {
+        downcasted = int200(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(200, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int192 from int256, reverting on
+     * overflow (when the input is less than smallest int192 or
+     * greater than largest int192).
+     *
+     * Counterpart to Solidity's `int192` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 192 bits
+     */
+    function toInt192(int256 value) internal pure returns (int192 downcasted) {
+        downcasted = int192(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(192, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int184 from int256, reverting on
+     * overflow (when the input is less than smallest int184 or
+     * greater than largest int184).
+     *
+     * Counterpart to Solidity's `int184` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 184 bits
+     */
+    function toInt184(int256 value) internal pure returns (int184 downcasted) {
+        downcasted = int184(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(184, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int176 from int256, reverting on
+     * overflow (when the input is less than smallest int176 or
+     * greater than largest int176).
+     *
+     * Counterpart to Solidity's `int176` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 176 bits
+     */
+    function toInt176(int256 value) internal pure returns (int176 downcasted) {
+        downcasted = int176(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(176, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int168 from int256, reverting on
+     * overflow (when the input is less than smallest int168 or
+     * greater than largest int168).
+     *
+     * Counterpart to Solidity's `int168` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 168 bits
+     */
+    function toInt168(int256 value) internal pure returns (int168 downcasted) {
+        downcasted = int168(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(168, value);
+        }
+    }
+
+    /**
+     * @dev Returns the downcasted int160 from int256, reverting on
+     * overflow (when the input is less than smallest int160 or
+     * greater than largest int160).
+     *
+     * Counterpart to Solidity's `int160` operator.
+     *
+     * Requirements:
+     *
+     * - input must fit into 160 bits
+     */
+    function toInt160(int256 value) internal pure returns (int160 downcasted) {
+        downcasted = int160(value);
+        if (downcasted != value) {
+            revert SafeCastOverflowedIntDowncast(160, value);
+        }
+    }
+
+    /**

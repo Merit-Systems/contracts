@@ -19,4 +19,5 @@ library Errors {
     string internal constant NO_CONTRIBUTORS        = "No Contributors";
     string internal constant TOO_MANY_CONTRIBUTORS  = "Too Many Contributors";
     string internal constant TOO_MANY_PULL_REQUESTS = "Too Many Pull Requests";
+    string internal constant NO_PAYMENT_PERMISSION  = "No Payment Permission";
 }
