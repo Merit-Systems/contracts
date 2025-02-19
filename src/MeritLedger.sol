@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {MerkleProof}              from "openzeppelin/utils/cryptography/MerkleProof.sol";
-import {ERC721, ERC721Enumerable} from "openzeppelin/token/ERC721/extensions/ERC721Enumerable.sol";
+import {MerkleProof}              from "lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
+import {ERC721, ERC721Enumerable} from "lib/openzeppelin-contracts/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {ERC20}                    from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib}          from "solmate/utils/SafeTransferLib.sol";
 import {Owned}                    from "solmate/auth/Owned.sol";
