@@ -12,42 +12,41 @@ contract SplitWithLockup is Owned(msg.sender) {
     }
 
     struct Deposit {
-        uint256 amount;
+        uint    amount;
         ERC20   token;
         address recipient;
         address sender;
-        uint256 claimDeadline;
+        uint    claimDeadline;
         bool    claimed;
     }
 
-    uint256 public depositCount;
-    mapping(uint256 => Deposit) public deposits;
+    uint public depositCount;
+    mapping(uint => Deposit) public deposits;
+
+    struct SplitParams {
+        address recipient;
+        uint    value;
+        bool    canTransferNow;
+        uint    claimPeriod;
+    }
 
     function split(
         ERC20 token,
-        address[] calldata recipients,
-        uint256[] calldata values,
-        bool[]    calldata canTransferNow,
-        uint256[] calldata claimPeriods
+        SplitParams[] calldata params
     ) external {
-        require(
-            recipients.length == values.length && 
-            recipients.length == canTransferNow.length &&
-            recipients.length == claimPeriods.length
-        );
-
-        for (uint256 i = 0; i < recipients.length; i++) {
-            if (canTransferNow[i]) {
-                require(token.transferFrom(msg.sender, recipients[i], values[i]));
+        uint paramsLength = params.length;
+        for (uint i = 0; i < paramsLength; ++i) {
+            if (params[i].canTransferNow) {
+                require(token.transferFrom(msg.sender, params[i].recipient, params[i].value));
             } else {
-                require(token.transferFrom(msg.sender, address(this), values[i]));
+                require(token.transferFrom(msg.sender, address(this), params[i].value));
 
                 deposits[depositCount] = Deposit({
-                    amount: values[i],
+                    amount: params[i].value,
                     token: token,
-                    recipient: recipients[i],
+                    recipient: params[i].recipient,
                     sender: msg.sender,
-                    claimDeadline: block.timestamp + claimPeriods[i],
+                    claimDeadline: block.timestamp + params[i].claimPeriod,
                     claimed: false
                 });
 
@@ -56,7 +55,7 @@ contract SplitWithLockup is Owned(msg.sender) {
         }
     }
 
-    function claim(uint256 depositId) external {
+    function claim(uint depositId) external {
         Deposit storage deposit = deposits[depositId];
 
         require(!deposit.claimed);
@@ -69,7 +68,7 @@ contract SplitWithLockup is Owned(msg.sender) {
         require(deposit.token.transfer(msg.sender, deposit.amount));
     }
 
-    function reclaim(uint256 depositId) external {
+    function reclaim(uint depositId) external {
         Deposit storage deposit = deposits[depositId];
 
         require(!deposit.claimed);
