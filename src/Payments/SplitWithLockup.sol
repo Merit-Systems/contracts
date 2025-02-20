@@ -3,8 +3,11 @@ pragma solidity ^0.8.26;
 
 import {Owned} from "solmate/auth/Owned.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
 contract SplitWithLockup is Owned(msg.sender) {
+    using SafeTransferLib for ERC20;
+
     mapping(address => bool) public canClaim;
 
     function setCanClaim(address recipient, bool allowed) external onlyOwner {
@@ -34,12 +37,11 @@ contract SplitWithLockup is Owned(msg.sender) {
         ERC20 token,
         SplitParams[] calldata params
     ) external {
-        uint paramsLength = params.length;
-        for (uint i = 0; i < paramsLength; ++i) {
+        for (uint256 i = 0; i < params.length; i++) {
             if (params[i].canTransferNow) {
-                require(token.transferFrom(msg.sender, params[i].recipient, params[i].value));
+                token.safeTransferFrom(msg.sender, params[i].recipient, params[i].value);
             } else {
-                require(token.transferFrom(msg.sender, address(this), params[i].value));
+                token.safeTransferFrom(msg.sender, address(this), params[i].value);
 
                 deposits[depositCount] = Deposit({
                     amount: params[i].value,
@@ -65,7 +67,7 @@ contract SplitWithLockup is Owned(msg.sender) {
         require(canClaim[msg.sender]);
 
         deposit.claimed = true;
-        require(deposit.token.transfer(msg.sender, deposit.amount));
+        deposit.token.safeTransfer(msg.sender, deposit.amount);
     }
 
     function reclaim(uint depositId) external {
@@ -77,6 +79,6 @@ contract SplitWithLockup is Owned(msg.sender) {
         require(block.timestamp > deposit.claimDeadline);
 
         deposit.claimed = true;
-        require(deposit.token.transfer(msg.sender, deposit.amount));
+        deposit.token.safeTransfer(msg.sender, deposit.amount);
     }
 }
