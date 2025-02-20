@@ -10,7 +10,7 @@ contract Stream {
     IERC20 public constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     ISablierLockup public constant LOCKUP = ISablierLockup(0x7C01AA3783577E15fD7e272443D44B92d5b21056);
 
-    function createStream(uint128 totalAmount, address recipient, uint40 duration) public returns (uint256 streamId) {
+    function stream(uint128 totalAmount, address recipient, uint40 duration) public returns (uint256 streamId) {
         USDC.transferFrom(msg.sender, address(this), totalAmount);
         USDC.approve(address(LOCKUP), totalAmount);
 

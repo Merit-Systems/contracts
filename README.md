@@ -1,5 +1,11 @@
 # Merit Contracts
 
+## Payments
+
+- claim (Merkle Tree)
+- split
+- stream (Superfluid)
+
 ## Definitions
 
 1. `PR` (Pull Request):
