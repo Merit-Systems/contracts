@@ -18,6 +18,9 @@ contract SplitWithLockup {
 
     uint public depositCount;
     mapping(uint => Deposit) public deposits;
+    
+    mapping(address => uint[]) public senderDeposits;
+    mapping(address => uint[]) public recipientDeposits;
 
     struct SplitParams {
         address recipient;
@@ -37,7 +40,7 @@ contract SplitWithLockup {
             } else {
                 token.safeTransferFrom(msg.sender, address(this), params[i].value);
 
-                deposits[depositCount++] = Deposit({
+                deposits[depositCount] = Deposit({
                     amount:        params[i].value,
                     token:         token,
                     recipient:     params[i].recipient,
@@ -45,6 +48,10 @@ contract SplitWithLockup {
                     claimDeadline: block.timestamp + params[i].claimPeriod,
                     claimed:       false
                 });
+
+                // Track deposits for both sender and recipient
+                senderDeposits[params[i].sender].push(depositCount);
+                recipientDeposits[params[i].recipient].push(depositCount);
 
                 depositCount++;
             }
@@ -69,5 +76,13 @@ contract SplitWithLockup {
 
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.sender, deposit.amount);
+    }
+
+    function getDepositsBySender(address sender) external view returns (uint[] memory) {
+        return senderDeposits[sender];
+    }
+
+    function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
+        return recipientDeposits[recipient];
     }
 }
