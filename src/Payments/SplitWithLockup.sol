@@ -1,18 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Owned} from "solmate/auth/Owned.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC20}           from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
-contract SplitWithLockup is Owned(msg.sender) {
+contract SplitWithLockup {
     using SafeTransferLib for ERC20;
-
-    mapping(address => bool) public canClaim;
-
-    function setCanClaim(address recipient, bool allowed) external onlyOwner {
-        canClaim[recipient] = allowed;
-    }
 
     struct Deposit {
         uint    amount;
@@ -31,6 +24,7 @@ contract SplitWithLockup is Owned(msg.sender) {
         uint    value;
         bool    canTransferNow;
         uint    claimPeriod;
+        address sender;
     }
 
     function split(
@@ -43,13 +37,13 @@ contract SplitWithLockup is Owned(msg.sender) {
             } else {
                 token.safeTransferFrom(msg.sender, address(this), params[i].value);
 
-                deposits[depositCount] = Deposit({
-                    amount: params[i].value,
-                    token: token,
-                    recipient: params[i].recipient,
-                    sender: msg.sender,
+                deposits[depositCount++] = Deposit({
+                    amount:        params[i].value,
+                    token:         token,
+                    recipient:     params[i].recipient,
+                    sender:        params[i].sender,
                     claimDeadline: block.timestamp + params[i].claimPeriod,
-                    claimed: false
+                    claimed:       false
                 });
 
                 depositCount++;
@@ -61,24 +55,19 @@ contract SplitWithLockup is Owned(msg.sender) {
         Deposit storage deposit = deposits[depositId];
 
         require(!deposit.claimed);
-        require(deposit.amount > 0);
-        require(msg.sender == deposit.recipient);
         require(block.timestamp <= deposit.claimDeadline);
-        require(canClaim[msg.sender]);
 
         deposit.claimed = true;
-        deposit.token.safeTransfer(msg.sender, deposit.amount);
+        deposit.token.safeTransfer(deposit.recipient, deposit.amount);
     }
 
     function reclaim(uint depositId) external {
         Deposit storage deposit = deposits[depositId];
 
         require(!deposit.claimed);
-        require(deposit.amount > 0);
-        require(msg.sender == deposit.sender);
         require(block.timestamp > deposit.claimDeadline);
 
         deposit.claimed = true;
-        deposit.token.safeTransfer(msg.sender, deposit.amount);
+        deposit.token.safeTransfer(deposit.sender, deposit.amount);
     }
 }
