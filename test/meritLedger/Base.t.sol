@@ -5,9 +5,9 @@ import "forge-std/Test.sol";
 
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 
-import {MeritLedger} from "src/MeritLedger.sol";
-import {Params}      from "libraries/Params.sol";
-import {Deploy}      from "../script/Deploy.s.sol";
+import {MeritLedger} from "../../src/MeritLedger.sol";
+import {Params}      from "../../libraries/Params.sol";
+import {Deploy}      from "../../script/Deploy.s.sol";
 
 contract Base_Test is Test {
 

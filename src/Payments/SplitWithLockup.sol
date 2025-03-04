@@ -10,6 +10,7 @@ contract SplitWithLockup {
     address public immutable owner;
 
     mapping(address => bool) public canClaim;
+    mapping(address => uint) public recipientNonces;
 
     struct Deposit {
         uint    amount;
@@ -33,8 +34,16 @@ contract SplitWithLockup {
         uint    claimPeriod;
         address sender;
     }
+    bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce)");
 
-    constructor() { owner = msg.sender; }
+    uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
+    bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
+
+    constructor() { 
+        owner                          = msg.sender;
+        CLAIM_INITIAL_CHAIN_ID         = block.chainid;
+        CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
+    }
 
     function split(
         ERC20 token,
@@ -86,6 +95,7 @@ contract SplitWithLockup {
         deposit.token.safeTransfer(deposit.sender, deposit.amount);
     }
 
+
     function setCanClaim(
         address recipient,
         bool status,
@@ -93,18 +103,44 @@ contract SplitWithLockup {
         bytes32 r,
         bytes32 s
     ) external {
-        bytes32 messageHash = keccak256(
-            abi.encodePacked("setCanClaim", address(this), recipient, status)
+        bytes32 structHash = keccak256(
+            abi.encode(
+                CLAIM_TYPEHASH,
+                recipient,
+                status,
+                recipientNonces[recipient]
+            )
         );
 
-        bytes32 ethSignedMessageHash = keccak256(
-            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", CLAIM_DOMAIN_SEPARATOR(), structHash)
         );
 
-        address signer = ecrecover(ethSignedMessageHash, v, r, s);
-        require(signer == owner, "Invalid signature: Not the owner");
+        address signer = ecrecover(digest, v, r, s);
+        require(signer == owner, "Invalid signature");
+
+        recipientNonces[recipient]++;
 
         canClaim[recipient] = status;
+    }
+
+    function _computeClaimDomainSeparator() internal view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("SplitWithLockup")), 
+                keccak256("1"),
+                block.chainid,
+                address(this)
+            )
+        );
+    }
+
+    function CLAIM_DOMAIN_SEPARATOR() public view returns (bytes32) {
+        if (block.chainid == CLAIM_INITIAL_CHAIN_ID) {
+            return CLAIM_INITIAL_DOMAIN_SEPARATOR;
+        }
+        return _computeClaimDomainSeparator();
     }
 
     function getDepositsBySender(address sender) external view returns (uint[] memory) {
