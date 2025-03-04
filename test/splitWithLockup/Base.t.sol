@@ -30,7 +30,7 @@ contract Base_Test is Test {
         vm.expectRevert(bytes(message));
     }
 
-    function test_setCanClaim() public {
+    function test_signature() public {
         // these signatures are created through the create-signature.js script
         // or simply run 'npm run create-signature'
         uint8   v = 27;

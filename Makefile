@@ -28,5 +28,5 @@ deploy-split-with-lockup:
 		--verify \
 		--optimize
 
-test-split-with-lockup:
-	forge t --match-test test_setCanClaim -vvv
+test-signature:
+	forge t --match-test test_signature -vvv
