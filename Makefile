@@ -29,4 +29,4 @@ deploy-split-with-lockup:
 		--optimize
 
 test-split-with-lockup:
-	forge t --match-test test_setCanClaim
+	forge t --match-test test_setCanClaim -vvv

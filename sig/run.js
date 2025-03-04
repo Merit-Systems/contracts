@@ -5,40 +5,39 @@ const { ethers } = require("ethers");
 const privateKey =
   "0x4646464646464646464646464646464646464646464646464646464646464646";
 
-console.log(privateKey);
-
 // Domain parameters for EIP-712
-const managerAddress = "0x1000000000000000000000000000000000000013"; // Replace with your contract address
-const delegateAddress = "0x1000000000000000000000000000000000000014";
+const verifyingContract = "0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f"; // Replace with your contract address
 const chainId = 31337; // Mainnet is 1, but you can use another chainId as needed
 
 // Create a signer from the private key
 const wallet = new ethers.Wallet(privateKey);
 
+// get the public key
+const publicKey = ethers.utils.computeAddress(privateKey);
+console.log("publicKey", publicKey);
+
 // Define the EIP-712 domain
 const domain = {
-  name: "Fortis wstETH",
+  name: "SplitWithLockup",
   version: "1",
   chainId: chainId,
-  verifyingContract: managerAddress,
+  verifyingContract: verifyingContract,
 };
 
 // Define the types
 const types = {
-  Unlock: [
-    { name: "owner", type: "address" },
+  Claim: [
+    { name: "recipient", type: "address" },
+    { name: "status", type: "bool" },
     { name: "nonce", type: "uint256" },
-    { name: "deadline", type: "uint256" },
-    { name: "delegate", type: "address" },
   ],
 };
 
 // Define the values being signed
 const value = {
-  owner: wallet.address,
+  recipient: publicKey,
+  status: true,
   nonce: 0, // Replace with the actual nonce for the user
-  deadline: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-  delegate: delegateAddress,
 };
 
 async function main() {
