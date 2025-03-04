@@ -27,3 +27,6 @@ deploy-split-with-lockup:
 		--via-ir \
 		--verify \
 		--optimize
+
+test-signature:
+	forge t --match-test test_signature -vvv
