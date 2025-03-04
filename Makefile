@@ -27,3 +27,6 @@ deploy-split-with-lockup:
 		--via-ir \
 		--verify \
 		--optimize
+
+test-split-with-lockup:
+	forge t --match-test test_setCanClaim
