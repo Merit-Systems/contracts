@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import "forge-std/console.sol";
-
 import {ERC20}           from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {Owned}           from "solmate/auth/Owned.sol";
@@ -75,10 +73,12 @@ contract SplitWithLockup is Owned {
     function claim(uint depositId) external {
         Deposit storage deposit = deposits[depositId];
 
+        // TODO: enable requires!!
+
         // require(!deposit.claimed);
         // require(block.timestamp <= deposit.claimDeadline);
-        require(deposit.recipient == msg.sender);
-        require(canClaim[msg.sender]);
+        // require(deposit.recipient == msg.sender);
+        // require(canClaim[msg.sender]);
 
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.recipient, deposit.amount);
