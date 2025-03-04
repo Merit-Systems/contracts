@@ -3,11 +3,10 @@ pragma solidity ^0.8.26;
 
 import {ERC20}           from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {Owned}           from "solmate/auth/Owned.sol";
 
-contract SplitWithLockup {
+contract SplitWithLockup is Owned {
     using SafeTransferLib for ERC20;
-
-    address public immutable owner;
 
     mapping(address => bool) public canClaim;
     mapping(address => uint) public recipientNonces;
@@ -39,8 +38,7 @@ contract SplitWithLockup {
     uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
     bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
 
-    constructor() { 
-        owner                          = msg.sender;
+    constructor() Owned(msg.sender) { 
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
     }
