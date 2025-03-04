@@ -31,8 +31,7 @@ contract Base_Test is Test {
     }
 
     function test_signature() public {
-        // these signatures are created through the create-signature.js script
-        // or simply run 'npm run create-signature'
+        // these signatures are created through the signer-eip712 repo
         uint8   v = 27;
         bytes32 r = 0x27f6768a2eafcaad123b2ad1bdac4fdeb8862793837bc1eddfe2755e3fe5941c;
         bytes32 s = 0x1d40a52adcd6044f7d04fee58b67c9f3fe860dc9f00d6091fbb86474f075794c;
