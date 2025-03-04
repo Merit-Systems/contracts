@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "ethers": "^5.7.2"
-  },
-  "scripts": {
-    "start": "node run.js"
-  }
-}

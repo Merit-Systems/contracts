@@ -31,10 +31,8 @@ contract Base_Test is Test {
     }
 
     function test_setCanClaim() public {
-        console.log("splitContract", address(splitContract));
-        console.log("owner", splitContract.owner());
-        console.log("chainId", block.chainid);
-
+        // these signatures are created through the create-signature.js script
+        // or simply run 'npm run create-signature'
         uint8   v = 27;
         bytes32 r = 0x27f6768a2eafcaad123b2ad1bdac4fdeb8862793837bc1eddfe2755e3fe5941c;
         bytes32 s = 0x1d40a52adcd6044f7d04fee58b67c9f3fe860dc9f00d6091fbb86474f075794c;
