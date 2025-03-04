@@ -1,3 +1,3 @@
 ### sig
 
-use the run.js script to generate a valid signature.
+run `npm start create-signature` to generate a valid signature. Make sure you are using the correct parameters in the script!!
