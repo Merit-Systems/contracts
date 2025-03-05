@@ -83,6 +83,20 @@ contract SplitWithLockup is Owned {
         deposit.token.safeTransfer(deposit.recipient, deposit.amount);
     }
 
+    function batchClaim(uint[] calldata depositIds) external {
+        for (uint256 i = 0; i < depositIds.length; i++) {
+            Deposit storage deposit = deposits[depositIds[i]];
+
+            // TODO: enable requires!!
+            // require(!deposit.claimed, "Already claimed");
+            // require(block.timestamp <= deposit.claimDeadline, "Deadline passed");
+            // require(deposit.recipient == msg.sender, "Not recipient");
+
+            deposit.claimed = true;
+            deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+        }
+    }
+
     function claimWithSignature(uint depositId, address recipient, bool status, uint8 v, bytes32 r, bytes32 s) external {
         setCanClaim(recipient, status, v, r, s);
         // require(canClaim[recipient]);
