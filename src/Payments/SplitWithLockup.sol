@@ -78,7 +78,21 @@ contract SplitWithLockup is Owned {
         // require(!deposit.claimed);
         // require(block.timestamp <= deposit.claimDeadline);
         // require(deposit.recipient == msg.sender);
-        // require(canClaim[msg.sender]);
+
+        deposit.claimed = true;
+        deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+    }
+
+    function claimWithSignature(uint depositId, address recipient, bool status, uint8 v, bytes32 r, bytes32 s) external {
+        setCanClaim(recipient, status, v, r, s);
+        // require(canClaim[recipient]);
+        Deposit storage deposit = deposits[depositId];
+
+        // TODO: enable requires!!
+
+        // require(!deposit.claimed);
+        // require(block.timestamp <= deposit.claimDeadline);
+        // require(deposit.recipient == msg.sender);
 
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.recipient, deposit.amount);
@@ -102,7 +116,7 @@ contract SplitWithLockup is Owned {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external {
+    ) public {
         bytes32 structHash = keccak256(
             abi.encode(
                 CLAIM_TYPEHASH,
