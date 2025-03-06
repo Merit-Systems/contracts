@@ -73,11 +73,8 @@ contract SplitWithLockup is Owned {
     function claim(uint depositId) external {
         Deposit storage deposit = deposits[depositId];
 
-        // TODO: enable requires!!
-
-        // require(!deposit.claimed);
-        // require(block.timestamp <= deposit.claimDeadline);
-        // require(deposit.recipient == msg.sender);
+        require(!deposit.claimed);
+        require(block.timestamp <= deposit.claimDeadline);
 
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.recipient, deposit.amount);
@@ -87,10 +84,8 @@ contract SplitWithLockup is Owned {
         for (uint256 i = 0; i < depositIds.length; i++) {
             Deposit storage deposit = deposits[depositIds[i]];
 
-            // TODO: enable requires!!
-            // require(!deposit.claimed, "Already claimed");
-            // require(block.timestamp <= deposit.claimDeadline, "Deadline passed");
-            // require(deposit.recipient == msg.sender, "Not recipient");
+            require(!deposit.claimed);
+            require(block.timestamp <= deposit.claimDeadline);
 
             deposit.claimed = true;
             deposit.token.safeTransfer(deposit.recipient, deposit.amount);
@@ -99,14 +94,12 @@ contract SplitWithLockup is Owned {
 
     function claimWithSignature(uint depositId, address recipient, bool status, uint8 v, bytes32 r, bytes32 s) external {
         setCanClaim(recipient, status, v, r, s);
-        // require(canClaim[recipient]);
+        require(canClaim[recipient]);
+
         Deposit storage deposit = deposits[depositId];
 
-        // TODO: enable requires!!
-
-        // require(!deposit.claimed);
-        // require(block.timestamp <= deposit.claimDeadline);
-        // require(deposit.recipient == msg.sender);
+        require(!deposit.claimed);
+        require(block.timestamp <= deposit.claimDeadline);
 
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.recipient, deposit.amount);
@@ -120,17 +113,14 @@ contract SplitWithLockup is Owned {
         bytes32 r,
         bytes32 s
     ) external {
-        // Verify signature and set claim status once for all deposits
         setCanClaim(recipient, status, v, r, s);
-        // require(canClaim[recipient]);
+        require(canClaim[recipient]);
         
         for (uint256 i = 0; i < depositIds.length; i++) {
             Deposit storage deposit = deposits[depositIds[i]];
 
-            // TODO: enable requires!!
-            // require(!deposit.claimed);
-            // require(block.timestamp <= deposit.claimDeadline);
-            // require(deposit.recipient == msg.sender);
+            require(!deposit.claimed);
+            require(block.timestamp <= deposit.claimDeadline);
 
             deposit.claimed = true;
             deposit.token.safeTransfer(deposit.recipient, deposit.amount);
@@ -142,7 +132,6 @@ contract SplitWithLockup is Owned {
 
         require(!deposit.claimed);
         require(block.timestamp > deposit.claimDeadline);
-        // require(deposit.sender == msg.sender);
 
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.sender, deposit.amount);
