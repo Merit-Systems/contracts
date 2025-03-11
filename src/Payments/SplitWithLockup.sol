@@ -115,6 +115,17 @@ contract SplitWithLockup is Owned {
         deposit.token.safeTransfer(deposit.sender, deposit.amount);
     }
 
+    function batchReclaim(uint[] calldata depositIds) external {
+        for (uint256 i = 0; i < depositIds.length; i++) {
+            Deposit storage deposit = deposits[depositIds[i]];
+
+            require(!deposit.claimed);
+            require(block.timestamp > deposit.claimDeadline);
+
+            deposit.claimed = true;
+            deposit.token.safeTransfer(deposit.sender, deposit.amount);
+        }
+    }
 
     function setCanClaim(
         address recipient,
