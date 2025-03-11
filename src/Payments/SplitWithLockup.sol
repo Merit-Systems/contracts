@@ -38,7 +38,7 @@ contract SplitWithLockup is Owned {
     uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
     bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
 
-    constructor() Owned(msg.sender) { 
+    constructor(address _owner) Owned(_owner) { 
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
     }
@@ -67,28 +67,6 @@ contract SplitWithLockup is Owned {
 
                 depositCount++;
             }
-        }
-    }
-
-    function claim(uint depositId) external {
-        Deposit storage deposit = deposits[depositId];
-
-        require(!deposit.claimed);
-        require(block.timestamp <= deposit.claimDeadline);
-
-        deposit.claimed = true;
-        deposit.token.safeTransfer(deposit.recipient, deposit.amount);
-    }
-
-    function batchClaim(uint[] calldata depositIds) external {
-        for (uint256 i = 0; i < depositIds.length; i++) {
-            Deposit storage deposit = deposits[depositIds[i]];
-
-            require(!deposit.claimed);
-            require(block.timestamp <= deposit.claimDeadline);
-
-            deposit.claimed = true;
-            deposit.token.safeTransfer(deposit.recipient, deposit.amount);
         }
     }
 
