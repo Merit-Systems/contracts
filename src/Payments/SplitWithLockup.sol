@@ -134,6 +134,10 @@ contract SplitWithLockup is Owned {
         bytes32 r,
         bytes32 s
     ) public {
+        if (canClaim[recipient]) {
+            return;
+        }
+
         bytes32 structHash = keccak256(
             abi.encode(
                 CLAIM_TYPEHASH,
