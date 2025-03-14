@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ERC20}           from "solmate/tokens/ERC20.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {Owned}           from "solmate/auth/Owned.sol";
+import {ERC20}            from "solmate/tokens/ERC20.sol";
+import {SafeTransferLib}  from "solmate/utils/SafeTransferLib.sol";
+import {Owned}            from "solmate/auth/Owned.sol";
+import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
 
-contract SplitWithLockup is Owned {
+contract SplitWithLockup is Owned, ISplitWithLockup {
     using SafeTransferLib for ERC20;
 
     mapping(address => bool) public canClaim;
@@ -62,6 +63,15 @@ contract SplitWithLockup is Owned {
             senderDeposits   [params[i].sender]   .push(depositCount);
             recipientDeposits[params[i].recipient].push(depositCount);
 
+            emit DepositCreated(
+                depositCount,
+                address(token),
+                params[i].recipient,
+                params[i].sender,
+                params[i].value,
+                block.timestamp + params[i].claimPeriod
+            );
+
             depositCount++;
         }
     }
@@ -104,6 +114,8 @@ contract SplitWithLockup is Owned {
         
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+
+        emit Claimed(depositId, deposit.recipient, deposit.amount);
     }
 
     function reclaim(uint depositId) external {
@@ -124,6 +136,8 @@ contract SplitWithLockup is Owned {
         
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.sender, deposit.amount);
+
+        emit Reclaimed(depositId, deposit.sender, deposit.amount);
     }
 
     function setCanClaim(
@@ -154,6 +168,8 @@ contract SplitWithLockup is Owned {
         recipientNonces[recipient]++;
 
         canClaim[recipient] = status;
+
+        emit CanClaimSet(recipient, status);
     }
 
     function _computeClaimDomainSeparator() internal view returns (bytes32) {
