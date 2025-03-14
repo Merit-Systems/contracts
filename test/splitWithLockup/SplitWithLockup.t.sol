@@ -54,6 +54,16 @@ contract Base_Test is Test {
         assertEq(wETH.balanceOf(alice), 1000000000000000000);
     }
 
+    function test_claimTwice() public {
+        uint[] memory depositIds = split(1000000000000000000, alice);
+        (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
+        splitContract.claimWithSignature(depositIds[0], alice, true, v, r, s);
+
+        uint[] memory depositIds2 = split(1000000000000000000, alice);
+        (v, r, s) = generateSignature(alice, true);
+        splitContract.claimWithSignature(depositIds2[0], alice, true, v, r, s);
+    }
+
     function test_claim_failAlreadyClaimed() public {
         uint[] memory depositIds = split(1000000000000000000, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
@@ -138,7 +148,7 @@ contract Base_Test is Test {
                 splitContract.CLAIM_TYPEHASH(),
                 recipient,
                 status,
-                0
+                splitContract.recipientNonces(recipient)
             )
         );
 
