@@ -33,15 +33,17 @@ contract Base_Test is Test {
     }
 
     function test_split() public {
-        wETH.mint(address(this), 1);
-        wETH.approve(address(splitContract), 1);
+        uint amount = 1000000000000000000;
+
+        wETH.mint(address(this), amount);
+        wETH.approve(address(splitContract), amount);
 
         SplitParams[] memory params = new SplitParams[](1);
         params[0] = SplitParams({
             token:       wETH,
             sender:      bob,
             recipient:   alice,
-            amount:      1,
+            amount:      amount,
             claimPeriod: 1 days
         });
         splitContract.split(params);
