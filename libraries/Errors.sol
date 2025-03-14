@@ -23,4 +23,7 @@ library Errors {
     string internal constant CLAIM_EXPIRED          = "Claim Expired";
     string internal constant STILL_CLAIMABLE        = "Still Claimable";
     string internal constant INVALID_SIGNATURE      = "Invalid Signature";
+    string internal constant INVALID_ADDRESS        = "Invalid Address";
+    string internal constant INVALID_AMOUNT         = "Invalid Amount";
+    string internal constant INVALID_CLAIM_PERIOD   = "Invalid Claim Period";
 }
