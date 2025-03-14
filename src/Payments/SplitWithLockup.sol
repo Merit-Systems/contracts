@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ERC20}           from "solmate/tokens/ERC20.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {Owned}           from "solmate/auth/Owned.sol";
+import {ERC20}            from "solmate/tokens/ERC20.sol";
+import {SafeTransferLib}  from "solmate/utils/SafeTransferLib.sol";
+import {Owned}            from "solmate/auth/Owned.sol";
+import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
+import {Errors}           from "../../libraries/Errors.sol";
 
-contract SplitWithLockup is Owned {
+contract SplitWithLockup is Owned, ISplitWithLockup {
     using SafeTransferLib for ERC20;
 
     mapping(address => bool) public canClaim;
@@ -21,18 +23,18 @@ contract SplitWithLockup is Owned {
     }
 
     uint public depositCount;
-    mapping(uint => Deposit) public deposits;
 
-    mapping(address => uint[]) public senderDeposits;
-    mapping(address => uint[]) public recipientDeposits;
+    mapping(uint    => Deposit) public deposits;
+    mapping(address => uint[])  public senderDeposits;
+    mapping(address => uint[])  public recipientDeposits;
 
     struct SplitParams {
         address recipient;
         uint    value;
-        bool    canTransferNow;
         uint    claimPeriod;
         address sender;
     }
+
     bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce)");
 
     uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
@@ -44,99 +46,108 @@ contract SplitWithLockup is Owned {
     }
 
     function split(
-        ERC20 token,
+        ERC20                  token,
         SplitParams[] calldata params
     ) external {
         for (uint256 i = 0; i < params.length; i++) {
-            if (params[i].canTransferNow) {
-                token.safeTransferFrom(msg.sender, params[i].recipient, params[i].value);
-            } else {
-                token.safeTransferFrom(msg.sender, address(this), params[i].value);
+            token.safeTransferFrom(msg.sender, address(this), params[i].value);
 
-                deposits[depositCount] = Deposit({
-                    amount:        params[i].value,
-                    token:         token,
-                    recipient:     params[i].recipient,
-                    sender:        params[i].sender,
-                    claimDeadline: block.timestamp + params[i].claimPeriod,
-                    claimed:       false
-                });
+            deposits[depositCount] = Deposit({
+                amount:        params[i].value,
+                token:         token,
+                recipient:     params[i].recipient,
+                sender:        params[i].sender,
+                claimDeadline: block.timestamp + params[i].claimPeriod,
+                claimed:       false
+            });
 
-                senderDeposits[params[i].sender].push(depositCount);
-                recipientDeposits[params[i].recipient].push(depositCount);
+            senderDeposits   [params[i].sender]   .push(depositCount);
+            recipientDeposits[params[i].recipient].push(depositCount);
 
-                depositCount++;
-            }
+            emit DepositCreated(
+                depositCount,
+                address(token),
+                params[i].recipient,
+                params[i].sender,
+                params[i].value,
+                block.timestamp + params[i].claimPeriod
+            );
+
+            depositCount++;
         }
     }
 
-    function claimWithSignature(uint depositId, address recipient, bool status, uint8 v, bytes32 r, bytes32 s) external {
+    function claimWithSignature(
+        uint    depositId,
+        address recipient,
+        bool    status,
+        uint8   v,
+        bytes32 r,
+        bytes32 s
+    ) external {
         setCanClaim(recipient, status, v, r, s);
-        require(canClaim[recipient]);
-
-        Deposit storage deposit = deposits[depositId];
-
-        require(!deposit.claimed);
-        require(block.timestamp <= deposit.claimDeadline);
-
-        deposit.claimed = true;
-        deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+        require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
+        _claim(depositId);
     }
 
     function batchClaimWithSignature(
         uint[] calldata depositIds,
-        address recipient,
-        bool status,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        address         recipient,
+        bool            status,
+        uint8           v,
+        bytes32         r,
+        bytes32         s
     ) external {
         setCanClaim(recipient, status, v, r, s);
-        require(canClaim[recipient]);
-        
+        require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
+
         for (uint256 i = 0; i < depositIds.length; i++) {
-            Deposit storage deposit = deposits[depositIds[i]];
-
-            require(!deposit.claimed);
-            require(block.timestamp <= deposit.claimDeadline);
-
-            deposit.claimed = true;
-            deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+            _claim(depositIds[i]);
         }
     }
 
-    function reclaim(uint depositId) external {
+    function _claim(uint depositId) internal {
         Deposit storage deposit = deposits[depositId];
 
-        require(!deposit.claimed);
-        require(block.timestamp > deposit.claimDeadline);
-
+        require(!deposit.claimed,                         Errors.ALREADY_CLAIMED);
+        require(block.timestamp <= deposit.claimDeadline, Errors.CLAIM_EXPIRED);
+        
         deposit.claimed = true;
-        deposit.token.safeTransfer(deposit.sender, deposit.amount);
+        deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+
+        emit Claimed(depositId, deposit.recipient, deposit.amount);
+    }
+
+    function reclaim(uint depositId) external {
+        _reclaim(depositId);
     }
 
     function batchReclaim(uint[] calldata depositIds) external {
         for (uint256 i = 0; i < depositIds.length; i++) {
-            Deposit storage deposit = deposits[depositIds[i]];
-
-            require(!deposit.claimed);
-            require(block.timestamp > deposit.claimDeadline);
-
-            deposit.claimed = true;
-            deposit.token.safeTransfer(deposit.sender, deposit.amount);
+            _reclaim(depositIds[i]);
         }
+    }
+
+    function _reclaim(uint depositId) internal {
+        Deposit storage deposit = deposits[depositId];
+
+        require(!deposit.claimed,                        Errors.ALREADY_CLAIMED);
+        require(block.timestamp > deposit.claimDeadline, Errors.STILL_CLAIMABLE);
+        
+        deposit.claimed = true;
+        deposit.token.safeTransfer(deposit.sender, deposit.amount);
+
+        emit Reclaimed(depositId, deposit.sender, deposit.amount);
     }
 
     function setCanClaim(
         address recipient,
-        bool status,
-        uint8 v,
+        bool    status,
+        uint8   v,
         bytes32 r,
         bytes32 s
     ) public {
-        if (canClaim[recipient]) {
-            return;
-        }
+        if (canClaim[recipient] == status) return;
 
         bytes32 structHash = keccak256(
             abi.encode(
@@ -152,11 +163,13 @@ contract SplitWithLockup is Owned {
         );
 
         address signer = ecrecover(digest, v, r, s);
-        require(signer == owner, "Invalid signature");
+        require(signer == owner, Errors.INVALID_SIGNATURE);
 
         recipientNonces[recipient]++;
 
         canClaim[recipient] = status;
+
+        emit CanClaimSet(recipient, status);
     }
 
     function _computeClaimDomainSeparator() internal view returns (bytes32) {
