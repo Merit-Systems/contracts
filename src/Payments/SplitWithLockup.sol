@@ -86,7 +86,8 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         bytes32 s
     ) external {
         setCanClaim(recipient, status, v, r, s);
-        _claim     (depositId);
+        require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
+        _claim(depositId);
     }
 
     function batchClaimWithSignature(
@@ -98,7 +99,8 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         bytes32         s
     ) external {
         setCanClaim(recipient, status, v, r, s);
-        
+        require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
+
         for (uint256 i = 0; i < depositIds.length; i++) {
             _claim(depositIds[i]);
         }
@@ -107,7 +109,6 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     function _claim(uint depositId) internal {
         Deposit storage deposit = deposits[depositId];
 
-        require(canClaim[deposit.recipient],              Errors.NO_PAYMENT_PERMISSION);
         require(!deposit.claimed,                         Errors.ALREADY_CLAIMED);
         require(block.timestamp <= deposit.claimDeadline, Errors.CLAIM_EXPIRED);
         
