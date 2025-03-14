@@ -46,6 +46,13 @@ contract Base_Test is Test {
         assertEq(splitContract.canClaim(alice), true);
     }
 
+    function test_claim() public {
+        uint[] memory depositIds = split(1000000000000000000, alice);
+        (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
+        splitContract.claimWithSignature(depositIds[0], alice, true, v, r, s);
+        assertEq(wETH.balanceOf(alice), 1000000000000000000);
+    }
+
     function split(uint amount, address recipient) public returns (uint[] memory depositIds) {
         wETH.mint(address(this), amount);
         wETH.approve(address(splitContract), amount);
@@ -84,5 +91,22 @@ contract Base_Test is Test {
             r,
             s
         );
+    }
+
+    function generateSignature(address recipient, bool status) public view returns (uint8 v, bytes32 r, bytes32 s) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                splitContract.CLAIM_TYPEHASH(),
+                recipient,
+                status,
+                0
+            )
+        );
+
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", splitContract.CLAIM_DOMAIN_SEPARATOR(), structHash)
+        );
+    
+        (v, r, s) = vm.sign(ownerPrivateKey, digest);
     }
 }
