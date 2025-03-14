@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import {ECDSA}            from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ERC20}            from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib}  from "solmate/utils/SafeTransferLib.sol";
 import {Owned}            from "solmate/auth/Owned.sol";
@@ -178,7 +179,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
             abi.encodePacked("\x19\x01", CLAIM_DOMAIN_SEPARATOR(), structHash)
         );
 
-        address signer = ecrecover(digest, v, r, s);
+        address signer = ECDSA.recover(digest, v, r, s);
         require(signer == owner, Errors.INVALID_SIGNATURE);
 
         recipientNonces[recipient]++;
