@@ -53,6 +53,22 @@ contract Base_Test is Test {
         assertEq(wETH.balanceOf(alice), 1000000000000000000);
     }
 
+    function test_reclaim() public {
+        uint[] memory depositIds = split(1000000000000000000, alice);
+        vm.warp(block.timestamp + 2 days);
+        assertEq(wETH.balanceOf(bob), 0);
+        splitContract.reclaim(depositIds[0]);
+        assertEq(wETH.balanceOf(bob), 1000000000000000000);
+    }
+
+    function test_batchReclaim() public {
+        uint[] memory depositIds = split(1000000000000000000, alice);
+        vm.warp(block.timestamp + 2 days);
+        assertEq(wETH.balanceOf(bob), 0);
+        splitContract.batchReclaim(depositIds);
+        assertEq(wETH.balanceOf(bob), 1000000000000000000);
+    }
+
     function split(uint amount, address recipient) public returns (uint[] memory depositIds) {
         wETH.mint(address(this), amount);
         wETH.approve(address(splitContract), amount);
