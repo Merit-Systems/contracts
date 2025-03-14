@@ -53,36 +53,32 @@ contract Base_Test is Test {
     }
 
     function test_setCanClaim() public {
-        address signer = vm.addr(ownerPrivateKey);
+        setCanClaim(alice, true);
+        assertEq(splitContract.canClaim(alice), true);
+    }
 
-        vm.assertEq(signer, owner);
-
-        bytes32 domainSeparator = splitContract.CLAIM_DOMAIN_SEPARATOR();
-        bytes32 CLAIM_TYPEHASH = splitContract.CLAIM_TYPEHASH();
-
+    function setCanClaim(address recipient, bool status) public {
         bytes32 structHash = keccak256(
             abi.encode(
-                CLAIM_TYPEHASH,
-                owner, // recipient 
-                true,  // status
-                0      // nonce
+                splitContract.CLAIM_TYPEHASH(),
+                recipient, 
+                status,  
+                0
             )
         );
 
         bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domainSeparator, structHash)
+            abi.encodePacked("\x19\x01", splitContract.CLAIM_DOMAIN_SEPARATOR(), structHash)
         );
     
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         splitContract.setCanClaim(
-            owner,
-            true,
+            recipient,
+            status,
             v,
             r,
             s
         );
-
-        assertEq(splitContract.canClaim(owner), true);
     }
 }
