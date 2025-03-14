@@ -29,10 +29,10 @@ contract SplitWithLockup is Owned {
     struct SplitParams {
         address recipient;
         uint    value;
-        bool    canTransferNow;
         uint    claimPeriod;
         address sender;
     }
+
     bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce)");
 
     uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
@@ -59,7 +59,7 @@ contract SplitWithLockup is Owned {
                 claimed:       false
             });
 
-            senderDeposits[params[i].sender].push(depositCount);
+            senderDeposits   [params[i].sender]   .push(depositCount);
             recipientDeposits[params[i].recipient].push(depositCount);
 
             depositCount++;
@@ -77,7 +77,7 @@ contract SplitWithLockup is Owned {
         setCanClaim(recipient, status, v, r, s);
         require(canClaim[recipient]);
 
-        _claim(depositId, recipient);
+        _claim(depositId);
     }
 
     function batchClaimWithSignature(
@@ -92,28 +92,38 @@ contract SplitWithLockup is Owned {
         require(canClaim[recipient]);
         
         for (uint256 i = 0; i < depositIds.length; i++) {
-            _claim(depositIds[i], recipient);
+            _claim(depositIds[i]);
         }
     }
 
-    function reclaim(uint depositId) external {
-        _claim(depositId, deposits[depositId].sender);
-    }
-
-    function batchReclaim(uint[] calldata depositIds) external {
-        for (uint256 i = 0; i < depositIds.length; i++) {
-            _claim(depositIds[i], deposits[depositIds[i]].sender);
-        }
-    }
-
-    function _claim(uint depositId, address recipient) internal {
+    function _claim(uint depositId) internal {
         Deposit storage deposit = deposits[depositId];
 
         require(!deposit.claimed);
         require(block.timestamp <= deposit.claimDeadline);
         
         deposit.claimed = true;
-        deposit.token.safeTransfer(recipient, deposit.amount);
+        deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+    }
+
+    function reclaim(uint depositId) external {
+        _reclaim(depositId);
+    }
+
+    function batchReclaim(uint[] calldata depositIds) external {
+        for (uint256 i = 0; i < depositIds.length; i++) {
+            _reclaim(depositIds[i]);
+        }
+    }
+
+    function _reclaim(uint depositId) internal {
+        Deposit storage deposit = deposits[depositId];
+
+        require(!deposit.claimed);
+        require(block.timestamp > deposit.claimDeadline);
+        
+        deposit.claimed = true;
+        deposit.token.safeTransfer(deposit.sender, deposit.amount);
     }
 
     function setCanClaim(
@@ -139,7 +149,7 @@ contract SplitWithLockup is Owned {
         );
 
         address signer = ecrecover(digest, v, r, s);
-        require(signer == owner, "Invalid signature");
+        require(signer == owner);
 
         recipientNonces[recipient]++;
 
