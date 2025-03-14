@@ -96,7 +96,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         }
     }
 
-    function claimWithSignature(
+    function claim(
         uint    depositId,
         address recipient,
         bool    status,
@@ -109,7 +109,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         _claim(depositId, recipient);
     }
 
-    function batchClaimWithSignature(
+    function batchClaim(
         uint[] calldata depositIds,
         address         recipient,
         bool            status,
