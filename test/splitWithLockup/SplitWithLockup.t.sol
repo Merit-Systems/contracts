@@ -9,6 +9,7 @@ import {ERC20}     from "solmate/tokens/ERC20.sol";
 import {SplitWithLockup, SplitParams} from "../../src/Payments/SplitWithLockup.sol";
 import {Params}      from "../../libraries/Params.sol";
 import {Deploy}      from "../../script/Deploy.s.sol";
+import {Errors}      from "../../libraries/Errors.sol";
 
 contract Base_Test is Test {
 
@@ -59,6 +60,20 @@ contract Base_Test is Test {
         assertEq(wETH.balanceOf(bob), 0);
         splitContract.reclaim(depositIds[0]);
         assertEq(wETH.balanceOf(bob), 1000000000000000000);
+    }
+
+    function test_reclaim_failStillClaimable() public {
+        uint[] memory depositIds = split(1000000000000000000, alice);
+        expectRevert(Errors.STILL_CLAIMABLE);
+        splitContract.reclaim(depositIds[0]);
+    }
+
+    function test_reclaim_failAlreadyClaimed() public {
+        uint[] memory depositIds = split(1000000000000000000, alice);
+        vm.warp(block.timestamp + 2 days);
+        splitContract.reclaim(depositIds[0]);
+        expectRevert(Errors.ALREADY_CLAIMED);
+        splitContract.reclaim(depositIds[0]);
     }
 
     function test_batchReclaim() public {
