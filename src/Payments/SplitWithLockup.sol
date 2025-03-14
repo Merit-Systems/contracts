@@ -74,13 +74,7 @@ contract SplitWithLockup is Owned {
         setCanClaim(recipient, status, v, r, s);
         require(canClaim[recipient]);
 
-        Deposit storage deposit = deposits[depositId];
-
-        require(!deposit.claimed);
-        require(block.timestamp <= deposit.claimDeadline);
-
-        deposit.claimed = true;
-        deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+        _claim(depositId, recipient);
     }
 
     function batchClaimWithSignature(
@@ -95,36 +89,28 @@ contract SplitWithLockup is Owned {
         require(canClaim[recipient]);
         
         for (uint256 i = 0; i < depositIds.length; i++) {
-            Deposit storage deposit = deposits[depositIds[i]];
-
-            require(!deposit.claimed);
-            require(block.timestamp <= deposit.claimDeadline);
-
-            deposit.claimed = true;
-            deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+            _claim(depositIds[i], recipient);
         }
     }
 
     function reclaim(uint depositId) external {
-        Deposit storage deposit = deposits[depositId];
-
-        require(!deposit.claimed);
-        require(block.timestamp > deposit.claimDeadline);
-
-        deposit.claimed = true;
-        deposit.token.safeTransfer(deposit.sender, deposit.amount);
+        _claim(depositId, deposits[depositId].sender);
     }
 
     function batchReclaim(uint[] calldata depositIds) external {
         for (uint256 i = 0; i < depositIds.length; i++) {
-            Deposit storage deposit = deposits[depositIds[i]];
-
-            require(!deposit.claimed);
-            require(block.timestamp > deposit.claimDeadline);
-
-            deposit.claimed = true;
-            deposit.token.safeTransfer(deposit.sender, deposit.amount);
+            _claim(depositIds[i], deposits[depositIds[i]].sender);
         }
+    }
+
+    function _claim(uint depositId, address recipient) internal {
+        Deposit storage deposit = deposits[depositId];
+
+        require(!deposit.claimed);
+        require(block.timestamp <= deposit.claimDeadline);
+        
+        deposit.claimed = true;
+        deposit.token.safeTransfer(recipient, deposit.amount);
     }
 
     function setCanClaim(
@@ -134,9 +120,7 @@ contract SplitWithLockup is Owned {
         bytes32 r,
         bytes32 s
     ) public {
-        if (canClaim[recipient]) {
-            return;
-        }
+        if (canClaim[recipient] == status) return;
 
         bytes32 structHash = keccak256(
             abi.encode(
