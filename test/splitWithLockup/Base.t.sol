@@ -17,7 +17,8 @@ contract Base_Test is Test {
     address alice;
     address bob;
 
-    address owner = 0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F;
+    uint256 ownerPrivateKey = 0x4646464646464646464646464646464646464646464646464646464646464646;
+    address owner            = vm.addr(ownerPrivateKey);
 
     MockERC20 wETH = new MockERC20("Wrapped Ether", "wETH", 18);
 
@@ -50,10 +51,9 @@ contract Base_Test is Test {
     }
 
     function test_setCanClaim() public {
-        uint256 privateKey = 0x4646464646464646464646464646464646464646464646464646464646464646;
-        address signer = vm.addr(privateKey);
+        address signer = vm.addr(ownerPrivateKey);
 
-        assertEq(signer, owner);
+        vm.assertEq(signer, owner);
 
         bytes32 domainSeparator = splitContract.CLAIM_DOMAIN_SEPARATOR();
         bytes32 CLAIM_TYPEHASH = splitContract.CLAIM_TYPEHASH();
@@ -71,7 +71,7 @@ contract Base_Test is Test {
             abi.encodePacked("\x19\x01", domainSeparator, structHash)
         );
     
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         splitContract.setCanClaim(
             owner,
