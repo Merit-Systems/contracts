@@ -21,10 +21,10 @@ contract SplitWithLockup is Owned {
     }
 
     uint public depositCount;
-    mapping(uint => Deposit) public deposits;
 
-    mapping(address => uint[]) public senderDeposits;
-    mapping(address => uint[]) public recipientDeposits;
+    mapping(uint    => Deposit) public deposits;
+    mapping(address => uint[])  public senderDeposits;
+    mapping(address => uint[])  public recipientDeposits;
 
     struct SplitParams {
         address recipient;
@@ -44,33 +44,36 @@ contract SplitWithLockup is Owned {
     }
 
     function split(
-        ERC20 token,
+        ERC20                  token,
         SplitParams[] calldata params
     ) external {
         for (uint256 i = 0; i < params.length; i++) {
-            if (params[i].canTransferNow) {
-                token.safeTransferFrom(msg.sender, params[i].recipient, params[i].value);
-            } else {
-                token.safeTransferFrom(msg.sender, address(this), params[i].value);
+            token.safeTransferFrom(msg.sender, address(this), params[i].value);
 
-                deposits[depositCount] = Deposit({
-                    amount:        params[i].value,
-                    token:         token,
-                    recipient:     params[i].recipient,
-                    sender:        params[i].sender,
-                    claimDeadline: block.timestamp + params[i].claimPeriod,
-                    claimed:       false
-                });
+            deposits[depositCount] = Deposit({
+                amount:        params[i].value,
+                token:         token,
+                recipient:     params[i].recipient,
+                sender:        params[i].sender,
+                claimDeadline: block.timestamp + params[i].claimPeriod,
+                claimed:       false
+            });
 
-                senderDeposits[params[i].sender].push(depositCount);
-                recipientDeposits[params[i].recipient].push(depositCount);
+            senderDeposits[params[i].sender].push(depositCount);
+            recipientDeposits[params[i].recipient].push(depositCount);
 
-                depositCount++;
-            }
+            depositCount++;
         }
     }
 
-    function claimWithSignature(uint depositId, address recipient, bool status, uint8 v, bytes32 r, bytes32 s) external {
+    function claimWithSignature(
+        uint    depositId,
+        address recipient,
+        bool    status,
+        uint8   v,
+        bytes32 r,
+        bytes32 s
+    ) external {
         setCanClaim(recipient, status, v, r, s);
         require(canClaim[recipient]);
 
@@ -79,11 +82,11 @@ contract SplitWithLockup is Owned {
 
     function batchClaimWithSignature(
         uint[] calldata depositIds,
-        address recipient,
-        bool status,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        address         recipient,
+        bool            status,
+        uint8           v,
+        bytes32         r,
+        bytes32         s
     ) external {
         setCanClaim(recipient, status, v, r, s);
         require(canClaim[recipient]);
@@ -115,8 +118,8 @@ contract SplitWithLockup is Owned {
 
     function setCanClaim(
         address recipient,
-        bool status,
-        uint8 v,
+        bool    status,
+        uint8   v,
         bytes32 r,
         bytes32 s
     ) public {
