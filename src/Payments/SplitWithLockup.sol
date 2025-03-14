@@ -48,7 +48,12 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
 
     function split(
         SplitParams[] calldata params
-    ) external {
+    ) 
+        external 
+        returns (uint[] memory depositIds) 
+    {
+        depositIds = new uint[](params.length);
+
         for (uint256 i = 0; i < params.length; i++) {
             SplitParams memory param = params[i];
 
@@ -71,6 +76,8 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
 
             senderDeposits   [param.sender]   .push(depositCount);
             recipientDeposits[param.recipient].push(depositCount);
+
+            depositIds[i] = depositCount;
 
             emit DepositCreated(
                 depositCount,

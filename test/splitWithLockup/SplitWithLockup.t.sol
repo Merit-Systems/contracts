@@ -47,7 +47,9 @@ contract Base_Test is Test {
             amount:      amount,
             claimPeriod: 1 days
         });
-        splitContract.split(params);
+        uint[] memory depositIds = splitContract.split(params);
+        assertEq(depositIds.length, 1);
+        assertEq(depositIds[0], 0);
     }
 
     function test_setCanClaim() public {

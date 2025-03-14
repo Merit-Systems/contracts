@@ -29,4 +29,4 @@ deploy-split-with-lockup:
 		--optimize
 
 test-split-with-lockup:
-	forge t --match-path test/splitWithLockup/Base.t.sol -vvv
+	forge t --match-path test/splitWithLockup/SplitWithLockup.t.sol -vvv
