@@ -35,19 +35,8 @@ contract Base_Test is Test {
 
     function test_split() public {
         uint amount = 1000000000000000000;
-
-        wETH.mint(address(this), amount);
-        wETH.approve(address(splitContract), amount);
-
-        SplitParams[] memory params = new SplitParams[](1);
-        params[0] = SplitParams({
-            token:       wETH,
-            sender:      bob,
-            recipient:   alice,
-            amount:      amount,
-            claimPeriod: 1 days
-        });
-        uint[] memory depositIds = splitContract.split(params);
+        uint[] memory depositIds = split(amount, alice);
+        assertEq(wETH.balanceOf(address(splitContract)), amount);
         assertEq(depositIds.length, 1);
         assertEq(depositIds[0], 0);
     }
@@ -55,6 +44,21 @@ contract Base_Test is Test {
     function test_setCanClaim() public {
         setCanClaim(alice, true);
         assertEq(splitContract.canClaim(alice), true);
+    }
+
+    function split(uint amount, address recipient) public returns (uint[] memory depositIds) {
+        wETH.mint(address(this), amount);
+        wETH.approve(address(splitContract), amount);
+
+        SplitParams[] memory params = new SplitParams[](1);
+        params[0] = SplitParams({
+            token:       wETH,
+            sender:      bob,
+            recipient:   recipient,
+            amount:      amount,
+            claimPeriod: 1 days
+        });
+        return splitContract.split(params);
     }
 
     function setCanClaim(address recipient, bool status) public {
