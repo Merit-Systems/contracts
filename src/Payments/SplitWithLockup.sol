@@ -6,7 +6,6 @@ import {SafeTransferLib}  from "solmate/utils/SafeTransferLib.sol";
 import {Owned}            from "solmate/auth/Owned.sol";
 import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
 import {Errors}           from "../../libraries/Errors.sol";
-import {console}          from "forge-std/console.sol";
 
 struct SplitParams {
     ERC20   token;
@@ -165,7 +164,6 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         );
 
         address signer = ecrecover(digest, v, r, s);
-        console.log("signer", signer);
         require(signer == owner, Errors.INVALID_SIGNATURE);
 
         recipientNonces[recipient]++;
