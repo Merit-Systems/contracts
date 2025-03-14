@@ -28,5 +28,5 @@ deploy-split-with-lockup:
 		--verify \
 		--optimize
 
-test-signature:
-	forge t --match-test test_signature -vvv
+test-split-with-lockup:
+	forge t --match-path test/splitWithLockup/Base.t.sol -vvv

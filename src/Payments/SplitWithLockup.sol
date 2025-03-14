@@ -6,6 +6,15 @@ import {SafeTransferLib}  from "solmate/utils/SafeTransferLib.sol";
 import {Owned}            from "solmate/auth/Owned.sol";
 import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
 import {Errors}           from "../../libraries/Errors.sol";
+import {console}          from "forge-std/console.sol";
+
+struct SplitParams {
+    ERC20   token;
+    address sender;
+    address recipient;
+    uint    amount;
+    uint    claimPeriod;
+}
 
 contract SplitWithLockup is Owned, ISplitWithLockup {
     using SafeTransferLib for ERC20;
@@ -28,13 +37,6 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     mapping(address => uint[])  public senderDeposits;
     mapping(address => uint[])  public recipientDeposits;
 
-    struct SplitParams {
-        address recipient;
-        uint    value;
-        uint    claimPeriod;
-        address sender;
-    }
-
     bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce)");
 
     uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
@@ -46,31 +48,31 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     }
 
     function split(
-        ERC20                  token,
         SplitParams[] calldata params
     ) external {
         for (uint256 i = 0; i < params.length; i++) {
-            token.safeTransferFrom(msg.sender, address(this), params[i].value);
+            SplitParams memory param = params[i];
+            param.token.safeTransferFrom(msg.sender, address(this), param.amount);
 
             deposits[depositCount] = Deposit({
-                amount:        params[i].value,
-                token:         token,
-                recipient:     params[i].recipient,
-                sender:        params[i].sender,
-                claimDeadline: block.timestamp + params[i].claimPeriod,
+                amount:        param.amount,
+                token:         param.token,
+                recipient:     param.recipient,
+                sender:        param.sender,
+                claimDeadline: block.timestamp + param.claimPeriod,
                 claimed:       false
             });
 
-            senderDeposits   [params[i].sender]   .push(depositCount);
-            recipientDeposits[params[i].recipient].push(depositCount);
+            senderDeposits   [param.sender]   .push(depositCount);
+            recipientDeposits[param.recipient].push(depositCount);
 
             emit DepositCreated(
                 depositCount,
-                address(token),
-                params[i].recipient,
-                params[i].sender,
-                params[i].value,
-                block.timestamp + params[i].claimPeriod
+                address(param.token),
+                param.recipient,
+                param.sender,
+                param.amount,
+                block.timestamp + param.claimPeriod
             );
 
             depositCount++;
@@ -163,6 +165,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         );
 
         address signer = ecrecover(digest, v, r, s);
+        console.log("signer", signer);
         require(signer == owner, Errors.INVALID_SIGNATURE);
 
         recipientNonces[recipient]++;
