@@ -8,7 +8,7 @@ import {Owned}            from "solmate/auth/Owned.sol";
 import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
 import {Errors}           from "../../libraries/Errors.sol";
 
-struct SplitParams {
+struct DepositParams {
     ERC20   token;
     address sender;
     address recipient;
@@ -47,8 +47,44 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
     }
 
-    function split(
-        SplitParams[] calldata params
+    function deposit(DepositParams calldata param)
+        public 
+        returns (uint depositId) 
+    {
+        require(param.token      != ERC20(address(0)), Errors.INVALID_ADDRESS);
+        require(param.sender     != address(0),        Errors.INVALID_ADDRESS);
+        require(param.recipient  != address(0),        Errors.INVALID_ADDRESS);
+        require(param.amount      > 0,                 Errors.INVALID_AMOUNT);
+        require(param.claimPeriod > 0,                 Errors.INVALID_CLAIM_PERIOD);
+
+        param.token.safeTransferFrom(msg.sender, address(this), param.amount);
+
+        deposits[depositCount] = Deposit({
+            amount:        param.amount,
+            token:         param.token,
+            recipient:     param.recipient,
+            sender:        param.sender,
+            claimDeadline: block.timestamp + param.claimPeriod,
+            claimed:       false
+        });
+
+        senderDeposits   [param.sender]   .push(depositCount);
+        recipientDeposits[param.recipient].push(depositCount);
+
+        emit DepositCreated(
+            depositCount,
+            address(param.token),
+            param.recipient,
+            param.sender,
+            param.amount,
+            block.timestamp + param.claimPeriod
+        );
+
+        return depositCount++;
+    }
+
+    function batchDeposit(
+        DepositParams[] calldata params
     ) 
         external 
         returns (uint[] memory depositIds) 
@@ -56,40 +92,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         depositIds = new uint[](params.length);
 
         for (uint256 i = 0; i < params.length; i++) {
-            SplitParams memory param = params[i];
-
-            require(param.token      != ERC20(address(0)), Errors.INVALID_ADDRESS);
-            require(param.sender     != address(0),        Errors.INVALID_ADDRESS);
-            require(param.recipient  != address(0),        Errors.INVALID_ADDRESS);
-            require(param.amount      > 0,                 Errors.INVALID_AMOUNT);
-            require(param.claimPeriod > 0,                 Errors.INVALID_CLAIM_PERIOD);
-
-            param.token.safeTransferFrom(msg.sender, address(this), param.amount);
-
-            deposits[depositCount] = Deposit({
-                amount:        param.amount,
-                token:         param.token,
-                recipient:     param.recipient,
-                sender:        param.sender,
-                claimDeadline: block.timestamp + param.claimPeriod,
-                claimed:       false
-            });
-
-            senderDeposits   [param.sender]   .push(depositCount);
-            recipientDeposits[param.recipient].push(depositCount);
-
-            depositIds[i] = depositCount;
-
-            emit DepositCreated(
-                depositCount,
-                address(param.token),
-                param.recipient,
-                param.sender,
-                param.amount,
-                block.timestamp + param.claimPeriod
-            );
-
-            depositCount++;
+            depositIds[i] = deposit(params[i]);
         }
     }
 
@@ -123,16 +126,16 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     }
 
     function _claim(uint depositId, address recipient) internal {
-        Deposit storage deposit = deposits[depositId];
+        Deposit storage _deposit = deposits[depositId];
 
-        require(deposit.recipient == recipient,           Errors.INVALID_RECIPIENT);
-        require(!deposit.claimed,                         Errors.ALREADY_CLAIMED);
-        require(block.timestamp <= deposit.claimDeadline, Errors.CLAIM_EXPIRED);
+        require(_deposit.recipient == recipient,           Errors.INVALID_RECIPIENT);
+        require(!_deposit.claimed,                         Errors.ALREADY_CLAIMED);
+        require(block.timestamp <= _deposit.claimDeadline, Errors.CLAIM_EXPIRED);
         
-        deposit.claimed = true;
-        deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+        _deposit.claimed = true;
+        _deposit.token.safeTransfer(_deposit.recipient, _deposit.amount);
 
-        emit Claimed(depositId, deposit.recipient, deposit.amount);
+        emit Claimed(depositId, _deposit.recipient, _deposit.amount);
     }
 
     function reclaim(uint depositId) external {
@@ -146,15 +149,15 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     }
 
     function _reclaim(uint depositId) internal {
-        Deposit storage deposit = deposits[depositId];
+        Deposit storage _deposit = deposits[depositId];
 
-        require(!deposit.claimed,                        Errors.ALREADY_CLAIMED);
-        require(block.timestamp > deposit.claimDeadline, Errors.STILL_CLAIMABLE);
+        require(!_deposit.claimed,                        Errors.ALREADY_CLAIMED);
+        require(block.timestamp > _deposit.claimDeadline, Errors.STILL_CLAIMABLE);
         
-        deposit.claimed = true;
-        deposit.token.safeTransfer(deposit.sender, deposit.amount);
+        _deposit.claimed = true;
+        _deposit.token.safeTransfer(_deposit.sender, _deposit.amount);
 
-        emit Reclaimed(depositId, deposit.sender, deposit.amount);
+        emit Reclaimed(depositId, _deposit.sender, _deposit.amount);
     }
 
     function setCanClaim(
