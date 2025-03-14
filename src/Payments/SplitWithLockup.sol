@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import {ECDSA}            from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ERC20}            from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib}  from "solmate/utils/SafeTransferLib.sol";
 import {Owned}            from "solmate/auth/Owned.sol";
 import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
 import {Errors}           from "../../libraries/Errors.sol";
+
+struct SplitParams {
+    ERC20   token;
+    address sender;
+    address recipient;
+    uint    amount;
+    uint    claimPeriod;
+}
 
 contract SplitWithLockup is Owned, ISplitWithLockup {
     using SafeTransferLib for ERC20;
@@ -28,13 +37,6 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     mapping(address => uint[])  public senderDeposits;
     mapping(address => uint[])  public recipientDeposits;
 
-    struct SplitParams {
-        address recipient;
-        uint    value;
-        uint    claimPeriod;
-        address sender;
-    }
-
     bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce)");
 
     uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
@@ -46,31 +48,45 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     }
 
     function split(
-        ERC20                  token,
         SplitParams[] calldata params
-    ) external {
+    ) 
+        external 
+        returns (uint[] memory depositIds) 
+    {
+        depositIds = new uint[](params.length);
+
         for (uint256 i = 0; i < params.length; i++) {
-            token.safeTransferFrom(msg.sender, address(this), params[i].value);
+            SplitParams memory param = params[i];
+
+            require(param.token      != ERC20(address(0)), Errors.INVALID_ADDRESS);
+            require(param.sender     != address(0),        Errors.INVALID_ADDRESS);
+            require(param.recipient  != address(0),        Errors.INVALID_ADDRESS);
+            require(param.amount      > 0,                 Errors.INVALID_AMOUNT);
+            require(param.claimPeriod > 0,                 Errors.INVALID_CLAIM_PERIOD);
+
+            param.token.safeTransferFrom(msg.sender, address(this), param.amount);
 
             deposits[depositCount] = Deposit({
-                amount:        params[i].value,
-                token:         token,
-                recipient:     params[i].recipient,
-                sender:        params[i].sender,
-                claimDeadline: block.timestamp + params[i].claimPeriod,
+                amount:        param.amount,
+                token:         param.token,
+                recipient:     param.recipient,
+                sender:        param.sender,
+                claimDeadline: block.timestamp + param.claimPeriod,
                 claimed:       false
             });
 
-            senderDeposits   [params[i].sender]   .push(depositCount);
-            recipientDeposits[params[i].recipient].push(depositCount);
+            senderDeposits   [param.sender]   .push(depositCount);
+            recipientDeposits[param.recipient].push(depositCount);
+
+            depositIds[i] = depositCount;
 
             emit DepositCreated(
                 depositCount,
-                address(token),
-                params[i].recipient,
-                params[i].sender,
-                params[i].value,
-                block.timestamp + params[i].claimPeriod
+                address(param.token),
+                param.recipient,
+                param.sender,
+                param.amount,
+                block.timestamp + param.claimPeriod
             );
 
             depositCount++;
@@ -87,7 +103,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     ) external {
         setCanClaim(recipient, status, v, r, s);
         require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
-        _claim(depositId);
+        _claim(depositId, recipient);
     }
 
     function batchClaimWithSignature(
@@ -102,13 +118,14 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
 
         for (uint256 i = 0; i < depositIds.length; i++) {
-            _claim(depositIds[i]);
+            _claim(depositIds[i], recipient);
         }
     }
 
-    function _claim(uint depositId) internal {
+    function _claim(uint depositId, address recipient) internal {
         Deposit storage deposit = deposits[depositId];
 
+        require(deposit.recipient == recipient,           Errors.INVALID_RECIPIENT);
         require(!deposit.claimed,                         Errors.ALREADY_CLAIMED);
         require(block.timestamp <= deposit.claimDeadline, Errors.CLAIM_EXPIRED);
         
@@ -162,7 +179,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
             abi.encodePacked("\x19\x01", CLAIM_DOMAIN_SEPARATOR(), structHash)
         );
 
-        address signer = ecrecover(digest, v, r, s);
+        address signer = ECDSA.recover(digest, v, r, s);
         require(signer == owner, Errors.INVALID_SIGNATURE);
 
         recipientNonces[recipient]++;
