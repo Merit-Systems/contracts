@@ -20,4 +20,7 @@ library Errors {
     string internal constant TOO_MANY_CONTRIBUTORS  = "Too Many Contributors";
     string internal constant TOO_MANY_PULL_REQUESTS = "Too Many Pull Requests";
     string internal constant NO_PAYMENT_PERMISSION  = "No Payment Permission";
+    string internal constant CLAIM_EXPIRED          = "Claim Expired";
+    string internal constant STILL_CLAIMABLE        = "Still Claimable";
+    string internal constant INVALID_SIGNATURE      = "Invalid Signature";
 }

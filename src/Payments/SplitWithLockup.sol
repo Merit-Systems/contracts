@@ -5,6 +5,7 @@ import {ERC20}            from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib}  from "solmate/utils/SafeTransferLib.sol";
 import {Owned}            from "solmate/auth/Owned.sol";
 import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
+import {Errors}           from "../../libraries/Errors.sol";
 
 contract SplitWithLockup is Owned, ISplitWithLockup {
     using SafeTransferLib for ERC20;
@@ -85,9 +86,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         bytes32 s
     ) external {
         setCanClaim(recipient, status, v, r, s);
-        require(canClaim[recipient]);
-
-        _claim(depositId);
+        _claim     (depositId);
     }
 
     function batchClaimWithSignature(
@@ -99,7 +98,6 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         bytes32         s
     ) external {
         setCanClaim(recipient, status, v, r, s);
-        require(canClaim[recipient]);
         
         for (uint256 i = 0; i < depositIds.length; i++) {
             _claim(depositIds[i]);
@@ -109,8 +107,9 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     function _claim(uint depositId) internal {
         Deposit storage deposit = deposits[depositId];
 
-        require(!deposit.claimed);
-        require(block.timestamp <= deposit.claimDeadline);
+        require(canClaim[deposit.recipient],              Errors.NO_PAYMENT_PERMISSION);
+        require(!deposit.claimed,                         Errors.ALREADY_CLAIMED);
+        require(block.timestamp <= deposit.claimDeadline, Errors.CLAIM_EXPIRED);
         
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.recipient, deposit.amount);
@@ -131,8 +130,8 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     function _reclaim(uint depositId) internal {
         Deposit storage deposit = deposits[depositId];
 
-        require(!deposit.claimed);
-        require(block.timestamp > deposit.claimDeadline);
+        require(!deposit.claimed,                        Errors.ALREADY_CLAIMED);
+        require(block.timestamp > deposit.claimDeadline, Errors.STILL_CLAIMABLE);
         
         deposit.claimed = true;
         deposit.token.safeTransfer(deposit.sender, deposit.amount);
@@ -163,7 +162,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         );
 
         address signer = ecrecover(digest, v, r, s);
-        require(signer == owner);
+        require(signer == owner, Errors.INVALID_SIGNATURE);
 
         recipientNonces[recipient]++;
 
