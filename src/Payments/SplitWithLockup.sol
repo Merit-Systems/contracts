@@ -231,12 +231,12 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
 
     function addWhitelistedToken(address token) external onlyOwner {
         require(token != address(0), Errors.INVALID_ADDRESS);
-        require(_whitelistedTokens.add(token), "Token already whitelisted");
+        require(_whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
         emit TokenWhitelisted(token);
     }
 
     function removeWhitelistedToken(address token) external onlyOwner {
-        require(_whitelistedTokens.remove(token), "Token not whitelisted");
+        require(_whitelistedTokens.remove(token), Errors.TOKEN_NOT_WHITELISTED);
         emit TokenRemovedFromWhitelist(token);
     }
 
