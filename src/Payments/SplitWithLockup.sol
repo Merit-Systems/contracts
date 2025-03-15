@@ -19,7 +19,7 @@ struct DepositParams {
 
 contract SplitWithLockup is Owned, ISplitWithLockup {
     using SafeTransferLib for ERC20;
-    using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet   for EnumerableSet.AddressSet;
 
     mapping(address => bool) public canClaim;
     mapping(address => uint) public recipientNonces;
@@ -56,6 +56,9 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         }
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                DEPOSIT
+    //////////////////////////////////////////////////////////////*/
     function deposit(DepositParams calldata param)
         public 
         returns (uint depositId) 
@@ -106,6 +109,9 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         }
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                CLAIM
+    //////////////////////////////////////////////////////////////*/
     function claim(
         uint    depositId,
         address recipient,
@@ -148,6 +154,9 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         emit Claimed(depositId, _deposit.recipient, _deposit.amount);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                RECLAIM
+    //////////////////////////////////////////////////////////////*/
     function reclaim(uint depositId) external {
         _reclaim(depositId);
     }
@@ -170,6 +179,9 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         emit Reclaimed(depositId, _deposit.sender, _deposit.amount);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                               SIGNATURE
+    //////////////////////////////////////////////////////////////*/
     function setCanClaim(
         address recipient,
         bool    status,
@@ -221,14 +233,9 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         return _computeClaimDomainSeparator();
     }
 
-    function getDepositsBySender(address sender) external view returns (uint[] memory) {
-        return senderDeposits[sender];
-    }
-
-    function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
-        return recipientDeposits[recipient];
-    }
-
+    /*//////////////////////////////////////////////////////////////
+                               WHITELIST
+    //////////////////////////////////////////////////////////////*/
     function addWhitelistedToken(address token) external onlyOwner {
         require(token != address(0), Errors.INVALID_ADDRESS);
         require(_whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
@@ -254,4 +261,16 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         
         return tokens;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                GETTERS
+    //////////////////////////////////////////////////////////////*/
+    function getDepositsBySender(address sender) external view returns (uint[] memory) {
+        return senderDeposits[sender];
+    }
+
+    function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
+        return recipientDeposits[recipient];
+    }
+
 }
