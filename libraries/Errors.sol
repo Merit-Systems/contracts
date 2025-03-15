@@ -27,4 +27,5 @@ library Errors {
     string internal constant INVALID_AMOUNT         = "Invalid Amount";
     string internal constant INVALID_CLAIM_PERIOD   = "Invalid Claim Period";
     string internal constant INVALID_RECIPIENT      = "Invalid Recipient";
+    string internal constant TOKEN_NOT_WHITELISTED  = "Token Not Whitelisted";
 }

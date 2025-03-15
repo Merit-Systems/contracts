@@ -24,7 +24,9 @@ contract Base_Test is Test {
     MockERC20 wETH = new MockERC20("Wrapped Ether", "wETH", 18);
 
     function setUp() public {
-        splitContract = new SplitWithLockup(owner);
+        address[] memory initialWhitelistedTokens = new address[](1);
+        initialWhitelistedTokens[0] = address(wETH);
+        splitContract = new SplitWithLockup(owner, initialWhitelistedTokens);
 
         alice = makeAddr("alice");
         bob   = makeAddr("bob");

@@ -7,6 +7,7 @@ import {SafeTransferLib}  from "solmate/utils/SafeTransferLib.sol";
 import {Owned}            from "solmate/auth/Owned.sol";
 import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
 import {Errors}           from "../../libraries/Errors.sol";
+import {EnumerableSet}    from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 struct DepositParams {
     ERC20   token;
@@ -18,6 +19,7 @@ struct DepositParams {
 
 contract SplitWithLockup is Owned, ISplitWithLockup {
     using SafeTransferLib for ERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     mapping(address => bool) public canClaim;
     mapping(address => uint) public recipientNonces;
@@ -42,20 +44,28 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
     bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
 
-    constructor(address _owner) Owned(_owner) { 
+    EnumerableSet.AddressSet private _whitelistedTokens;
+
+    constructor(address _owner, address[] memory initialWhitelistedTokens) Owned(_owner) { 
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
+        
+        for (uint256 i = 0; i < initialWhitelistedTokens.length; i++) {
+            _whitelistedTokens.add(initialWhitelistedTokens[i]);
+            emit TokenWhitelisted(initialWhitelistedTokens[i]);
+        }
     }
 
     function deposit(DepositParams calldata param)
         public 
         returns (uint depositId) 
     {
-        require(param.token      != ERC20(address(0)), Errors.INVALID_ADDRESS);
-        require(param.sender     != address(0),        Errors.INVALID_ADDRESS);
-        require(param.recipient  != address(0),        Errors.INVALID_ADDRESS);
-        require(param.amount      > 0,                 Errors.INVALID_AMOUNT);
-        require(param.claimPeriod > 0,                 Errors.INVALID_CLAIM_PERIOD);
+        require(param.token      != ERC20(address(0)),             Errors.INVALID_ADDRESS);
+        require(param.sender     != address(0),                    Errors.INVALID_ADDRESS);
+        require(param.recipient  != address(0),                    Errors.INVALID_ADDRESS);
+        require(param.amount      > 0,                             Errors.INVALID_AMOUNT);
+        require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
+        require(_whitelistedTokens.contains(address(param.token)), Errors.TOKEN_NOT_WHITELISTED);
 
         param.token.safeTransferFrom(msg.sender, address(this), param.amount);
 
@@ -217,5 +227,31 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
 
     function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
         return recipientDeposits[recipient];
+    }
+
+    function addWhitelistedToken(address token) external onlyOwner {
+        require(token != address(0), Errors.INVALID_ADDRESS);
+        require(_whitelistedTokens.add(token), "Token already whitelisted");
+        emit TokenWhitelisted(token);
+    }
+
+    function removeWhitelistedToken(address token) external onlyOwner {
+        require(_whitelistedTokens.remove(token), "Token not whitelisted");
+        emit TokenRemovedFromWhitelist(token);
+    }
+
+    function isTokenWhitelisted(address token) public view returns (bool) {
+        return _whitelistedTokens.contains(token);
+    }
+
+    function getWhitelistedTokens() external view returns (address[] memory) {
+        uint256 length = _whitelistedTokens.length();
+        address[] memory tokens = new address[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            tokens[i] = _whitelistedTokens.at(i);
+        }
+        
+        return tokens;
     }
 }
