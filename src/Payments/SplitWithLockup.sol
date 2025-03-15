@@ -7,8 +7,9 @@ import {SafeTransferLib}  from "solmate/utils/SafeTransferLib.sol";
 import {Owned}            from "solmate/auth/Owned.sol";
 import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
 import {Errors}           from "../../libraries/Errors.sol";
+import {EnumerableSet}    from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-struct SplitParams {
+struct DepositParams {
     ERC20   token;
     address sender;
     address recipient;
@@ -18,6 +19,7 @@ struct SplitParams {
 
 contract SplitWithLockup is Owned, ISplitWithLockup {
     using SafeTransferLib for ERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     mapping(address => bool) public canClaim;
     mapping(address => uint) public recipientNonces;
@@ -42,13 +44,57 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
     bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
 
-    constructor(address _owner) Owned(_owner) { 
+    EnumerableSet.AddressSet private _whitelistedTokens;
+
+    constructor(address _owner, address[] memory initialWhitelistedTokens) Owned(_owner) { 
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
+        
+        for (uint256 i = 0; i < initialWhitelistedTokens.length; i++) {
+            _whitelistedTokens.add(initialWhitelistedTokens[i]);
+            emit TokenWhitelisted(initialWhitelistedTokens[i]);
+        }
     }
 
-    function split(
-        SplitParams[] calldata params
+    function deposit(DepositParams calldata param)
+        public 
+        returns (uint depositId) 
+    {
+        require(param.token      != ERC20(address(0)),             Errors.INVALID_ADDRESS);
+        require(param.sender     != address(0),                    Errors.INVALID_ADDRESS);
+        require(param.recipient  != address(0),                    Errors.INVALID_ADDRESS);
+        require(param.amount      > 0,                             Errors.INVALID_AMOUNT);
+        require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
+        require(_whitelistedTokens.contains(address(param.token)), Errors.TOKEN_NOT_WHITELISTED);
+
+        param.token.safeTransferFrom(msg.sender, address(this), param.amount);
+
+        deposits[depositCount] = Deposit({
+            amount:        param.amount,
+            token:         param.token,
+            recipient:     param.recipient,
+            sender:        param.sender,
+            claimDeadline: block.timestamp + param.claimPeriod,
+            claimed:       false
+        });
+
+        senderDeposits   [param.sender]   .push(depositCount);
+        recipientDeposits[param.recipient].push(depositCount);
+
+        emit DepositCreated(
+            depositCount,
+            address(param.token),
+            param.recipient,
+            param.sender,
+            param.amount,
+            block.timestamp + param.claimPeriod
+        );
+
+        return depositCount++;
+    }
+
+    function batchDeposit(
+        DepositParams[] calldata params
     ) 
         external 
         returns (uint[] memory depositIds) 
@@ -56,44 +102,11 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         depositIds = new uint[](params.length);
 
         for (uint256 i = 0; i < params.length; i++) {
-            SplitParams memory param = params[i];
-
-            require(param.token      != ERC20(address(0)), Errors.INVALID_ADDRESS);
-            require(param.sender     != address(0),        Errors.INVALID_ADDRESS);
-            require(param.recipient  != address(0),        Errors.INVALID_ADDRESS);
-            require(param.amount      > 0,                 Errors.INVALID_AMOUNT);
-            require(param.claimPeriod > 0,                 Errors.INVALID_CLAIM_PERIOD);
-
-            param.token.safeTransferFrom(msg.sender, address(this), param.amount);
-
-            deposits[depositCount] = Deposit({
-                amount:        param.amount,
-                token:         param.token,
-                recipient:     param.recipient,
-                sender:        param.sender,
-                claimDeadline: block.timestamp + param.claimPeriod,
-                claimed:       false
-            });
-
-            senderDeposits   [param.sender]   .push(depositCount);
-            recipientDeposits[param.recipient].push(depositCount);
-
-            depositIds[i] = depositCount;
-
-            emit DepositCreated(
-                depositCount,
-                address(param.token),
-                param.recipient,
-                param.sender,
-                param.amount,
-                block.timestamp + param.claimPeriod
-            );
-
-            depositCount++;
+            depositIds[i] = deposit(params[i]);
         }
     }
 
-    function claimWithSignature(
+    function claim(
         uint    depositId,
         address recipient,
         bool    status,
@@ -106,7 +119,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         _claim(depositId, recipient);
     }
 
-    function batchClaimWithSignature(
+    function batchClaim(
         uint[] calldata depositIds,
         address         recipient,
         bool            status,
@@ -123,16 +136,16 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     }
 
     function _claim(uint depositId, address recipient) internal {
-        Deposit storage deposit = deposits[depositId];
+        Deposit storage _deposit = deposits[depositId];
 
-        require(deposit.recipient == recipient,           Errors.INVALID_RECIPIENT);
-        require(!deposit.claimed,                         Errors.ALREADY_CLAIMED);
-        require(block.timestamp <= deposit.claimDeadline, Errors.CLAIM_EXPIRED);
+        require(_deposit.recipient == recipient,           Errors.INVALID_RECIPIENT);
+        require(!_deposit.claimed,                         Errors.ALREADY_CLAIMED);
+        require(block.timestamp <= _deposit.claimDeadline, Errors.CLAIM_EXPIRED);
         
-        deposit.claimed = true;
-        deposit.token.safeTransfer(deposit.recipient, deposit.amount);
+        _deposit.claimed = true;
+        _deposit.token.safeTransfer(_deposit.recipient, _deposit.amount);
 
-        emit Claimed(depositId, deposit.recipient, deposit.amount);
+        emit Claimed(depositId, _deposit.recipient, _deposit.amount);
     }
 
     function reclaim(uint depositId) external {
@@ -146,15 +159,15 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     }
 
     function _reclaim(uint depositId) internal {
-        Deposit storage deposit = deposits[depositId];
+        Deposit storage _deposit = deposits[depositId];
 
-        require(!deposit.claimed,                        Errors.ALREADY_CLAIMED);
-        require(block.timestamp > deposit.claimDeadline, Errors.STILL_CLAIMABLE);
+        require(!_deposit.claimed,                        Errors.ALREADY_CLAIMED);
+        require(block.timestamp > _deposit.claimDeadline, Errors.STILL_CLAIMABLE);
         
-        deposit.claimed = true;
-        deposit.token.safeTransfer(deposit.sender, deposit.amount);
+        _deposit.claimed = true;
+        _deposit.token.safeTransfer(_deposit.sender, _deposit.amount);
 
-        emit Reclaimed(depositId, deposit.sender, deposit.amount);
+        emit Reclaimed(depositId, _deposit.sender, _deposit.amount);
     }
 
     function setCanClaim(
@@ -214,5 +227,31 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
 
     function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
         return recipientDeposits[recipient];
+    }
+
+    function addWhitelistedToken(address token) external onlyOwner {
+        require(token != address(0), Errors.INVALID_ADDRESS);
+        require(_whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
+        emit TokenWhitelisted(token);
+    }
+
+    function removeWhitelistedToken(address token) external onlyOwner {
+        require(_whitelistedTokens.remove(token), Errors.TOKEN_NOT_WHITELISTED);
+        emit TokenRemovedFromWhitelist(token);
+    }
+
+    function isTokenWhitelisted(address token) public view returns (bool) {
+        return _whitelistedTokens.contains(token);
+    }
+
+    function getWhitelistedTokens() external view returns (address[] memory) {
+        uint256 length = _whitelistedTokens.length();
+        address[] memory tokens = new address[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            tokens[i] = _whitelistedTokens.at(i);
+        }
+        
+        return tokens;
     }
 }

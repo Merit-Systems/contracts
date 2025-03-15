@@ -27,4 +27,7 @@ interface ISplitWithLockup {
         address indexed recipient,
         bool            status
     );
+
+    event TokenWhitelisted(address indexed token);
+    event TokenRemovedFromWhitelist(address indexed token);
 }
