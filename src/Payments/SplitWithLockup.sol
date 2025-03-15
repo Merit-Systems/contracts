@@ -9,6 +9,12 @@ import {ISplitWithLockup} from "../../interface/ISplitWithLockup.sol";
 import {Errors}           from "../../libraries/Errors.sol";
 import {EnumerableSet}    from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+enum Status {
+    Deposited,
+    Claimed,
+    Reclaimed
+}
+
 struct DepositParams {
     ERC20   token;
     address sender;
@@ -30,7 +36,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         address recipient;
         address sender;
         uint    claimDeadline;
-        bool    claimed;
+        Status  state;
     }
 
     uint public depositCount;
@@ -78,7 +84,7 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
             recipient:     param.recipient,
             sender:        param.sender,
             claimDeadline: block.timestamp + param.claimPeriod,
-            claimed:       false
+            state:         Status.Deposited
         });
 
         senderDeposits   [param.sender]   .push(depositCount);
@@ -145,10 +151,10 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
         Deposit storage _deposit = deposits[depositId];
 
         require(_deposit.recipient == recipient,           Errors.INVALID_RECIPIENT);
-        require(!_deposit.claimed,                         Errors.ALREADY_CLAIMED);
+        require(_deposit.state == Status.Deposited,        Errors.ALREADY_CLAIMED);
         require(block.timestamp <= _deposit.claimDeadline, Errors.CLAIM_EXPIRED);
         
-        _deposit.claimed = true;
+        _deposit.state = Status.Claimed;
         _deposit.token.safeTransfer(_deposit.recipient, _deposit.amount);
 
         emit Claimed(depositId, _deposit.recipient, _deposit.amount);
@@ -170,10 +176,10 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     function _reclaim(uint depositId) internal {
         Deposit storage _deposit = deposits[depositId];
 
-        require(!_deposit.claimed,                        Errors.ALREADY_CLAIMED);
+        require(_deposit.state == Status.Deposited,       Errors.ALREADY_CLAIMED);
         require(block.timestamp > _deposit.claimDeadline, Errors.STILL_CLAIMABLE);
         
-        _deposit.claimed = true;
+        _deposit.state = Status.Reclaimed;
         _deposit.token.safeTransfer(_deposit.sender, _deposit.amount);
 
         emit Reclaimed(depositId, _deposit.sender, _deposit.amount);
