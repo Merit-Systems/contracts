@@ -8,9 +8,13 @@ import {Params} from "../libraries/Params.sol";
 contract DeploySplitWithLockup is Script {
     function run() public {
         vm.startBroadcast();
+
         address[] memory initialWhitelistedTokens = new address[](1);
         initialWhitelistedTokens[0] = address(Params.SEPOLIA_WETH);
-        new SplitWithLockup(Params.OWNER, initialWhitelistedTokens);
+        
+        bytes32 salt = bytes32(uint256(0x123)); 
+        new SplitWithLockup{salt: salt}(Params.OWNER, initialWhitelistedTokens);
+        
         vm.stopBroadcast();
     }
 }
