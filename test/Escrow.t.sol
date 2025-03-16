@@ -6,11 +6,10 @@ import "forge-std/Test.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {ERC20}     from "solmate/tokens/ERC20.sol";
 
-import {Escrow, DepositParams} from "../../src/Payments/Escrow.sol";
-import {Params}      from "../../libraries/Params.sol";
-import {Deploy}      from "../../script/Deploy.s.sol";
-import {Errors}      from "../../libraries/Errors.sol";
-import {DeployEscrow} from "../../script/Deploy.Escrow.sol";
+import {Escrow, DepositParams} from "../src/Payments/Escrow.sol";
+import {Params}      from "../libraries/Params.sol";
+import {Deploy}      from "../script/Deploy.s.sol";
+import {Errors}      from "../libraries/Errors.sol";
 
 contract Base_Test is Test {
 
@@ -27,7 +26,7 @@ contract Base_Test is Test {
     function setUp() public {
         address[] memory initialWhitelistedTokens = new address[](1);
         initialWhitelistedTokens[0] = address(wETH);
-        escrow = new DeployEscrow().run(owner, initialWhitelistedTokens);
+        escrow = new Deploy().run(owner, initialWhitelistedTokens);
 
         alice = makeAddr("alice");
         bob   = makeAddr("bob");

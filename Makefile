@@ -17,8 +17,11 @@ flatten:
 	forge flatten src/MeritLedger.sol > flatten.sol
 	echo "Saved in flatten.sol"
 
-deploy-split-with-lockup:
-	forge script script/Deploy.SplitWithLockup.sol \
+test-escrow:
+	forge t --match-path test/Escrow.t.sol 
+
+deploy-sepolia:
+	forge script script/Deploy.Sepolia.sol \
 		--rpc-url $(SEPOLIA_INFURA_URL) \
 		--sender 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec \
 		--broadcast \
@@ -28,5 +31,14 @@ deploy-split-with-lockup:
 		--verify \
 		--optimize
 
-test-escrow:
-	forge t --match-path test/escrow/Escrow.t.sol 
+deploy-base:
+	forge clean
+	forge script script/Deploy.Base.s.sol \
+		--rpc-url $(BASE_INFURA_URL) \
+		--sender 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec \
+		--broadcast \
+		-i 1 \
+		-vvvv \
+		--via-ir \
+		--verify \
+		--optimize
