@@ -6,14 +6,14 @@ import {Script} from "forge-std/Script.sol";
 import {Params} from "../libraries/Params.sol";
 
 contract DeploySplitWithLockup is Script {
-    function run() public {
+    function run(address owner, address[] memory initialWhitelistedTokens) 
+        public 
+        returns (SplitWithLockup split)
+    {
         vm.startBroadcast();
 
-        address[] memory initialWhitelistedTokens = new address[](1);
-        initialWhitelistedTokens[0] = address(Params.SEPOLIA_WETH);
-        
         bytes32 salt = bytes32(uint256(0x123)); 
-        new SplitWithLockup{salt: salt}(Params.OWNER, initialWhitelistedTokens);
+        split = new SplitWithLockup{salt: salt}(owner, initialWhitelistedTokens);
         
         vm.stopBroadcast();
     }
