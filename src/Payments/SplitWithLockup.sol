@@ -152,7 +152,6 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
 
         require(_deposit.recipient == recipient,           Errors.INVALID_RECIPIENT);
         require(_deposit.state == Status.Deposited,        Errors.ALREADY_CLAIMED);
-        require(block.timestamp <= _deposit.claimDeadline, Errors.CLAIM_EXPIRED);
         
         _deposit.state = Status.Claimed;
         _deposit.token.safeTransfer(_deposit.recipient, _deposit.amount);
