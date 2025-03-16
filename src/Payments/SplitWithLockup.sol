@@ -150,8 +150,8 @@ contract SplitWithLockup is Owned, ISplitWithLockup {
     function _claim(uint depositId, address recipient) internal {
         Deposit storage _deposit = deposits[depositId];
 
-        require(_deposit.recipient == recipient,           Errors.INVALID_RECIPIENT);
-        require(_deposit.state == Status.Deposited,        Errors.ALREADY_CLAIMED);
+        require(_deposit.recipient == recipient,    Errors.INVALID_RECIPIENT);
+        require(_deposit.state == Status.Deposited, Errors.ALREADY_CLAIMED);
         
         _deposit.state = Status.Claimed;
         _deposit.token.safeTransfer(_deposit.recipient, _deposit.amount);
