@@ -223,7 +223,7 @@ contract Escrow is Owned, IEscrow {
         return keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes("SplitWithLockup")), 
+                keccak256(bytes("Escrow")), 
                 keccak256("1"),
                 block.chainid,
                 address(this)
