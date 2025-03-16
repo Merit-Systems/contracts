@@ -10,6 +10,7 @@ import {SplitWithLockup, DepositParams} from "../../src/Payments/SplitWithLockup
 import {Params}      from "../../libraries/Params.sol";
 import {Deploy}      from "../../script/Deploy.s.sol";
 import {Errors}      from "../../libraries/Errors.sol";
+import {DeploySplitWithLockup} from "../../script/Deploy.SplitWithLockup.sol";
 
 contract Base_Test is Test {
 
@@ -26,7 +27,7 @@ contract Base_Test is Test {
     function setUp() public {
         address[] memory initialWhitelistedTokens = new address[](1);
         initialWhitelistedTokens[0] = address(wETH);
-        splitContract = new SplitWithLockup(owner, initialWhitelistedTokens);
+        splitContract = new DeploySplitWithLockup().run(owner, initialWhitelistedTokens);
 
         alice = makeAddr("alice");
         bob   = makeAddr("bob");
