@@ -28,5 +28,5 @@ deploy-split-with-lockup:
 		--verify \
 		--optimize
 
-test-split-with-lockup:
-	forge t --match-path test/splitWithLockup/SplitWithLockup.t.sol
+test-escrow:
+	forge t --match-path test/escrow/Escrow.t.sol 

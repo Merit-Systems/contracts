@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-interface ISplitWithLockup {
+interface IEscrow {
     event DepositCreated(
         uint    indexed depositId,
         address indexed token,

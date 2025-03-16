@@ -6,15 +6,15 @@ import "forge-std/Test.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {ERC20}     from "solmate/tokens/ERC20.sol";
 
-import {SplitWithLockup, DepositParams} from "../../src/Payments/SplitWithLockup.sol";
+import {Escrow, DepositParams} from "../../src/Payments/Escrow.sol";
 import {Params}      from "../../libraries/Params.sol";
 import {Deploy}      from "../../script/Deploy.s.sol";
 import {Errors}      from "../../libraries/Errors.sol";
-import {DeploySplitWithLockup} from "../../script/Deploy.SplitWithLockup.sol";
+import {DeployEscrow} from "../../script/Deploy.Escrow.sol";
 
 contract Base_Test is Test {
 
-    SplitWithLockup splitContract;
+    Escrow escrow;
 
     address alice;
     address bob;
@@ -27,7 +27,7 @@ contract Base_Test is Test {
     function setUp() public {
         address[] memory initialWhitelistedTokens = new address[](1);
         initialWhitelistedTokens[0] = address(wETH);
-        splitContract = new DeploySplitWithLockup().run(owner, initialWhitelistedTokens);
+        escrow = new DeployEscrow().run(owner, initialWhitelistedTokens);
 
         alice = makeAddr("alice");
         bob   = makeAddr("bob");
@@ -40,60 +40,60 @@ contract Base_Test is Test {
     function test_deposit() public {
         uint amount = 1000000000000000000;
         uint depositId = deposit(amount, alice);
-        assertEq(wETH.balanceOf(address(splitContract)), amount);
+        assertEq(wETH.balanceOf(address(escrow)), amount);
         assertEq(depositId, 0);
     }
 
     function test_setCanClaim() public {
         setCanClaim(alice, true);
-        assertEq(splitContract.canClaim(alice), true);
+        assertEq(escrow.canClaim(alice), true);
     }
 
     function test_claim() public {
         uint depositId = deposit(1000000000000000000, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
-        splitContract.claim(depositId, alice, true, v, r, s);
+        escrow.claim(depositId, alice, true, v, r, s);
         assertEq(wETH.balanceOf(alice), 1000000000000000000);
     }
 
     function test_claimTwice() public {
         uint depositId = deposit(1000000000000000000, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
-        splitContract.claim(depositId, alice, true, v, r, s);
+        escrow.claim(depositId, alice, true, v, r, s);
 
         uint depositId2 = deposit(1000000000000000000, alice);
         (v, r, s) = generateSignature(alice, true);
-        splitContract.claim(depositId2, alice, true, v, r, s);
+        escrow.claim(depositId2, alice, true, v, r, s);
     }
 
     function test_claim_failAlreadyClaimed() public {
         uint depositId = deposit(1000000000000000000, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
-        splitContract.claim(depositId, alice, true, v, r, s);
+        escrow.claim(depositId, alice, true, v, r, s);
         expectRevert(Errors.ALREADY_CLAIMED);
-        splitContract.claim(depositId, alice, true, v, r, s);
+        escrow.claim(depositId, alice, true, v, r, s);
     }
 
     function test_reclaim() public {
         uint depositId = deposit(1000000000000000000, alice);
         vm.warp(block.timestamp + 2 days);
         assertEq(wETH.balanceOf(bob), 0);
-        splitContract.reclaim(depositId);
+        escrow.reclaim(depositId);
         assertEq(wETH.balanceOf(bob), 1000000000000000000);
     }
 
     function test_reclaim_failStillClaimable() public {
         uint depositId = deposit(1000000000000000000, alice);
         expectRevert(Errors.STILL_CLAIMABLE);
-        splitContract.reclaim(depositId);
+        escrow.reclaim(depositId);
     }
 
     function test_reclaim_failAlreadyClaimed() public {
         uint depositId = deposit(1000000000000000000, alice);
         vm.warp(block.timestamp + 2 days);
-        splitContract.reclaim(depositId);
+        escrow.reclaim(depositId);
         expectRevert(Errors.ALREADY_CLAIMED);
-        splitContract.reclaim(depositId);
+        escrow.reclaim(depositId);
     }
 
     function test_batchReclaim() public {
@@ -101,13 +101,13 @@ contract Base_Test is Test {
         depositIds[0] = deposit(1000000000000000000, alice);
         vm.warp(block.timestamp + 2 days);
         assertEq(wETH.balanceOf(bob), 0);
-        splitContract.batchReclaim(depositIds);
+        escrow.batchReclaim(depositIds);
         assertEq(wETH.balanceOf(bob), 1000000000000000000);
     }
 
     function deposit(uint amount, address recipient) public returns (uint depositId) {
         wETH.mint(address(this), amount);
-        wETH.approve(address(splitContract), amount);
+        wETH.approve(address(escrow), amount);
 
         DepositParams[] memory params = new DepositParams[](1);
         params[0] = DepositParams({
@@ -117,13 +117,13 @@ contract Base_Test is Test {
             amount:      amount,
             claimPeriod: 1 days
         });
-        return splitContract.deposit(params[0]);
+        return escrow.deposit(params[0]);
     }
 
     function setCanClaim(address recipient, bool status) public {
         bytes32 structHash = keccak256(
             abi.encode(
-                splitContract.CLAIM_TYPEHASH(),
+                escrow.CLAIM_TYPEHASH(),
                 recipient, 
                 status,  
                 0
@@ -131,12 +131,12 @@ contract Base_Test is Test {
         );
 
         bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", splitContract.CLAIM_DOMAIN_SEPARATOR(), structHash)
+            abi.encodePacked("\x19\x01", escrow.CLAIM_DOMAIN_SEPARATOR(), structHash)
         );
     
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
-        splitContract.setCanClaim(
+        escrow.setCanClaim(
             recipient,
             status,
             v,
@@ -148,15 +148,15 @@ contract Base_Test is Test {
     function generateSignature(address recipient, bool status) public view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 structHash = keccak256(
             abi.encode(
-                splitContract.CLAIM_TYPEHASH(),
+                escrow.CLAIM_TYPEHASH(),
                 recipient,
                 status,
-                splitContract.recipientNonces(recipient)
+                escrow.recipientNonces(recipient)
             )
         );
 
         bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", splitContract.CLAIM_DOMAIN_SEPARATOR(), structHash)
+            abi.encodePacked("\x19\x01", escrow.CLAIM_DOMAIN_SEPARATOR(), structHash)
         );
     
         (v, r, s) = vm.sign(ownerPrivateKey, digest);
