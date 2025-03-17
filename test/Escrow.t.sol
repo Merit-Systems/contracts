@@ -26,7 +26,7 @@ contract Base_Test is Test {
     function setUp() public {
         address[] memory initialWhitelistedTokens = new address[](1);
         initialWhitelistedTokens[0] = address(wETH);
-        escrow = new Deploy().run(owner, initialWhitelistedTokens);
+        escrow = new Deploy().deploy(owner, initialWhitelistedTokens);
 
         alice = makeAddr("alice");
         bob   = makeAddr("bob");
