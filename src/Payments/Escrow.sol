@@ -150,6 +150,7 @@ contract Escrow is Owned, IEscrow {
     }
 
     function _claim(uint depositId, address recipient) internal {
+        require(depositId < depositCount, Errors.INVALID_DEPOSIT_ID);
         Deposit storage _deposit = deposits[depositId];
 
         require(_deposit.recipient == recipient,    Errors.INVALID_RECIPIENT);
@@ -175,6 +176,7 @@ contract Escrow is Owned, IEscrow {
     }
 
     function _reclaim(uint depositId) internal {
+        require(depositId < depositCount, Errors.INVALID_DEPOSIT_ID);
         Deposit storage _deposit = deposits[depositId];
 
         require(_deposit.state == Status.Deposited,       Errors.ALREADY_CLAIMED);
@@ -230,7 +232,7 @@ contract Escrow is Owned, IEscrow {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("Escrow")), 
-                keccak256("1"),
+                keccak256(bytes("1")),
                 block.chainid,
                 address(this)
             )
