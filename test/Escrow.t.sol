@@ -44,33 +44,33 @@ contract Base_Test is Test {
     }
 
     function test_setCanClaim() public {
-        setCanClaim(alice, true);
+        setCanClaim(alice, true, 1 days);
         assertEq(escrow.canClaim(alice), true);
     }
 
     function test_claim() public {
         uint depositId = deposit(1000000000000000000, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
-        escrow.claim(depositId, alice, true, v, r, s);
+        escrow.claim(depositId, alice, true, 1 days, v, r, s);
         assertEq(wETH.balanceOf(alice), 1000000000000000000);
     }
 
     function test_claimTwice() public {
         uint depositId = deposit(1000000000000000000, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
-        escrow.claim(depositId, alice, true, v, r, s);
+        escrow.claim(depositId, alice, true, 1 days, v, r, s);
 
         uint depositId2 = deposit(1000000000000000000, alice);
         (v, r, s) = generateSignature(alice, true);
-        escrow.claim(depositId2, alice, true, v, r, s);
+        escrow.claim(depositId2, alice, true, 1 days, v, r, s);
     }
 
     function test_claim_failAlreadyClaimed() public {
         uint depositId = deposit(1000000000000000000, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
-        escrow.claim(depositId, alice, true, v, r, s);
+        escrow.claim(depositId, alice, true, 1 days, v, r, s);
         expectRevert(Errors.ALREADY_CLAIMED);
-        escrow.claim(depositId, alice, true, v, r, s);
+        escrow.claim(depositId, alice, true, 1 days, v, r, s);
     }
 
     function test_reclaim() public {
@@ -119,13 +119,14 @@ contract Base_Test is Test {
         return escrow.deposit(params[0]);
     }
 
-    function setCanClaim(address recipient, bool status) public {
+    function setCanClaim(address recipient, bool status, uint256 deadline) public {
         bytes32 structHash = keccak256(
             abi.encode(
                 escrow.CLAIM_TYPEHASH(),
                 recipient, 
                 status,  
-                0
+                escrow.recipientNonces(recipient),
+                deadline
             )
         );
 
@@ -138,6 +139,7 @@ contract Base_Test is Test {
         escrow.setCanClaim(
             recipient,
             status,
+            deadline,
             v,
             r,
             s
@@ -150,7 +152,8 @@ contract Base_Test is Test {
                 escrow.CLAIM_TYPEHASH(),
                 recipient,
                 status,
-                escrow.recipientNonces(recipient)
+                escrow.recipientNonces(recipient),
+                1 days
             )
         );
 
