@@ -45,7 +45,7 @@ contract Escrow is Owned, IEscrow {
     mapping(address => uint[])  public senderDeposits;
     mapping(address => uint[])  public recipientDeposits;
 
-    bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce)");
+    bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
 
     uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
     bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
@@ -122,11 +122,12 @@ contract Escrow is Owned, IEscrow {
         uint    depositId,
         address recipient,
         bool    status,
+        uint256 deadline,
         uint8   v,
         bytes32 r,
         bytes32 s
     ) external {
-        setCanClaim(recipient, status, v, r, s);
+        setCanClaim(recipient, status, deadline, v, r, s);
         require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
         _claim(depositId, recipient);
     }
@@ -137,9 +138,10 @@ contract Escrow is Owned, IEscrow {
         bool            status,
         uint8           v,
         bytes32         r,
-        bytes32         s
+        bytes32         s,
+        uint256         deadline
     ) external {
-        setCanClaim(recipient, status, v, r, s);
+        setCanClaim(recipient, status, deadline, v, r, s);
         require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
 
         for (uint256 i = 0; i < depositIds.length; i++) {
@@ -190,18 +192,22 @@ contract Escrow is Owned, IEscrow {
     function setCanClaim(
         address recipient,
         bool    status,
+        uint256 deadline,
         uint8   v,
         bytes32 r,
         bytes32 s
     ) public {
         if (canClaim[recipient] == status) return;
+        
+        require(block.timestamp <= block.timestamp + deadline, Errors.SIGNATURE_EXPIRED);
 
         bytes32 structHash = keccak256(
             abi.encode(
                 CLAIM_TYPEHASH,
                 recipient,
                 status,
-                recipientNonces[recipient]
+                recipientNonces[recipient],
+                deadline
             )
         );
 
