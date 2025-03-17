@@ -199,7 +199,7 @@ contract Escrow is Owned, IEscrow {
     ) public {
         if (canClaim[recipient] == status) return;
         
-        require(block.timestamp <= block.timestamp + deadline, Errors.SIGNATURE_EXPIRED);
+        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
 
         bytes32 structHash = keccak256(
             abi.encode(
