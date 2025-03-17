@@ -136,10 +136,10 @@ contract Escrow is Owned, IEscrow {
         uint[] calldata depositIds,
         address         recipient,
         bool            status,
+        uint256         deadline,
         uint8           v,
         bytes32         r,
-        bytes32         s,
-        uint256         deadline
+        bytes32         s
     ) external {
         setCanClaim(recipient, status, deadline, v, r, s);
         require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
