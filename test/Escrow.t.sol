@@ -50,24 +50,24 @@ contract Base_Test is Test {
 
     function test_claim() public {
         uint depositId = deposit(1000000000000000000, alice);
-        (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true, 1 days);
+        (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
         escrow.claim(depositId, alice, true, 1 days, v, r, s);
         assertEq(wETH.balanceOf(alice), 1000000000000000000);
     }
 
     function test_claimTwice() public {
         uint depositId = deposit(1000000000000000000, alice);
-        (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true, 1 days);
+        (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
         escrow.claim(depositId, alice, true, 1 days, v, r, s);
 
         uint depositId2 = deposit(1000000000000000000, alice);
-        (v, r, s) = generateSignature(alice, true, 1 days);
+        (v, r, s) = generateSignature(alice, true);
         escrow.claim(depositId2, alice, true, 1 days, v, r, s);
     }
 
     function test_claim_failAlreadyClaimed() public {
         uint depositId = deposit(1000000000000000000, alice);
-        (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true, 1 days);
+        (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
         escrow.claim(depositId, alice, true, 1 days, v, r, s);
         expectRevert(Errors.ALREADY_CLAIMED);
         escrow.claim(depositId, alice, true, 1 days, v, r, s);
@@ -146,14 +146,14 @@ contract Base_Test is Test {
         );
     }
 
-    function generateSignature(address recipient, bool status, uint256 deadline) public view returns (uint8 v, bytes32 r, bytes32 s) {
+    function generateSignature(address recipient, bool status) public view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 structHash = keccak256(
             abi.encode(
                 escrow.CLAIM_TYPEHASH(),
                 recipient,
                 status,
                 escrow.recipientNonces(recipient),
-                deadline
+                1 days
             )
         );
 
