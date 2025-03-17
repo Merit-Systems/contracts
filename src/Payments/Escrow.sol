@@ -173,6 +173,7 @@ contract Escrow is Owned, IEscrow {
     }
 
     function _reclaim(uint depositId) internal {
+        require(depositId < depositCount, Errors.INVALID_DEPOSIT_ID);
         Deposit storage _deposit = deposits[depositId];
 
         require(_deposit.state == Status.Deposited,       Errors.ALREADY_CLAIMED);
