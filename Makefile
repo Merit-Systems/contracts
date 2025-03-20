@@ -12,6 +12,9 @@ deploy:
 		--verify \
 		--optimize
 
+deposit-count:
+	cast call 0xc095C6D52Eb4aD0A13692DD214F329Ff3b8285e2 "depositCount()(uint256)" --rpc-url https://sepolia.infura.io/v3/485c1cc01d9c4606afd4f6e3bc38beb7
+
 flatten:
 	forge clean
 	forge flatten src/MeritLedger.sol > flatten.sol
