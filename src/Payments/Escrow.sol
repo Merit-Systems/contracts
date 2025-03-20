@@ -33,8 +33,8 @@ contract Escrow is Owned, IEscrow {
     struct Deposit {
         uint    amount;
         ERC20   token;
-        address recipient;
         address sender;
+        address recipient;
         uint    claimDeadline;
         Status  state;
     }
