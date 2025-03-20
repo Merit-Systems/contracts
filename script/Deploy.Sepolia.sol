@@ -7,7 +7,7 @@ import {Script} from "forge-std/Script.sol";
 
 contract DeploySepolia is Script {
     function run() public {
-        address[] memory initialWhitelistedTokens = new address[](1);
+        address[] memory initialWhitelistedTokens = new address[](2);
         initialWhitelistedTokens[0] = Params.SEPOLIA_WETH;
         initialWhitelistedTokens[1] = Params.SEPOLIA_USDC;
 
