@@ -74,7 +74,7 @@ contract Escrow is Owned, IEscrow {
         require(param.recipient  != address(0),                    Errors.INVALID_ADDRESS);
         require(param.amount      > 0,                             Errors.INVALID_AMOUNT);
         require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
-        require(_whitelistedTokens.contains(address(param.token)), Errors.TOKEN_NOT_WHITELISTED);
+        require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
 
         param.token.safeTransferFrom(msg.sender, address(this), param.amount);
 
