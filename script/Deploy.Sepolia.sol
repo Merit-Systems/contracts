@@ -9,6 +9,7 @@ contract DeploySepolia is Script {
     function run() public {
         address[] memory initialWhitelistedTokens = new address[](1);
         initialWhitelistedTokens[0] = Params.SEPOLIA_WETH;
+        initialWhitelistedTokens[1] = Params.SEPOLIA_USDC;
 
         vm.startBroadcast();
         new Deploy().deploy(Params.OWNER, initialWhitelistedTokens);
