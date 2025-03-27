@@ -7,12 +7,13 @@ import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 
 contract DeploySepolia {
     function run() public {
-      MockERC20 testToken = new MockERC20("USDC", "USDC", 6);
+      MockERC20 mockUSDC = new MockERC20("USDC", "USDC", 6);
+      mockUSDC.mint(Params.TESTER, 10000000000000 * 10**6);
 
-      address[] memory initialWhitelistedTokens = new address[](2);
+      address[] memory initialWhitelistedTokens = new address[](3);
       initialWhitelistedTokens[0] = Params.SEPOLIA_WETH;
       initialWhitelistedTokens[1] = Params.SEPOLIA_USDC;
-      initialWhitelistedTokens[2] = address(testToken);
+      initialWhitelistedTokens[2] = address(mockUSDC);
 
       new Deploy().deploy(Params.OWNER, initialWhitelistedTokens);
     }
