@@ -10,10 +10,10 @@ contract Deploy is Script {
         public 
         returns (Escrow escrow)
     {
-        // bytes32 salt = bytes32(uint256(0x123)); 
-        // escrow = new Escrow{salt: salt}(owner, initialWhitelistedTokens);
         vm.startBroadcast();
+
         escrow = new Escrow(owner, initialWhitelistedTokens);
+
         vm.stopBroadcast();
     }
 }

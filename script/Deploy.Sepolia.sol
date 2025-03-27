@@ -4,11 +4,16 @@ pragma solidity ^0.8.26;
 import {Deploy}    from "./Deploy.s.sol";
 import {Params}    from "../libraries/Params.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
+import {Script} from "forge-std/Script.sol";
 
-contract DeploySepolia {
+contract DeploySepolia is Script {
     function run() public {
+      vm.startBroadcast();
+
       MockERC20 mockUSDC = new MockERC20("USD Coin", "USDC", 6);
-      mockUSDC.mint(Params.SEPOLIA_TESTER, 10000000000000 * 10**6);
+      mockUSDC.mint(Params.SEPOLIA_TESTER, 1000000000000000 * 10**6);
+
+      vm.stopBroadcast();
 
       address[] memory initialWhitelistedTokens = new address[](3);
       initialWhitelistedTokens[0] = Params.SEPOLIA_WETH;
