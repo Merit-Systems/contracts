@@ -13,7 +13,10 @@ deploy:
 		--optimize
 
 deposit-count:
-	cast call 0xf3f124ddf24C0541991f4d61aFA57A399db61849 "depositCount()(uint256)" --rpc-url https://sepolia.infura.io/v3/485c1cc01d9c4606afd4f6e3bc38beb7
+	cast call 0xc2B0e1Be3832d001F5951AE2B30b6b76FeE46DDF "depositCount()(uint256)" --rpc-url https://sepolia.infura.io/v3/485c1cc01d9c4606afd4f6e3bc38beb7
+
+recipient-nonces:
+	cast call 0xc2B0e1Be3832d001F5951AE2B30b6b76FeE46DDF "recipientNonces(address)(uint256)" 0x99ecA80b4Ebf8fDACe6627BEcb75EF1e620E6956 --rpc-url https://sepolia.infura.io/v3/485c1cc01d9c4606afd4f6e3bc38beb7
 
 flatten:
 	forge clean
