@@ -12,5 +12,5 @@ library Params {
     address constant SEPOLIA_WETH = 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9;
     address constant SEPOLIA_USDC = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
 
-    address constant TESTER = 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec;
+    address constant SEPOLIA_TESTER = 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec;
 }
