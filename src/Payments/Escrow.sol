@@ -58,16 +58,20 @@ contract Escrow is Owned, IEscrow {
     address public feeRecipient;
     uint    public constant MAX_FEE_BPS = 1000;
 
-    constructor(address _owner, address[] memory initialWhitelistedTokens, uint initialFeeBps) Owned(_owner) {
-        require(initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
+    constructor(
+        address          _owner,
+        address[] memory _initialWhitelistedTokens,
+        uint             _initialFeeBps
+    ) Owned(_owner) {
+        require(_initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
+        feeRecipient                   = _owner;
+        protocolFeeBps                 = _initialFeeBps;
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
-        feeRecipient                   = _owner;
-        protocolFeeBps                 = initialFeeBps;
 
-        for (uint256 i = 0; i < initialWhitelistedTokens.length; i++) {
-            _whitelistedTokens.add(initialWhitelistedTokens[i]);
-            emit TokenWhitelisted(initialWhitelistedTokens[i]);
+        for (uint256 i = 0; i < _initialWhitelistedTokens.length; i++) {
+            _whitelistedTokens.add(_initialWhitelistedTokens[i]);
+            emit TokenWhitelisted(_initialWhitelistedTokens[i]);
         }
     }
 
