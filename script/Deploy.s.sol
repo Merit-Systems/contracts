@@ -15,7 +15,7 @@ contract Deploy is Script {
         escrow = new Escrow(
             owner,
             initialWhitelistedTokens,
-            0
+            0 // fee bps
         );
 
         vm.stopBroadcast();
