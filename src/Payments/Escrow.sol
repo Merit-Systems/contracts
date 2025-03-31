@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {ECDSA}           from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ERC20}           from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Owned}           from "solmate/auth/Owned.sol";
 import {IEscrow}         from "../../interface/IEscrow.sol";
 import {Errors}          from "../../libraries/Errors.sol";
@@ -26,6 +27,7 @@ struct DepositParams {
 contract Escrow is Owned, IEscrow {
     using SafeTransferLib for ERC20;
     using EnumerableSet   for EnumerableSet.AddressSet;
+    using FixedPointMathLib for uint256;
 
     mapping(address => bool) public canClaim;
     mapping(address => uint) public recipientNonces;
@@ -52,10 +54,20 @@ contract Escrow is Owned, IEscrow {
 
     EnumerableSet.AddressSet private _whitelistedTokens;
 
-    constructor(address _owner, address[] memory initialWhitelistedTokens) Owned(_owner) { 
+    uint    public protocolFeeBps;
+    address public feeRecipient;
+    uint    public constant MAX_FEE_BPS = 1000;
+
+    event ProtocolFeeSet(uint newFeeBps);
+    event FeeRecipientSet(address newFeeRecipient);
+
+    constructor(address _owner, address[] memory initialWhitelistedTokens, uint initialFeeBps) Owned(_owner) {
+        require(initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
-        
+        feeRecipient = _owner;
+        protocolFeeBps = initialFeeBps;
+
         for (uint256 i = 0; i < initialWhitelistedTokens.length; i++) {
             _whitelistedTokens.add(initialWhitelistedTokens[i]);
             emit TokenWhitelisted(initialWhitelistedTokens[i]);
@@ -66,8 +78,8 @@ contract Escrow is Owned, IEscrow {
                                 DEPOSIT
     //////////////////////////////////////////////////////////////*/
     function deposit(DepositParams calldata param)
-        public 
-        returns (uint depositId) 
+        public
+        returns (uint depositId)
     {
         require(param.token      != ERC20(address(0)),             Errors.INVALID_ADDRESS);
         require(param.sender     != address(0),                    Errors.INVALID_ADDRESS);
@@ -76,10 +88,22 @@ contract Escrow is Owned, IEscrow {
         require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
         require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
 
+        uint feeAmount;
+        uint amountToEscrow = param.amount;
+        if (protocolFeeBps > 0) {
+            feeAmount = param.amount.mulDivDown(protocolFeeBps, 10_000);
+            amountToEscrow = param.amount - feeAmount;
+            require(amountToEscrow > 0, Errors.INVALID_AMOUNT_AFTER_FEE);
+        }
+
         param.token.safeTransferFrom(msg.sender, address(this), param.amount);
 
+        if (feeAmount > 0) {
+            param.token.safeTransfer(feeRecipient, feeAmount);
+        }
+
         deposits[depositCount] = Deposit({
-            amount:        param.amount,
+            amount:        amountToEscrow,
             token:         param.token,
             recipient:     param.recipient,
             sender:        param.sender,
@@ -95,7 +119,7 @@ contract Escrow is Owned, IEscrow {
             address(param.token),
             param.recipient,
             param.sender,
-            param.amount,
+            amountToEscrow,
             block.timestamp + param.claimPeriod
         );
 
@@ -284,6 +308,22 @@ contract Escrow is Owned, IEscrow {
 
     function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
         return recipientDeposits[recipient];
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                FEE MANAGEMENT (Owner Only)
+    //////////////////////////////////////////////////////////////*/
+
+    function setProtocolFeeBps(uint _newFeeBps) external onlyOwner {
+        require(_newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
+        protocolFeeBps = _newFeeBps;
+        emit ProtocolFeeSet(_newFeeBps);
+    }
+
+    function setFeeRecipient(address _newFeeRecipient) external onlyOwner {
+        require(_newFeeRecipient != address(0), Errors.INVALID_ADDRESS);
+        feeRecipient = _newFeeRecipient;
+        emit FeeRecipientSet(_newFeeRecipient);
     }
 
 }
