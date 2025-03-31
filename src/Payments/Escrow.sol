@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ECDSA}           from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {ERC20}           from "solmate/tokens/ERC20.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {ERC20}             from "solmate/tokens/ERC20.sol";
+import {SafeTransferLib}   from "solmate/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
-import {Owned}           from "solmate/auth/Owned.sol";
-import {IEscrow}         from "../../interface/IEscrow.sol";
-import {Errors}          from "../../libraries/Errors.sol";
-import {EnumerableSet}   from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {Owned}             from "solmate/auth/Owned.sol";
+import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {EnumerableSet}     from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {IEscrow}           from "../../interface/IEscrow.sol";
+import {Errors}            from "../../libraries/Errors.sol";
 
 enum Status {
     Deposited,
@@ -25,8 +25,8 @@ struct DepositParams {
 }
 
 contract Escrow is Owned, IEscrow {
-    using SafeTransferLib for ERC20;
-    using EnumerableSet   for EnumerableSet.AddressSet;
+    using SafeTransferLib   for ERC20;
+    using EnumerableSet     for EnumerableSet.AddressSet;
     using FixedPointMathLib for uint256;
 
     mapping(address => bool) public canClaim;
@@ -58,15 +58,12 @@ contract Escrow is Owned, IEscrow {
     address public feeRecipient;
     uint    public constant MAX_FEE_BPS = 1000;
 
-    event ProtocolFeeSet(uint newFeeBps);
-    event FeeRecipientSet(address newFeeRecipient);
-
     constructor(address _owner, address[] memory initialWhitelistedTokens, uint initialFeeBps) Owned(_owner) {
         require(initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
-        feeRecipient = _owner;
-        protocolFeeBps = initialFeeBps;
+        feeRecipient                   = _owner;
+        protocolFeeBps                 = initialFeeBps;
 
         for (uint256 i = 0; i < initialWhitelistedTokens.length; i++) {
             _whitelistedTokens.add(initialWhitelistedTokens[i]);
@@ -91,7 +88,7 @@ contract Escrow is Owned, IEscrow {
         uint feeAmount;
         uint amountToEscrow = param.amount;
         if (protocolFeeBps > 0) {
-            feeAmount = param.amount.mulDivDown(protocolFeeBps, 10_000);
+            feeAmount      = param.amount.mulDivDown(protocolFeeBps, 10_000);
             amountToEscrow = param.amount - feeAmount;
             require(amountToEscrow > 0, Errors.INVALID_AMOUNT_AFTER_FEE);
         }

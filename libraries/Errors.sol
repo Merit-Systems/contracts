@@ -32,4 +32,6 @@ library Errors {
     string internal constant SIGNATURE_EXPIRED         = "Signature Expired";
     string internal constant INVALID_DEPOSIT_ID        = "Invalid Deposit ID";
     string internal constant INVALID_TOKEN             = "Invalid Token";
+    string internal constant INVALID_FEE               = "Invalid Fee";
+    string internal constant INVALID_AMOUNT_AFTER_FEE  = "Invalid Amount After Fee";
 }

@@ -30,4 +30,6 @@ interface IEscrow {
 
     event TokenWhitelisted(address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
+    event ProtocolFeeSet(uint newFeeBps);
+    event FeeRecipientSet(address newFeeRecipient);
 }
