@@ -49,4 +49,53 @@ interface IEscrow {
      * @return depositId The ID of the newly created deposit.
      */
     function deposit(DepositParams calldata param) external returns (uint depositId);
+
+    /**
+     * @notice Allows batch creation of multiple deposits in a single transaction.
+     * @param params An array of `DepositParams` structs for each deposit.
+     * @return depositIds An array of newly assigned deposit IDs.
+     */
+    function batchDeposit(DepositParams[] calldata params) external returns (uint[] memory depositIds);
+
+    /**
+     * @notice Claims the tokens of a single deposit, if the caller is authorized by signature.
+     * @dev Calls `setCanClaim` first to verify the signature and then claims if authorized.
+     * @param depositId The ID of the deposit to claim.
+     * @param recipient The recipient address specified in the signature.
+     * @param status The status boolean included in the signature (true means authorized).
+     * @param deadline The deadline by which the signature must be used.
+     * @param v Component of the ECDSA signature.
+     * @param r Component of the ECDSA signature.
+     * @param s Component of the ECDSA signature.
+     */
+    function claim(
+        uint    depositId,
+        address recipient,
+        bool    status,
+        uint256 deadline,
+        uint8   v,
+        bytes32 r,
+        bytes32 s
+    ) external;
+
+    /**
+     * @notice Claims multiple deposits in a single transaction, if the caller is authorized by signature.
+     * @dev Similar to `claim` but operates on an array of deposit IDs.
+     * @param depositIds An array of deposit IDs to be claimed.
+     * @param recipient The recipient address specified in the signature.
+     * @param status The status boolean included in the signature (true means authorized).
+     * @param deadline The deadline by which the signature must be used.
+     * @param v Component of the ECDSA signature.
+     * @param r Component of the ECDSA signature.
+     * @param s Component of the ECDSA signature.
+     */
+    function batchClaim(
+        uint[] calldata depositIds,
+        address         recipient,
+        bool            status,
+        uint256         deadline,
+        uint8           v,
+        bytes32         r,
+        bytes32         s
+    ) external;
 }

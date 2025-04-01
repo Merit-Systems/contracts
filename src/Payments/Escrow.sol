@@ -114,6 +114,7 @@ contract Escrow is Owned, IEscrow {
         return depositCount++;
     }
 
+    /// @inheritdoc IEscrow
     function batchDeposit(
         DepositParams[] calldata params
     ) 
@@ -130,6 +131,7 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 CLAIM
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IEscrow
     function claim(
         uint    depositId,
         address recipient,
@@ -144,6 +146,7 @@ contract Escrow is Owned, IEscrow {
         _claim(depositId, recipient);
     }
 
+    /// @inheritdoc IEscrow
     function batchClaim(
         uint[] calldata depositIds,
         address         recipient,
