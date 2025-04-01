@@ -4,17 +4,17 @@ pragma solidity ^0.8.26;
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
 enum Status {
-    Deposited,
-    Claimed,
-    Reclaimed
+    Deposited, // The deposit has been made.
+    Claimed,   // The recipient has claimed the deposit.
+    Reclaimed  // The sender has reclaimed the deposit.
 }
 
 struct DepositParams {
-    ERC20   token;
-    address sender;
-    address recipient;
-    uint    amount;
-    uint    claimPeriod;
+    ERC20   token;       // The token to deposit.
+    address sender;      // The account responsible for funding the deposit.
+    address recipient;   // The account that can claim the deposited tokens.
+    uint    amount;      // The total amount of tokens to deposit (before any fee).
+    uint    claimPeriod; // How long the recipient has to claim before the sender can reclaim.
 }
 
 /**
@@ -98,4 +98,17 @@ interface IEscrow {
         bytes32         r,
         bytes32         s
     ) external;
+
+    /**
+     * @notice Reclaims a deposit on behalf of the sender, if the deposit is still claimable.
+     * @param depositId The ID of the deposit to reclaim.
+     */
+    function reclaim(uint depositId) external;
+
+
+    /**
+     * @notice Allows reclaiming multiple deposits in a single transaction.
+     * @param depositIds An array of deposit IDs to reclaim.
+     */
+    function batchReclaim(uint[] calldata depositIds) external;
 }

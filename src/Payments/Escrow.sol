@@ -180,10 +180,12 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 RECLAIM
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IEscrow
     function reclaim(uint depositId) external {
         _reclaim(depositId);
     }
 
+    /// @inheritdoc IEscrow
     function batchReclaim(uint[] calldata depositIds) external {
         for (uint256 i = 0; i < depositIds.length; i++) {
             _reclaim(depositIds[i]);
