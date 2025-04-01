@@ -43,6 +43,13 @@ contract Base_Test is Test {
         assertEq(depositId, 0);
     }
 
+    function test_deposit_1_USDC() public {
+        uint amount = 1e6;
+        uint depositId = deposit(amount, alice);
+        assertEq(wETH.balanceOf(address(escrow)), 997500);
+        assertEq(depositId, 0);
+    }
+
     function test_claim() public {
         uint depositId = deposit(1000000000000000000, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
