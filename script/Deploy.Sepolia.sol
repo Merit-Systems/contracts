@@ -20,6 +20,6 @@ contract DeploySepolia is Script {
       initialWhitelistedTokens[1] = Params.SEPOLIA_USDC;
       initialWhitelistedTokens[2] = address(mockUSDC);
 
-      new Deploy().deploy(Params.OWNER, initialWhitelistedTokens);
+      new Deploy().deploy(Params.OWNER, initialWhitelistedTokens, 0);
     }
 }

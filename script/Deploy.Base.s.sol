@@ -11,7 +11,7 @@ contract DeployBase is Script {
         initialWhitelistedTokens[0] = Params.BASE_USDC;
 
         vm.startBroadcast();
-        new Deploy().deploy(Params.OWNER, initialWhitelistedTokens);
+        new Deploy().deploy(Params.OWNER, initialWhitelistedTokens, Params.BASE_FEE_BPS);
         vm.stopBroadcast();
     }
 }
