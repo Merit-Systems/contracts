@@ -7,22 +7,9 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Owned}             from "solmate/auth/Owned.sol";
 import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EnumerableSet}     from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {IEscrow}           from "../../interface/IEscrow.sol";
-import {Errors}            from "../../libraries/Errors.sol";
 
-enum Status {
-    Deposited,
-    Claimed,
-    Reclaimed
-}
-
-struct DepositParams {
-    ERC20   token;
-    address sender;
-    address recipient;
-    uint    amount;
-    uint    claimPeriod;
-}
+import {IEscrow, DepositParams, Status} from "../../interface/IEscrow.sol";
+import {Errors}                         from "../../libraries/Errors.sol";
 
 contract Escrow is Owned, IEscrow {
     using SafeTransferLib   for ERC20;
@@ -77,6 +64,7 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 DEPOSIT
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IEscrow
     function deposit(DepositParams calldata param)
         public
         returns (uint depositId)
@@ -114,7 +102,7 @@ contract Escrow is Owned, IEscrow {
         senderDeposits   [param.sender]   .push(depositCount);
         recipientDeposits[param.recipient].push(depositCount);
 
-        emit DepositCreated(
+        emit Deposited(
             depositCount,
             address(param.token),
             param.recipient,
@@ -126,6 +114,7 @@ contract Escrow is Owned, IEscrow {
         return depositCount++;
     }
 
+    /// @inheritdoc IEscrow
     function batchDeposit(
         DepositParams[] calldata params
     ) 
@@ -142,6 +131,7 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 CLAIM
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IEscrow
     function claim(
         uint    depositId,
         address recipient,
@@ -156,6 +146,7 @@ contract Escrow is Owned, IEscrow {
         _claim(depositId, recipient);
     }
 
+    /// @inheritdoc IEscrow
     function batchClaim(
         uint[] calldata depositIds,
         address         recipient,
@@ -189,10 +180,12 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 RECLAIM
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IEscrow
     function reclaim(uint depositId) external {
         _reclaim(depositId);
     }
 
+    /// @inheritdoc IEscrow
     function batchReclaim(uint[] calldata depositIds) external {
         for (uint256 i = 0; i < depositIds.length; i++) {
             _reclaim(depositIds[i]);
