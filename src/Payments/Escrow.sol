@@ -7,21 +7,13 @@ import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {Owned}             from "solmate/auth/Owned.sol";
 import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EnumerableSet}     from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {IEscrow}           from "../../interface/IEscrow.sol";
+import {IEscrow, DepositParams} from "../../interface/IEscrow.sol";
 import {Errors}            from "../../libraries/Errors.sol";
 
 enum Status {
     Deposited,
     Claimed,
     Reclaimed
-}
-
-struct DepositParams {
-    ERC20   token;
-    address sender;
-    address recipient;
-    uint    amount;
-    uint    claimPeriod;
 }
 
 contract Escrow is Owned, IEscrow {
@@ -77,6 +69,7 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 DEPOSIT
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IEscrow
     function deposit(DepositParams calldata param)
         public
         returns (uint depositId)
