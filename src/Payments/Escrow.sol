@@ -114,7 +114,7 @@ contract Escrow is Owned, IEscrow {
         senderDeposits   [param.sender]   .push(depositCount);
         recipientDeposits[param.recipient].push(depositCount);
 
-        emit DepositCreated(
+        emit Deposited(
             depositCount,
             address(param.token),
             param.recipient,
