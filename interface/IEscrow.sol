@@ -4,17 +4,17 @@ pragma solidity ^0.8.26;
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
 enum Status {
-    Deposited, // The deposit has been made.
-    Claimed,   // The recipient has claimed the deposit.
-    Reclaimed  // The sender has reclaimed the deposit.
+    Deposited, // Initial state
+    Claimed,   // Claimed by recipient
+    Reclaimed  // Reclaimed by sender
 }
 
 struct DepositParams {
-    ERC20   token;       // The token to deposit.
-    address sender;      // The account responsible for funding the deposit.
-    address recipient;   // The account that can claim the deposited tokens.
-    uint    amount;      // The total amount of tokens to deposit (before any fee).
-    uint    claimPeriod; // How long the recipient has to claim before the sender can reclaim.
+    ERC20   token;       // Token to deposit
+    address sender;      // Funding account
+    address recipient;   // Claiming account
+    uint    amount;      // Total token amount
+    uint    claimPeriod; // Time window for recipient to claim
 }
 
 /**
