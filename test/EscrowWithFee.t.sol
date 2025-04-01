@@ -3,8 +3,9 @@ pragma solidity =0.8.26;
 
 import "forge-std/Test.sol";
 
-import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
-import {ERC20}     from "solmate/tokens/ERC20.sol";
+import {MockERC20}         from "solmate/test/utils/mocks/MockERC20.sol";
+import {ERC20}             from "solmate/tokens/ERC20.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
 import {Escrow, DepositParams} from "../src/Payments/Escrow.sol";
 import {Params}      from "../libraries/Params.sol";
@@ -12,6 +13,7 @@ import {Deploy}      from "../script/Deploy.s.sol";
 import {Errors}      from "../libraries/Errors.sol";
 
 contract Base_Test is Test {
+    using FixedPointMathLib for uint256;
 
     Escrow escrow;
 
@@ -40,6 +42,13 @@ contract Base_Test is Test {
         uint amount = 1000000000000000000;
         uint depositId = deposit(amount, alice);
         assertEq(wETH.balanceOf(address(escrow)), 997500000000000000);
+        assertEq(depositId, 0);
+    }
+
+     function test_fuzz_deposit(uint amount) public {
+        vm.assume(amount > 1e6 && amount < 1e32);
+        uint depositId = deposit(amount, alice);
+        assertEq(wETH.balanceOf(address(escrow)), amount - (amount.mulDivDown(Params.BASE_FEE_BPS, 10_000)));
         assertEq(depositId, 0);
     }
 
