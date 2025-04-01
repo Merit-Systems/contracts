@@ -314,7 +314,6 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 FEE MANAGEMENT (Owner Only)
     //////////////////////////////////////////////////////////////*/
-
     function setProtocolFeeBps(uint _newFeeBps) external onlyOwner {
         require(_newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
         protocolFeeBps = _newFeeBps;

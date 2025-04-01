@@ -1,1 +1,4 @@
 - Accepted ERC-20 Types: wETH, USDC
+- Chains: Base
+- We want to support meta-txs in deposit. That is why msg.sender != param.sender
+- Addresses can only claim if whitelisted by us with the signature
