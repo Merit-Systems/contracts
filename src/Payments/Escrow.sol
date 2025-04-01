@@ -29,6 +29,14 @@ contract Escrow is Owned, IEscrow {
     using EnumerableSet     for EnumerableSet.AddressSet;
     using FixedPointMathLib for uint256;
 
+    uint    public constant MAX_FEE_BPS    = 1000; // 10%
+    bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
+
+    uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
+    bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
+
+    EnumerableSet.AddressSet private _whitelistedTokens;
+
     mapping(address => bool) public canClaim;
     mapping(address => uint) public recipientNonces;
 
@@ -41,22 +49,13 @@ contract Escrow is Owned, IEscrow {
         Status  state;
     }
 
-    uint public depositCount;
-
     mapping(uint    => Deposit) public deposits;
     mapping(address => uint[])  public senderDeposits;
     mapping(address => uint[])  public recipientDeposits;
 
-    bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
-
-    uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
-    bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
-
-    EnumerableSet.AddressSet private _whitelistedTokens;
-
+    uint    public depositCount;
     uint    public protocolFeeBps;
     address public feeRecipient;
-    uint    public constant MAX_FEE_BPS = 1000;
 
     constructor(
         address          _owner,
