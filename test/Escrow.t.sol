@@ -6,11 +6,10 @@ import "forge-std/Test.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {ERC20}     from "solmate/tokens/ERC20.sol";
 
-import {Escrow} from "../src/Payments/Escrow.sol";
+import {Escrow}        from "../src/Payments/Escrow.sol";
 import {DepositParams} from "../interface/IEscrow.sol";
-import {Params}      from "../libraries/Params.sol";
-import {Deploy}      from "../script/Deploy.s.sol";
-import {Errors}      from "../libraries/Errors.sol";
+import {Deploy}        from "../script/Deploy.s.sol";
+import {Errors}        from "../libraries/Errors.sol";
 
 contract Base_Test is Test {
 

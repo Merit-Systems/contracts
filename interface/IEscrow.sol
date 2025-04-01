@@ -3,6 +3,12 @@ pragma solidity ^0.8.26;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
+enum Status {
+    Deposited,
+    Claimed,
+    Reclaimed
+}
+
 struct DepositParams {
     ERC20   token;
     address sender;
