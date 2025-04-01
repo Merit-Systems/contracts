@@ -1,0 +1,1 @@
+- Accepted ERC-20 Types: wETH, USDC

@@ -7,6 +7,7 @@ library Params {
 
     // BASE
     address constant BASE_WETH = 0x4200000000000000000000000000000000000006;
+    address constant BASE_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
 
     // SEPOLIA
     address constant SEPOLIA_WETH = 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9;
