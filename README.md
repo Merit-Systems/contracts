@@ -2,12 +2,26 @@
 
 ## Data Encoding
 
-| Byte Range | Field        | Size     | Description                                  |
-| ---------- | ------------ | -------- | -------------------------------------------- |
-| 0          | Version      | 1 byte   | Encoding version                             |
-| 1          | Payment Type | 1 byte   | `0x00` = Solo Payment, `0x01` = Repo Payment |
-| 2 - 33     | Snapshot ID  | 32 bytes | Unique identifier for the snapshot           |
-| 34 - 65    | Repo ID      | 32 bytes | Unique identifier for the repo               |
+Payment data is encoded using standard Ethereum ABI encoding rules for the following tuple structure:
+
+`(uint8 version, uint8 paymentType, bytes32 snapshotId, bytes32 repoId)`
+
+- **`version` (uint8):** The encoding version number. Currently `0x01`.
+- **`paymentType` (uint8):** Indicates the type of payment.
+  - `0x00`: Solo Payment
+  - `0x01`: Repo Payment
+- **`snapshotId` (bytes32):** A unique identifier for the payment snapshot.
+- **`repoId` (bytes32):** A unique identifier for the repository associated with the payment.
+  - **Note:** If `paymentType` is `0x00` (Solo Payment), the `repoId` field is not relevant and can be ignored by the consumer or set to a default value (e.g., `bytes32(0)`) by the producer.
+
+**Note on ABI Encoding:** According to standard ABI encoding rules for static types within a tuple, each element is padded to occupy 32 bytes. Therefore:
+
+- The `uint8 version` is encoded as a 32-byte word.
+- The `uint8 paymentType` is encoded as a 32-byte word.
+- The `bytes32 snapshotId` occupies 32 bytes.
+- The `bytes32 repoId` occupies 32 bytes.
+
+The total length of the ABI-encoded data is **128 bytes**.
 
 ## Payments
 
