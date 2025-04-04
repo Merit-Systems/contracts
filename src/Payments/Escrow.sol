@@ -108,7 +108,8 @@ contract Escrow is Owned, IEscrow {
             param.recipient,
             param.sender,
             amountToEscrow,
-            block.timestamp + param.claimPeriod
+            block.timestamp + param.claimPeriod,
+            param.data
         );
 
         return depositCount++;

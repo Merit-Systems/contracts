@@ -15,6 +15,7 @@ struct DepositParams {
     address recipient;   // Claiming account
     uint    amount;      // Total token amount
     uint    claimPeriod; // Time window for recipient to claim
+    bytes   data;        // Additional data for the deposit
 }
 
 /**
@@ -28,7 +29,7 @@ struct DepositParams {
  *         - A protocol fee can be configured and applied to deposits.
  */
 interface IEscrow {
-    event Deposited                (uint indexed depositId, address indexed token, address indexed recipient, address sender, uint amount, uint claimDeadline);
+    event Deposited                (uint indexed depositId, address indexed token, address indexed recipient, address sender, uint amount, uint claimDeadline, bytes data);
     event Claimed                  (uint indexed depositId, address indexed recipient, uint amount);
     event Reclaimed                (uint indexed depositId, address indexed sender,    uint amount);
     event CanClaimSet              (address indexed recipient, bool status);
