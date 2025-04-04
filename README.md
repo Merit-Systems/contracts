@@ -1,5 +1,14 @@
 # Merit Contracts
 
+## Data Encoding
+
+| Byte Range | Field        | Size     | Description                                  |
+| ---------- | ------------ | -------- | -------------------------------------------- |
+| 0          | Version      | 1 byte   | Encoding version                             |
+| 1          | Payment Type | 1 byte   | `0x00` = Solo Payment, `0x01` = Repo Payment |
+| 2 - 33     | Split ID     | 32 bytes | Unique identifier for the split              |
+| 34 - 65    | Repo ID      | 32 bytes | Unique identifier for the repo               |
+
 ## Payments
 
 - claim (Merkle Tree)
