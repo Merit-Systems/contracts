@@ -79,7 +79,7 @@ contract Escrow is Owned, IEscrow {
         uint feeAmount;
         uint amountToEscrow = param.amount;
         if (protocolFeeBps > 0) {
-            feeAmount      = param.amount.mulDivDown(protocolFeeBps, 10_000);
+            feeAmount      = param.amount.mulDivUp(protocolFeeBps, 10_000);
             amountToEscrow = param.amount - feeAmount;
             require(amountToEscrow > 0, Errors.INVALID_AMOUNT_AFTER_FEE);
         }
