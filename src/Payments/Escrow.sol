@@ -33,7 +33,7 @@ contract Escrow is Owned, IEscrow {
         address sender;
         address recipient;
         uint    claimDeadline;
-        Status  state;
+        Status  status;
     }
 
     mapping(uint    => Deposit) public deposits;
@@ -96,7 +96,7 @@ contract Escrow is Owned, IEscrow {
             recipient:     param.recipient,
             sender:        param.sender,
             claimDeadline: block.timestamp + param.claimPeriod,
-            state:         Status.Deposited
+            status:        Status.Deposited
         });
 
         senderDeposits   [param.sender]   .push(depositCount);
@@ -168,10 +168,10 @@ contract Escrow is Owned, IEscrow {
         require(depositId < depositCount, Errors.INVALID_DEPOSIT_ID);
         Deposit storage _deposit = deposits[depositId];
 
-        require(_deposit.recipient == recipient,    Errors.INVALID_RECIPIENT);
-        require(_deposit.state == Status.Deposited, Errors.ALREADY_CLAIMED);
+        require(_deposit.recipient == recipient,     Errors.INVALID_RECIPIENT);
+        require(_deposit.status == Status.Deposited, Errors.ALREADY_CLAIMED);
         
-        _deposit.state = Status.Claimed;
+        _deposit.status = Status.Claimed;
         _deposit.token.safeTransfer(_deposit.recipient, _deposit.amount);
 
         emit Claimed(depositId, _deposit.recipient, _deposit.amount);
@@ -196,10 +196,10 @@ contract Escrow is Owned, IEscrow {
         require(depositId < depositCount, Errors.INVALID_DEPOSIT_ID);
         Deposit storage _deposit = deposits[depositId];
 
-        require(_deposit.state == Status.Deposited,       Errors.ALREADY_CLAIMED);
+        require(_deposit.status == Status.Deposited,      Errors.ALREADY_CLAIMED);
         require(block.timestamp > _deposit.claimDeadline, Errors.STILL_CLAIMABLE);
         
-        _deposit.state = Status.Reclaimed;
+        _deposit.status = Status.Reclaimed;
         _deposit.token.safeTransfer(_deposit.sender, _deposit.amount);
 
         emit Reclaimed(depositId, _deposit.sender, _deposit.amount);
