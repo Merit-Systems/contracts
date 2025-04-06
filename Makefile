@@ -26,6 +26,9 @@ flatten:
 test-escrow:
 	forge t --match-path test/Escrow.t.sol 
 
+test-escrow-with-fee:
+	forge t --match-path test/EscrowWithFee.t.sol 
+
 deploy-sepolia:
 	forge script script/Deploy.Sepolia.sol \
 		--rpc-url $(SEPOLIA_INFURA_URL) \

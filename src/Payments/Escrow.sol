@@ -1,31 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ECDSA}           from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {ERC20}           from "solmate/tokens/ERC20.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {Owned}           from "solmate/auth/Owned.sol";
-import {IEscrow}         from "../../interface/IEscrow.sol";
-import {Errors}          from "../../libraries/Errors.sol";
-import {EnumerableSet}   from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {ERC20}             from "solmate/tokens/ERC20.sol";
+import {SafeTransferLib}   from "solmate/utils/SafeTransferLib.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {Owned}             from "solmate/auth/Owned.sol";
+import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {EnumerableSet}     from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-enum Status {
-    Deposited,
-    Claimed,
-    Reclaimed
-}
-
-struct DepositParams {
-    ERC20   token;
-    address sender;
-    address recipient;
-    uint    amount;
-    uint    claimPeriod;
-}
+import {IEscrow, DepositParams, Status} from "../../interface/IEscrow.sol";
+import {Errors}                         from "../../libraries/Errors.sol";
 
 contract Escrow is Owned, IEscrow {
-    using SafeTransferLib for ERC20;
-    using EnumerableSet   for EnumerableSet.AddressSet;
+    using SafeTransferLib   for ERC20;
+    using EnumerableSet     for EnumerableSet.AddressSet;
+    using FixedPointMathLib for uint256;
+
+    uint    public constant MAX_FEE_BPS    = 1000; // 10%
+    bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
+
+    uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
+    bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
+
+    EnumerableSet.AddressSet private _whitelistedTokens;
 
     mapping(address => bool) public canClaim;
     mapping(address => uint) public recipientNonces;
@@ -39,35 +36,38 @@ contract Escrow is Owned, IEscrow {
         Status  state;
     }
 
-    uint public depositCount;
-
     mapping(uint    => Deposit) public deposits;
     mapping(address => uint[])  public senderDeposits;
     mapping(address => uint[])  public recipientDeposits;
 
-    bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
+    uint    public depositCount;
+    uint    public protocolFeeBps;
+    address public feeRecipient;
 
-    uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
-    bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
-
-    EnumerableSet.AddressSet private _whitelistedTokens;
-
-    constructor(address _owner, address[] memory initialWhitelistedTokens) Owned(_owner) { 
+    constructor(
+        address          _owner,
+        address[] memory _initialWhitelistedTokens,
+        uint             _initialFeeBps
+    ) Owned(_owner) {
+        require(_initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
+        feeRecipient                   = _owner;
+        protocolFeeBps                 = _initialFeeBps;
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
-        
-        for (uint256 i = 0; i < initialWhitelistedTokens.length; i++) {
-            _whitelistedTokens.add(initialWhitelistedTokens[i]);
-            emit TokenWhitelisted(initialWhitelistedTokens[i]);
+
+        for (uint256 i = 0; i < _initialWhitelistedTokens.length; i++) {
+            _whitelistedTokens.add(_initialWhitelistedTokens[i]);
+            emit TokenWhitelisted(_initialWhitelistedTokens[i]);
         }
     }
 
     /*//////////////////////////////////////////////////////////////
                                 DEPOSIT
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IEscrow
     function deposit(DepositParams calldata param)
-        public 
-        returns (uint depositId) 
+        public
+        returns (uint depositId)
     {
         require(param.token      != ERC20(address(0)),             Errors.INVALID_ADDRESS);
         require(param.sender     != address(0),                    Errors.INVALID_ADDRESS);
@@ -76,10 +76,22 @@ contract Escrow is Owned, IEscrow {
         require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
         require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
 
+        uint feeAmount;
+        uint amountToEscrow = param.amount;
+        if (protocolFeeBps > 0) {
+            feeAmount      = param.amount.mulDivDown(protocolFeeBps, 10_000);
+            amountToEscrow = param.amount - feeAmount;
+            require(amountToEscrow > 0, Errors.INVALID_AMOUNT_AFTER_FEE);
+        }
+
         param.token.safeTransferFrom(msg.sender, address(this), param.amount);
 
+        if (feeAmount > 0) {
+            param.token.safeTransfer(feeRecipient, feeAmount);
+        }
+
         deposits[depositCount] = Deposit({
-            amount:        param.amount,
+            amount:        amountToEscrow,
             token:         param.token,
             recipient:     param.recipient,
             sender:        param.sender,
@@ -90,18 +102,19 @@ contract Escrow is Owned, IEscrow {
         senderDeposits   [param.sender]   .push(depositCount);
         recipientDeposits[param.recipient].push(depositCount);
 
-        emit DepositCreated(
+        emit Deposited(
             depositCount,
             address(param.token),
             param.recipient,
             param.sender,
-            param.amount,
+            amountToEscrow,
             block.timestamp + param.claimPeriod
         );
 
         return depositCount++;
     }
 
+    /// @inheritdoc IEscrow
     function batchDeposit(
         DepositParams[] calldata params
     ) 
@@ -118,6 +131,7 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 CLAIM
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IEscrow
     function claim(
         uint    depositId,
         address recipient,
@@ -132,6 +146,7 @@ contract Escrow is Owned, IEscrow {
         _claim(depositId, recipient);
     }
 
+    /// @inheritdoc IEscrow
     function batchClaim(
         uint[] calldata depositIds,
         address         recipient,
@@ -165,10 +180,12 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 RECLAIM
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IEscrow
     function reclaim(uint depositId) external {
         _reclaim(depositId);
     }
 
+    /// @inheritdoc IEscrow
     function batchReclaim(uint[] calldata depositIds) external {
         for (uint256 i = 0; i < depositIds.length; i++) {
             _reclaim(depositIds[i]);
@@ -284,6 +301,21 @@ contract Escrow is Owned, IEscrow {
 
     function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
         return recipientDeposits[recipient];
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                FEE MANAGEMENT (Owner Only)
+    //////////////////////////////////////////////////////////////*/
+    function setProtocolFeeBps(uint _newFeeBps) external onlyOwner {
+        require(_newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
+        protocolFeeBps = _newFeeBps;
+        emit ProtocolFeeSet(_newFeeBps);
+    }
+
+    function setFeeRecipient(address _newFeeRecipient) external onlyOwner {
+        require(_newFeeRecipient != address(0), Errors.INVALID_ADDRESS);
+        feeRecipient = _newFeeRecipient;
+        emit FeeRecipientSet(_newFeeRecipient);
     }
 
 }
