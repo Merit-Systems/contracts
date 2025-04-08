@@ -36,7 +36,7 @@ interface IEscrow {
     event FeeRecipientSet          (address newFeeRecipient);
     event TokenWhitelisted         (address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
-    event BatchDeposited           (uint[] indexed depositIds, uint repoId, uint timestamp, uint totalGrossAmount);
+    event BatchDeposited           (uint repoId, uint timestamp, uint[] indexed depositIds, uint totalGrossAmount);
 
     /**
      * @notice Deposits tokens into the escrow on behalf of a specified sender and recipient.
