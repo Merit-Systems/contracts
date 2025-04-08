@@ -94,8 +94,7 @@ contract Base_Test is Test {
             sender:      bob,
             recipient:   recipient,
             amount:      amount,
-            claimPeriod: 1 days,
-            data:        abi.encode("test")
+            claimPeriod: 1 days
         });
         return escrow.deposit(params[0]);
     }
