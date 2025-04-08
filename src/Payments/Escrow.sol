@@ -131,7 +131,7 @@ contract Escrow is Owned, IEscrow {
             totalGrossAmount += params[i].amount;
         }
 
-        emit BatchDeposited(depositIds, totalGrossAmount, repoId, timestamp);
+        emit BatchDeposited(depositIds, repoId, timestamp, totalGrossAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
