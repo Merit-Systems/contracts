@@ -15,7 +15,6 @@ struct DepositParams {
     address recipient;   // Claiming account
     uint    amount;      // Total token amount
     uint    claimPeriod; // Time window for recipient to claim
-    bytes   data;        // Additional data for the deposit
 }
 
 /**
@@ -29,7 +28,7 @@ struct DepositParams {
  *         - A protocol fee can be configured and applied to deposits.
  */
 interface IEscrow {
-    event Deposited                (uint indexed depositId, address indexed token, address indexed recipient, address sender, uint amount, uint claimDeadline, bytes data);
+    event Deposited                (uint indexed depositId, address indexed token, address indexed recipient, address sender, uint amount, uint claimDeadline);
     event Claimed                  (uint indexed depositId, address indexed recipient, uint amount);
     event Reclaimed                (uint indexed depositId, address indexed sender,    uint amount);
     event CanClaimSet              (address indexed recipient, bool status);
@@ -37,7 +36,7 @@ interface IEscrow {
     event FeeRecipientSet          (address newFeeRecipient);
     event TokenWhitelisted         (address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
-    event BatchDeposited           (uint[] indexed depositIds, uint totalGrossAmount);
+    event BatchDeposited           (uint[] indexed depositIds, uint totalGrossAmount, bytes data);
 
     /**
      * @notice Deposits tokens into the escrow on behalf of a specified sender and recipient.
@@ -55,9 +54,10 @@ interface IEscrow {
     /**
      * @notice Allows batch creation of multiple deposits in a single transaction.
      * @param params An array of `DepositParams` structs for each deposit.
+     * @param data Additional data for the batch deposit.
      * @return depositIds An array of newly assigned deposit IDs.
      */
-    function batchDeposit(DepositParams[] calldata params) external returns (uint[] memory depositIds);
+    function batchDeposit(DepositParams[] calldata params, bytes calldata data) external returns (uint[] memory depositIds);
 
     /**
      * @notice Claims the tokens of a single deposit, if the caller is authorized by signature.

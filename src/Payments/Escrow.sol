@@ -108,8 +108,7 @@ contract Escrow is Owned, IEscrow {
             param.recipient,
             param.sender,
             amountToEscrow,
-            block.timestamp + param.claimPeriod,
-            param.data
+            block.timestamp + param.claimPeriod
         );
 
         return depositCount++;
@@ -117,7 +116,8 @@ contract Escrow is Owned, IEscrow {
 
     /// @inheritdoc IEscrow
     function batchDeposit(
-        DepositParams[] calldata params
+        DepositParams[] calldata params,
+        bytes calldata data
     ) 
         external 
         returns (uint[] memory depositIds) 
@@ -130,7 +130,7 @@ contract Escrow is Owned, IEscrow {
             totalGrossAmount += params[i].amount;
         }
 
-        emit BatchDeposited(depositIds, totalGrossAmount);
+        emit BatchDeposited(depositIds, totalGrossAmount, data);
     }
 
     /*//////////////////////////////////////////////////////////////
