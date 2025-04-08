@@ -36,7 +36,7 @@ interface IEscrow {
     event FeeRecipientSet          (address newFeeRecipient);
     event TokenWhitelisted         (address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
-    event BatchDeposited           (uint[] indexed depositIds, uint totalGrossAmount, bytes data);
+    event BatchDeposited           (uint repoId, uint timestamp, uint[] indexed depositIds, uint totalGrossAmount);
 
     /**
      * @notice Deposits tokens into the escrow on behalf of a specified sender and recipient.
@@ -54,10 +54,11 @@ interface IEscrow {
     /**
      * @notice Allows batch creation of multiple deposits in a single transaction.
      * @param params An array of `DepositParams` structs for each deposit.
-     * @param data Additional data for the batch deposit.
+     * @param repoId The ID of the repository.
+     * @param timestamp The timestamp of the batch deposit.
      * @return depositIds An array of newly assigned deposit IDs.
      */
-    function batchDeposit(DepositParams[] calldata params, bytes calldata data) external returns (uint[] memory depositIds);
+    function batchDeposit(DepositParams[] calldata params, uint repoId, uint timestamp) external returns (uint[] memory depositIds);
 
     /**
      * @notice Claims the tokens of a single deposit, if the caller is authorized by signature.
