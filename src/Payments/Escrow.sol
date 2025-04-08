@@ -127,7 +127,7 @@ contract Escrow is Owned, IEscrow {
 
         for (uint256 i = 0; i < params.length; i++) {
             depositIds[i] = deposit(params[i]);
-            totalAmount += params[i].amount;
+            totalAmount  += params[i].amount;
         }
 
         emit BatchDeposited(depositIds, totalAmount);
