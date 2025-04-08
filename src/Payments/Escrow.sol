@@ -122,15 +122,15 @@ contract Escrow is Owned, IEscrow {
         external 
         returns (uint[] memory depositIds) 
     {
-        uint totalAmount;
+        uint totalGrossAmount;
         depositIds = new uint[](params.length);
 
         for (uint256 i = 0; i < params.length; i++) {
             depositIds[i] = deposit(params[i]);
-            totalAmount  += params[i].amount;
+            totalGrossAmount += params[i].amount;
         }
 
-        emit BatchDeposited(depositIds, totalAmount);
+        emit BatchDeposited(depositIds, totalGrossAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
