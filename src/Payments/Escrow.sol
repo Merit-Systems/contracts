@@ -41,6 +41,7 @@ contract Escrow is Owned, IEscrow {
     mapping(address => uint[])  public recipientDeposits;
 
     uint    public depositCount;
+    uint    public batchCount;
     uint    public protocolFeeBps;
     address public feeRecipient;
 
@@ -131,7 +132,7 @@ contract Escrow is Owned, IEscrow {
             totalGrossAmount += params[i].amount;
         }
 
-        emit BatchDeposited(repoId, timestamp, depositIds, totalGrossAmount);
+        emit BatchDeposited(batchCount++, repoId, timestamp, depositIds, totalGrossAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
