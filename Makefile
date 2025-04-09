@@ -40,6 +40,17 @@ deploy-sepolia:
 		--verify \
 		--optimize
 
+deploy-base-sepolia:
+	forge script script/Deploy.BaseSepolia.s.sol \
+		--rpc-url $(BASE_SEPOLIA_INFURA_URL) \
+		--sender 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec \
+		--broadcast \
+		-i 1 \
+		-vvvv \
+		--via-ir \
+		--verify \
+		--optimize
+
 deploy-base:
 	forge clean
 	forge script script/Deploy.Base.s.sol \
