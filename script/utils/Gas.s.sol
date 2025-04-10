@@ -17,10 +17,8 @@ contract DeploySepolia is Script {
         MockERC20 mockUSDC = new MockERC20("USD Coin", "USDC", 6);
         mockUSDC.mint(Params.SEPOLIA_TESTER, 1000000000000000 * 10**6);
 
-        address[] memory initialWhitelistedTokens = new address[](3);
-        initialWhitelistedTokens[0] = Params.SEPOLIA_WETH;
-        initialWhitelistedTokens[1] = Params.SEPOLIA_USDC;
-        initialWhitelistedTokens[2] = address(mockUSDC);
+        address[] memory initialWhitelistedTokens = new address[](1);
+        initialWhitelistedTokens[0] = address(mockUSDC);
 
         Escrow escrow = new Deploy().deploy(Params.OWNER, initialWhitelistedTokens, 0);
 
