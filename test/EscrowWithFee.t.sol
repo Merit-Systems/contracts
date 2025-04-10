@@ -7,7 +7,7 @@ import {MockERC20}         from "solmate/test/utils/mocks/MockERC20.sol";
 import {ERC20}             from "solmate/tokens/ERC20.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
-import {Escrow}        from "../src/Payments/Escrow.sol";
+import {Escrow}        from "../src/Escrow.sol";
 import {DepositParams} from "../interface/IEscrow.sol";
 import {Params}        from "../libraries/Params.sol";
 import {Deploy}        from "../script/Deploy.s.sol";
@@ -42,21 +42,21 @@ contract Base_Test is Test {
     function test_deposit() public {
         uint amount = 1000000000000000000;
         uint depositId = deposit(amount, alice);
-        assertEq(wETH.balanceOf(address(escrow)), 997500000000000000);
+        assertEq(wETH.balanceOf(address(escrow)), 995000000000000000);
         assertEq(depositId, 0);
     }
 
      function test_fuzz_deposit(uint amount) public {
         vm.assume(amount > 1e6 && amount < 1e32);
         uint depositId = deposit(amount, alice);
-        assertEq(wETH.balanceOf(address(escrow)), amount - (amount.mulDivDown(Params.BASE_FEE_BPS, 10_000)));
+        assertEq(wETH.balanceOf(address(escrow)), amount - (amount.mulDivUp(Params.BASE_FEE_BPS, 10_000)));
         assertEq(depositId, 0);
     }
 
     function test_deposit_1_USDC() public {
         uint amount = 1e6;
         uint depositId = deposit(amount, alice);
-        assertEq(wETH.balanceOf(address(escrow)), 997500);
+        assertEq(wETH.balanceOf(address(escrow)), 995000);
         assertEq(depositId, 0);
     }
 
@@ -64,7 +64,7 @@ contract Base_Test is Test {
         uint depositId = deposit(1000000000000000000, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
         escrow.claim(depositId, alice, true, 1 days, v, r, s);
-        assertEq(wETH.balanceOf(alice), 997500000000000000);
+        assertEq(wETH.balanceOf(alice), 995000000000000000);
     }
 
     function test_reclaim() public {
@@ -72,7 +72,7 @@ contract Base_Test is Test {
         vm.warp(block.timestamp + 2 days);
         assertEq(wETH.balanceOf(bob), 0);
         escrow.reclaim(depositId);
-        assertEq(wETH.balanceOf(bob), 997500000000000000);
+        assertEq(wETH.balanceOf(bob), 995000000000000000);
     }
 
     function test_batchReclaim() public {
@@ -81,7 +81,7 @@ contract Base_Test is Test {
         vm.warp(block.timestamp + 2 days);
         assertEq(wETH.balanceOf(bob), 0);
         escrow.batchReclaim(depositIds);
-        assertEq(wETH.balanceOf(bob), 997500000000000000);
+        assertEq(wETH.balanceOf(bob), 995000000000000000);
     }
 
     function deposit(uint amount, address recipient) public returns (uint depositId) {

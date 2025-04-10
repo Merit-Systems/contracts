@@ -3,12 +3,12 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 
-import {Deploy}    from "../Deploy.s.sol";
-import {Params}    from "../../libraries/Params.sol";
-import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
+import {Deploy}        from "../Deploy.s.sol";
+import {Params}        from "../../libraries/Params.sol";
+import {MockERC20}     from "solmate/test/utils/mocks/MockERC20.sol";
 import {Script}        from "forge-std/Script.sol";
-import {Escrow}        from "../../src/Payments/Escrow.sol";
-import {DepositParams} from "../../src/Payments/Escrow.sol";
+import {Escrow}        from "../../src/Escrow.sol";
+import {DepositParams} from "../../src/Escrow.sol";
 
 contract DeploySepolia is Script {
     uint256[] NUM_DEPOSITS = [1, 10, 100, 200, 300, 400, 500, 1000];

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Escrow} from "../src/Payments/Escrow.sol";
+import {Escrow} from "../src/Escrow.sol";
 import {Params} from "../libraries/Params.sol";
 import {Script} from "forge-std/Script.sol";
 

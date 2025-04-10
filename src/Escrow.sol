@@ -8,8 +8,8 @@ import {Owned}             from "solmate/auth/Owned.sol";
 import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EnumerableSet}     from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import {IEscrow, DepositParams, Status} from "../../interface/IEscrow.sol";
-import {Errors}                         from "../../libraries/Errors.sol";
+import {IEscrow, DepositParams, Status} from "../interface/IEscrow.sol";
+import {Errors}                         from "../libraries/Errors.sol";
 
 contract Escrow is Owned, IEscrow {
     using SafeTransferLib   for ERC20;
