@@ -1,6 +1,12 @@
 # Merit Contracts
 
-We have one contract called [Escrow.sol](./src/Escrow.sol).
+We have one contract called [Escrow.sol](./src/Escrow.sol)
+
+| Single Operation | Batch Operation | Description                                     |
+| ---------------- | --------------- | ----------------------------------------------- |
+| `deposit`        | `batchDeposit`  | Deposit tokens into escrow                      |
+| `claim`          | `batchClaim`    | Claim tokens as the recipient                   |
+| `reclaim`        | `batchReclaim`  | Reclaim tokens as the sender after claim period |
 
 ### Build
 
