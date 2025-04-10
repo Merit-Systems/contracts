@@ -62,3 +62,7 @@ deploy-base:
 		--via-ir \
 		--verify \
 		--optimize
+
+
+gas:
+	forge script script/utils/Gas.s.sol 
