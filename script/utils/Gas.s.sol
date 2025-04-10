@@ -11,7 +11,7 @@ import {Escrow}        from "../../src/Payments/Escrow.sol";
 import {DepositParams} from "../../src/Payments/Escrow.sol";
 
 contract DeploySepolia is Script {
-    uint256[] NUM_DEPOSITS = [1, 10, 20, 50, 100, 500, 1000];
+    uint256[] NUM_DEPOSITS = [1, 10, 100, 200, 300, 400, 500, 1000];
 
     function run() public {
         MockERC20 mockUSDC = new MockERC20("USD Coin", "USDC", 6);
