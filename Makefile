@@ -66,3 +66,11 @@ deploy-base:
 
 gas:
 	forge script script/utils/Gas.s.sol 
+
+create-payments:
+	forge script script/utils/CreatePayments.s.sol \
+		--rpc-url $(SEPOLIA_INFURA_URL) \
+		--sender 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec \
+		--broadcast \
+		-i 1 \
+		-vvvv 
