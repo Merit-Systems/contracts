@@ -8,7 +8,7 @@ import {Owned}             from "solmate/auth/Owned.sol";
 import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EnumerableSet}     from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import {IEscrow, DepositParams, Status} from "../interface/IEscrow.sol";
+import {IEscrow, PaymentParams, Status} from "../interface/IEscrow.sol";
 import {Errors}                         from "../libraries/Errors.sol";
 
 contract Escrow is Owned, IEscrow {
@@ -27,7 +27,7 @@ contract Escrow is Owned, IEscrow {
     mapping(address => bool) public canClaim;
     mapping(address => uint) public recipientNonces;
 
-    struct Deposit {
+    struct Payment {
         uint    amount;
         ERC20   token;
         address sender;
@@ -36,11 +36,11 @@ contract Escrow is Owned, IEscrow {
         Status  status;
     }
 
-    mapping(uint    => Deposit) public deposits;
-    mapping(address => uint[])  public senderDeposits;
-    mapping(address => uint[])  public recipientDeposits;
+    mapping(uint    => Payment) public payments;
+    mapping(address => uint[])  public senderPayments;
+    mapping(address => uint[])  public recipientPayments;
 
-    uint    public depositCount;
+    uint    public paymentCount;
     uint    public batchCount;
     uint    public protocolFeeBps;
     address public feeRecipient;
@@ -66,7 +66,7 @@ contract Escrow is Owned, IEscrow {
                                 DEPOSIT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IEscrow
-    function pay(DepositParams calldata param)
+    function pay(PaymentParams calldata param)
         public
         returns (uint)
     {
@@ -91,7 +91,7 @@ contract Escrow is Owned, IEscrow {
             param.token.safeTransfer(feeRecipient, feeAmount);
         }
 
-        deposits[depositCount] = Deposit({
+        payments[paymentCount] = Payment({
             amount:        amountToEscrow,
             token:         param.token,
             recipient:     param.recipient,
@@ -100,11 +100,11 @@ contract Escrow is Owned, IEscrow {
             status:        Status.Deposited
         });
 
-        senderDeposits   [param.sender]   .push(depositCount);
-        recipientDeposits[param.recipient].push(depositCount);
+        senderPayments   [param.sender]   .push(paymentCount);
+        recipientPayments[param.recipient].push(paymentCount);
 
         emit Deposited(
-            depositCount,
+            paymentCount,
             address(param.token),
             param.recipient,
             param.sender,
@@ -112,27 +112,27 @@ contract Escrow is Owned, IEscrow {
             block.timestamp + param.claimPeriod
         );
 
-        return depositCount++;
+        return paymentCount++;
     }
 
     /// @inheritdoc IEscrow
     function batchPay(
-        DepositParams[] calldata params,
+        PaymentParams[] calldata params,
         uint repoId,
         uint timestamp
     ) 
         external 
-        returns (uint[] memory depositIds) 
+        returns (uint[] memory paymentIds) 
     {
         uint totalGrossAmount;
-        depositIds = new uint[](params.length);
+        paymentIds = new uint[](params.length);
 
         for (uint256 i = 0; i < params.length; i++) {
-            depositIds[i] = pay(params[i]);
+            paymentIds[i] = pay(params[i]);
             totalGrossAmount += params[i].amount;
         }
 
-        emit BatchDeposited(batchCount++, repoId, timestamp, depositIds, totalGrossAmount);
+        emit BatchDeposited(batchCount++, repoId, timestamp, paymentIds, totalGrossAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -140,7 +140,7 @@ contract Escrow is Owned, IEscrow {
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IEscrow
     function claim(
-        uint    depositId,
+        uint    paymentId,
         address recipient,
         bool    status,
         uint256 deadline,
@@ -150,12 +150,12 @@ contract Escrow is Owned, IEscrow {
     ) external {
         setCanClaim(recipient, status, deadline, v, r, s);
         require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
-        _claim(depositId, recipient);
+        _claim(paymentId, recipient);
     }
 
     /// @inheritdoc IEscrow
     function batchClaim(
-        uint[] calldata depositIds,
+        uint[] calldata paymentIds,
         address         recipient,
         bool            status,
         uint256         deadline,
@@ -166,50 +166,50 @@ contract Escrow is Owned, IEscrow {
         setCanClaim(recipient, status, deadline, v, r, s);
         require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
 
-        for (uint256 i = 0; i < depositIds.length; i++) {
-            _claim(depositIds[i], recipient);
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            _claim(paymentIds[i], recipient);
         }
     }
 
-    function _claim(uint depositId, address recipient) internal {
-        require(depositId < depositCount, Errors.INVALID_DEPOSIT_ID);
-        Deposit storage _deposit = deposits[depositId];
+    function _claim(uint paymentId, address recipient) internal {
+        require(paymentId < paymentCount, Errors.INVALID_PAYMENT_ID);
+        Payment storage _payment = payments[paymentId];
 
-        require(_deposit.recipient == recipient,     Errors.INVALID_RECIPIENT);
-        require(_deposit.status == Status.Deposited, Errors.ALREADY_CLAIMED);
+        require(_payment.recipient == recipient,     Errors.INVALID_RECIPIENT);
+        require(_payment.status == Status.Deposited, Errors.ALREADY_CLAIMED);
         
-        _deposit.status = Status.Claimed;
-        _deposit.token.safeTransfer(_deposit.recipient, _deposit.amount);
+        _payment.status = Status.Claimed;
+        _payment.token.safeTransfer(_payment.recipient, _payment.amount);
 
-        emit Claimed(depositId, _deposit.recipient, _deposit.amount);
+        emit Claimed(paymentId, _payment.recipient, _payment.amount);
     }
 
     /*//////////////////////////////////////////////////////////////
                                 RECLAIM
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IEscrow
-    function reclaim(uint depositId) external {
-        _reclaim(depositId);
+    function reclaim(uint paymentId) external {
+        _reclaim(paymentId);
     }
 
     /// @inheritdoc IEscrow
-    function batchReclaim(uint[] calldata depositIds) external {
-        for (uint256 i = 0; i < depositIds.length; i++) {
-            _reclaim(depositIds[i]);
+    function batchReclaim(uint[] calldata paymentIds) external {
+        for (uint256 i = 0; i < paymentIds.length; i++) {
+            _reclaim(paymentIds[i]);
         }
     }
 
-    function _reclaim(uint depositId) internal {
-        require(depositId < depositCount, Errors.INVALID_DEPOSIT_ID);
-        Deposit storage _deposit = deposits[depositId];
+    function _reclaim(uint paymentId) internal {
+        require(paymentId < paymentCount, Errors.INVALID_PAYMENT_ID);
+        Payment storage _payment = payments[paymentId];
 
-        require(_deposit.status == Status.Deposited,      Errors.ALREADY_CLAIMED);
-        require(block.timestamp > _deposit.claimDeadline, Errors.STILL_CLAIMABLE);
+        require(_payment.status == Status.Deposited,      Errors.ALREADY_CLAIMED);
+        require(block.timestamp > _payment.claimDeadline, Errors.STILL_CLAIMABLE);
         
-        _deposit.status = Status.Reclaimed;
-        _deposit.token.safeTransfer(_deposit.sender, _deposit.amount);
+        _payment.status = Status.Reclaimed;
+        _payment.token.safeTransfer(_payment.sender, _payment.amount);
 
-        emit Reclaimed(depositId, _deposit.sender, _deposit.amount);
+        emit Reclaimed(paymentId, _payment.sender, _payment.amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -302,12 +302,12 @@ contract Escrow is Owned, IEscrow {
     /*//////////////////////////////////////////////////////////////
                                 GETTERS
     //////////////////////////////////////////////////////////////*/
-    function getDepositsBySender(address sender) external view returns (uint[] memory) {
-        return senderDeposits[sender];
+    function getPaymentsBySender(address sender) external view returns (uint[] memory) {
+        return senderPayments[sender];
     }
 
-    function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
-        return recipientDeposits[recipient];
+    function getPaymentsByRecipient(address recipient) external view returns (uint[] memory) {
+        return recipientPayments[recipient];
     }
 
     /*//////////////////////////////////////////////////////////////

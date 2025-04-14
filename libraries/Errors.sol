@@ -30,7 +30,7 @@ library Errors {
     string internal constant TOKEN_NOT_WHITELISTED     = "Token Not Whitelisted";
     string internal constant TOKEN_ALREADY_WHITELISTED = "Token Already Whitelisted";
     string internal constant SIGNATURE_EXPIRED         = "Signature Expired";
-    string internal constant INVALID_DEPOSIT_ID        = "Invalid Deposit ID";
+    string internal constant INVALID_PAYMENT_ID        = "Invalid Payment ID";
     string internal constant INVALID_TOKEN             = "Invalid Token";
     string internal constant INVALID_FEE               = "Invalid Fee";
     string internal constant INVALID_AMOUNT_AFTER_FEE  = "Invalid Amount After Fee";

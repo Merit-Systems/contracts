@@ -7,7 +7,7 @@ import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {ERC20}     from "solmate/tokens/ERC20.sol";
 
 import {Escrow}        from "../src/Escrow.sol";
-import {DepositParams} from "../interface/IEscrow.sol";
+import {PaymentParams} from "../interface/IEscrow.sol";
 import {Deploy}        from "../script/Deploy.s.sol";
 import {Errors}        from "../libraries/Errors.sol";
 
@@ -108,8 +108,8 @@ contract Base_Test is Test {
         wETH.mint(address(this), amount);
         wETH.approve(address(escrow), amount);
 
-        DepositParams[] memory params = new DepositParams[](1);
-        params[0] = DepositParams({
+        PaymentParams[] memory params = new PaymentParams[](1);
+        params[0] = PaymentParams({
             token:       wETH,
             sender:      bob,
             recipient:   recipient,
