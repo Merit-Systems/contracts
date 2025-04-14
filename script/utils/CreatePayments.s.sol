@@ -9,6 +9,7 @@ import {DepositParams} from "../../src/Escrow.sol";
 import {Escrow} from "../../src/Escrow.sol";
 
 contract CreatePayments is Script {
+    // NOTE: You need to change these values before running this script
     uint    constant NUMBER_OF_DEPOSITS = 5;
     uint    constant AMOUNT_PER_DEPOSIT = 100 * 10**6;
     address constant ESCROW_ADDRESS     = 0x18578b0168D940623b89Dd0Be880fF994305Fd7e;
@@ -17,9 +18,6 @@ contract CreatePayments is Script {
     function run() public {
       MockERC20 mockUSDC = MockERC20(TOKEN);
       Escrow    escrow   = Escrow   (ESCROW_ADDRESS);
-
-      vm.startBroadcast();
-      mockUSDC.mint(Params.SEPOLIA_TESTER_SHAFU, AMOUNT_PER_DEPOSIT * NUMBER_OF_DEPOSITS);
 
       DepositParams[] memory depositParams = new DepositParams[](NUMBER_OF_DEPOSITS);
       
@@ -33,6 +31,9 @@ contract CreatePayments is Script {
           });
       }
 
+      vm.startBroadcast();
+
+      mockUSDC.mint(Params.SEPOLIA_TESTER_SHAFU, AMOUNT_PER_DEPOSIT * NUMBER_OF_DEPOSITS);
       mockUSDC.approve(address(escrow), AMOUNT_PER_DEPOSIT * NUMBER_OF_DEPOSITS);
       escrow.batchDeposit(depositParams, NUMBER_OF_DEPOSITS, block.timestamp);
 
