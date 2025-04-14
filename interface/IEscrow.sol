@@ -10,10 +10,10 @@ enum Status {
 }
 
 struct PaymentParams {
+    uint    amount;      // Total token amount
     ERC20   token;       // Token to deposit
     address sender;      // Funding account
     address recipient;   // Claiming account
-    uint    amount;      // Total token amount
     uint    claimPeriod; // Time window for recipient to claim
 }
 
