@@ -11,7 +11,8 @@ contract DeploySepolia is Script {
       vm.startBroadcast();
 
       MockERC20 mockUSDC = new MockERC20("USD Coin", "USDC", 6);
-      mockUSDC.mint(Params.SEPOLIA_TESTER, 1000000000000000 * 10**6);
+      mockUSDC.mint(Params.SEPOLIA_TESTER,      1000000000000000 * 10**6);
+      mockUSDC.mint(Params.SEPOLIA_TESTER_JSON, 1000000000000000 * 10**6);
 
       vm.stopBroadcast();
 

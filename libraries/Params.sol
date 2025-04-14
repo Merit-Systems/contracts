@@ -11,9 +11,10 @@ library Params {
     uint    constant BASE_FEE_BPS = 50;
 
     // SEPOLIA
-    address constant SEPOLIA_WETH   = 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9;
-    address constant SEPOLIA_USDC   = 0x947982FbF3bce76a2ea27797f992d388F7AdD44E;
-    address constant SEPOLIA_TESTER = 0x99ecA80b4Ebf8fDACe6627BEcb75EF1e620E6956;
+    address constant SEPOLIA_WETH        = 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9;
+    address constant SEPOLIA_USDC        = 0x947982FbF3bce76a2ea27797f992d388F7AdD44E;
+    address constant SEPOLIA_TESTER      = 0x99ecA80b4Ebf8fDACe6627BEcb75EF1e620E6956;
+    address constant SEPOLIA_TESTER_JSON = 0x5C87eA705eE49a96532F45f5db606A5f5fEF9780;
 
     // BASE SEPOLIA
     address constant BASE_SEPOLIA_WETH   = 0x4200000000000000000000000000000000000006;
