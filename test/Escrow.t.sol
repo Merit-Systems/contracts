@@ -116,7 +116,7 @@ contract Base_Test is Test {
             amount:      amount,
             claimPeriod: 1 days
         });
-        return escrow.deposit(params[0]);
+        return escrow.pay(params[0]);
     }
 
     function setCanClaim(address recipient, bool status, uint256 deadline) public {

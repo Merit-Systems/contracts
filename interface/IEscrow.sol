@@ -49,7 +49,7 @@ interface IEscrow {
      * - `claimPeriod`: How long the recipient has to claim before the sender can reclaim.
      * @return depositId The ID of the newly created deposit.
      */
-    function deposit(DepositParams calldata param) external returns (uint depositId);
+    function pay(DepositParams calldata param) external returns (uint depositId);
 
     /**
      * @notice Allows batch creation of multiple deposits in a single transaction.
@@ -58,7 +58,7 @@ interface IEscrow {
      * @param timestamp The timestamp of the batch deposit.
      * @return depositIds An array of newly assigned deposit IDs.
      */
-    function batchDeposit(DepositParams[] calldata params, uint repoId, uint timestamp) external returns (uint[] memory depositIds);
+    function batchPay(DepositParams[] calldata params, uint repoId, uint timestamp) external returns (uint[] memory depositIds);
 
     /**
      * @notice Claims the tokens of a single deposit, if the caller is authorized by signature.

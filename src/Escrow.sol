@@ -66,9 +66,9 @@ contract Escrow is Owned, IEscrow {
                                 DEPOSIT
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IEscrow
-    function deposit(DepositParams calldata param)
+    function pay(DepositParams calldata param)
         public
-        returns (uint depositId)
+        returns (uint)
     {
         require(param.token      != ERC20(address(0)),             Errors.INVALID_ADDRESS);
         require(param.sender     != address(0),                    Errors.INVALID_ADDRESS);
@@ -116,7 +116,7 @@ contract Escrow is Owned, IEscrow {
     }
 
     /// @inheritdoc IEscrow
-    function batchDeposit(
+    function batchPay(
         DepositParams[] calldata params,
         uint repoId,
         uint timestamp
@@ -128,7 +128,7 @@ contract Escrow is Owned, IEscrow {
         depositIds = new uint[](params.length);
 
         for (uint256 i = 0; i < params.length; i++) {
-            depositIds[i] = deposit(params[i]);
+            depositIds[i] = pay(params[i]);
             totalGrossAmount += params[i].amount;
         }
 

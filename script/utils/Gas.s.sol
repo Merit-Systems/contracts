@@ -44,7 +44,7 @@ contract DeploySepolia is Script {
             mockUSDC.approve(address(escrow), totalAmount);
             
             uint256 gasBefore = gasleft();
-            escrow.batchDeposit(depositParams, 1, block.timestamp);
+            escrow.batchPay(depositParams, 1, block.timestamp);
             uint256 gasAfter = gasleft();
             console.log("Gas used for %d deposits:", numDeposits, gasBefore - gasAfter);
         }
