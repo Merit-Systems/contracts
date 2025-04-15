@@ -15,9 +15,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install Foundry
-        uses: foundry-rs/setup@v1
-        with:
-          version: latest
+        uses: foundry-rs/foundry-toolchain@v1
 
       - name: Run Forge Tests
         run: forge test --ffi --no-match-path test/utils
