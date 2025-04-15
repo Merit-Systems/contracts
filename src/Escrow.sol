@@ -109,6 +109,7 @@ contract Escrow is Owned, IEscrow {
             param.recipient,
             param.sender,
             netAmount,
+            feeAmount,
             block.timestamp + param.claimPeriod
         );
 
