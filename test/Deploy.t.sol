@@ -17,10 +17,10 @@ contract Deploy_Test is Test {
     function test_deploy() public {
         Escrow escrow = deployer.run();
 
-        assertTrue(address(escrow) != address(0),                "Escrow not deployed");
-        assertTrue(escrow.isTokenWhitelisted(Params.BASE_USDC),  "WETH not whitelisted");
-        assertEq  (escrow.owner(), Params.OWNER,                 "Incorrect owner");
-        assertEq  (escrow.feeRecipient(), Params.OWNER,          "Incorrect fee recipient");
-        assertEq  (escrow.protocolFeeBps(), Params.BASE_FEE_BPS, "Incorrect fee");
+        assertTrue(address(escrow) != address(0),                 "Escrow not deployed");
+        assertTrue(escrow.isTokenWhitelisted(Params.BASE_USDC),   "WETH not whitelisted");
+        assertEq  (escrow.owner(),           Params.OWNER,        "Incorrect owner");
+        assertEq  (escrow.feeRecipient(),    Params.OWNER,        "Incorrect fee recipient");
+        assertEq  (escrow.protocolFeeBps(),  Params.BASE_FEE_BPS, "Incorrect fee");
     }
 }
