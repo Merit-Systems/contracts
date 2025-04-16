@@ -27,6 +27,8 @@ contract Escrow is Owned, IEscrow {
     mapping(address => bool) public canClaim;
     mapping(address => uint) public recipientNonces;
 
+    address public signer;
+
     struct Deposit {
         uint    amount;
         ERC20   token;
@@ -47,6 +49,7 @@ contract Escrow is Owned, IEscrow {
 
     constructor(
         address          _owner,
+        address          _signer,
         address[] memory _initialWhitelistedTokens,
         uint             _initialFeeBps
     ) Owned(_owner) {
@@ -55,6 +58,7 @@ contract Escrow is Owned, IEscrow {
         protocolFeeBps                 = _initialFeeBps;
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
+        signer                         = _signer;
 
         for (uint256 i = 0; i < _initialWhitelistedTokens.length; i++) {
             _whitelistedTokens.add(_initialWhitelistedTokens[i]);
@@ -240,8 +244,8 @@ contract Escrow is Owned, IEscrow {
             abi.encodePacked("\x19\x01", CLAIM_DOMAIN_SEPARATOR(), structHash)
         );
 
-        address signer = ECDSA.recover(digest, v, r, s);
-        require(signer == owner, Errors.INVALID_SIGNATURE);
+        address recoveredSigner = ECDSA.recover(digest, v, r, s);
+        require(recoveredSigner == signer, Errors.INVALID_SIGNATURE);
 
         recipientNonces[recipient]++;
 
@@ -324,4 +328,12 @@ contract Escrow is Owned, IEscrow {
         emit FeeRecipientSet(_newFeeRecipient);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                               SIGNER MANAGEMENT (Owner Only)
+    //////////////////////////////////////////////////////////////*/
+    function setSigner(address _newSigner) external onlyOwner {
+        require(_newSigner != address(0), Errors.INVALID_ADDRESS);
+        signer = _newSigner;
+        emit SignerSet(_newSigner);
+    }
 }

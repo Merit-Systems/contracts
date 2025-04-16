@@ -11,6 +11,6 @@ contract DeployBase is Deploy {
         address[] memory initialWhitelistedTokens = new address[](1);	
         initialWhitelistedTokens[0] = Params.BASE_USDC;	
 
-        escrow = deploy(Params.OWNER, initialWhitelistedTokens, Params.BASE_FEE_BPS);	
+        escrow = deploy(Params.OWNER, Params.SIGNER, initialWhitelistedTokens, Params.BASE_FEE_BPS);	
     }	
 }

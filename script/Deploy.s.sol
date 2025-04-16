@@ -8,6 +8,7 @@ import {Script} from "forge-std/Script.sol";
 contract Deploy is Script {
     function deploy(
         address          owner,
+        address          signer,
         address[] memory initialWhitelistedTokens,
         uint             feeBps
     ) 
@@ -18,6 +19,7 @@ contract Deploy is Script {
 
         escrow = new Escrow(
             owner,
+            signer,
             initialWhitelistedTokens,
             feeBps
         );

@@ -20,7 +20,7 @@ contract DeploySepolia is Script {
         address[] memory initialWhitelistedTokens = new address[](1);
         initialWhitelistedTokens[0] = address(mockUSDC);
 
-        Escrow escrow = new Deploy().deploy(Params.OWNER, initialWhitelistedTokens, 0);
+        Escrow escrow = new Deploy().deploy(Params.OWNER, Params.SIGNER, initialWhitelistedTokens, 0);
 
         for (uint256 j = 0; j < NUM_DEPOSITS.length; j++) {
             uint256 numDeposits = NUM_DEPOSITS[j];

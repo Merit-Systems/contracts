@@ -18,7 +18,8 @@ contract DeployBaseSepolia is DeployTestBase {
             testers,
             Params.BASESEPOLIA_WETH,
             Params.BASESEPOLIA_USDC,
-            Params.OWNER
+            Params.OWNER,
+            Params.SIGNER
         );
 
         createTestPayments(
