@@ -28,7 +28,7 @@ struct DepositParams {
  *         - A protocol fee can be configured and applied to deposits.
  */
 interface IEscrow {
-    event Deposited                (uint indexed depositId, address indexed token, address indexed recipient, address sender, uint amount, uint claimDeadline);
+    event Deposited                (uint indexed depositId, address indexed token, address indexed recipient, address sender, uint netAmount, uint feeAmount, uint claimDeadline);
     event Claimed                  (uint indexed depositId, address indexed recipient, uint amount);
     event Reclaimed                (uint indexed depositId, address indexed sender,    uint amount);
     event CanClaimSet              (address indexed recipient, bool status);
@@ -36,7 +36,7 @@ interface IEscrow {
     event FeeRecipientSet          (address newFeeRecipient);
     event TokenWhitelisted         (address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
-    event BatchDeposited           (uint indexed batchId, uint repoId, uint timestamp, uint[] depositIds, uint totalGrossAmount);
+    event BatchDeposited           (uint indexed batchId, uint repoId, uint timestamp, uint[] depositIds);
 
     /**
      * @notice Deposits tokens into the escrow on behalf of a specified sender and recipient.

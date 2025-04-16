@@ -78,11 +78,11 @@ contract Escrow is Owned, IEscrow {
         require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
 
         uint feeAmount;
-        uint amountToEscrow = param.amount;
+        uint netAmount = param.amount;
         if (protocolFeeBps > 0) {
-            feeAmount      = param.amount.mulDivUp(protocolFeeBps, 10_000);
-            amountToEscrow = param.amount - feeAmount;
-            require(amountToEscrow > 0, Errors.INVALID_AMOUNT_AFTER_FEE);
+            feeAmount = param.amount.mulDivUp(protocolFeeBps, 10_000);
+            netAmount = param.amount - feeAmount;
+            require(netAmount > 0, Errors.INVALID_AMOUNT_AFTER_FEE);
         }
 
         param.token.safeTransferFrom(msg.sender, address(this), param.amount);
@@ -92,7 +92,7 @@ contract Escrow is Owned, IEscrow {
         }
 
         deposits[depositCount] = Deposit({
-            amount:        amountToEscrow,
+            amount:        netAmount,
             token:         param.token,
             recipient:     param.recipient,
             sender:        param.sender,
@@ -108,7 +108,8 @@ contract Escrow is Owned, IEscrow {
             address(param.token),
             param.recipient,
             param.sender,
-            amountToEscrow,
+            netAmount,
+            feeAmount,
             block.timestamp + param.claimPeriod
         );
 
@@ -124,15 +125,13 @@ contract Escrow is Owned, IEscrow {
         external 
         returns (uint[] memory depositIds) 
     {
-        uint totalGrossAmount;
         depositIds = new uint[](params.length);
 
         for (uint256 i = 0; i < params.length; i++) {
             depositIds[i] = deposit(params[i]);
-            totalGrossAmount += params[i].amount;
         }
 
-        emit BatchDeposited(batchCount++, repoId, timestamp, depositIds, totalGrossAmount);
+        emit BatchDeposited(batchCount++, repoId, timestamp, depositIds);
     }
 
     /*//////////////////////////////////////////////////////////////
