@@ -16,27 +16,46 @@ contract CreatePayments is Script {
     address constant TOKEN              = 0x883066fabE2CC5b8f5dC626bF2eb47C6FBD4BE03;
 
     function run() public {
-      MockERC20 mockUSDC = MockERC20(TOKEN);
-      Escrow    escrow   = Escrow   (ESCROW_ADDRESS);
+      deploy(
+        ESCROW_ADDRESS,
+        TOKEN,
+        NUMBER_OF_DEPOSITS,
+        AMOUNT_PER_DEPOSIT,
+        Params.SEPOLIA_TESTER_SHAFU,
+        Params.SEPOLIA_TESTER_JSON
+        );
+    }
 
-      DepositParams[] memory depositParams = new DepositParams[](NUMBER_OF_DEPOSITS);
+    function deploy(
+        address escrowAddress,
+        address token,
+        uint256 numberOfDeposits,
+        uint256 amountPerDeposit,
+        address sender,
+        address recipient
+    ) public {
+      MockERC20 mockUSDC = MockERC20(token);
+      Escrow    escrow   = Escrow(escrowAddress);
+
+      DepositParams[] memory depositParams = new DepositParams[](numberOfDeposits);
       
-      for (uint256 i = 0; i < NUMBER_OF_DEPOSITS; i++) {
+      for (uint256 i = 0; i < numberOfDeposits; i++) {
           depositParams[i] = DepositParams({
               token: mockUSDC,
-              sender: Params.SEPOLIA_TESTER_SHAFU,
-              recipient: Params.SEPOLIA_TESTER_JSON,
-              amount: AMOUNT_PER_DEPOSIT,
+              sender: sender,
+              recipient: recipient,
+              amount: amountPerDeposit,
               claimPeriod: 10000
           });
       }
 
       vm.startBroadcast();
 
-      mockUSDC.mint(Params.SEPOLIA_TESTER_SHAFU, AMOUNT_PER_DEPOSIT * NUMBER_OF_DEPOSITS);
-      mockUSDC.approve(address(escrow), AMOUNT_PER_DEPOSIT * NUMBER_OF_DEPOSITS);
-      escrow.batchDeposit(depositParams, NUMBER_OF_DEPOSITS, block.timestamp);
+      mockUSDC.mint(sender, amountPerDeposit * numberOfDeposits);
+      mockUSDC.approve(address(escrow), amountPerDeposit * numberOfDeposits);
+      escrow.batchDeposit(depositParams, numberOfDeposits, block.timestamp);
 
       vm.stopBroadcast();
+        
     }
 }
