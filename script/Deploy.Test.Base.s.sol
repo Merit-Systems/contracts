@@ -8,7 +8,7 @@ import {Script}         from "forge-std/Script.sol";
 import {CreatePayments} from "./utils/CreatePayments.s.sol";
 import {Escrow}         from "../src/Escrow.sol";
 
-abstract contract DeployTestBase is Script {
+abstract contract DeployTestBase is Deploy {
     uint constant AMOUNT_TO_MINT = 100_000_000 * 10**6;
     
     Escrow    public escrow;
@@ -34,7 +34,7 @@ abstract contract DeployTestBase is Script {
         initialWhitelistedTokens[1] = usdc;
         initialWhitelistedTokens[2] = address(mockUSDC);
 
-        escrow = new Deploy().deploy(owner, initialWhitelistedTokens, 0);
+        escrow = deploy(owner, initialWhitelistedTokens, 0);
     }
 
     function createTestPayments(
