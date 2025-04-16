@@ -10,12 +10,15 @@ import {Escrow} from "../../src/Escrow.sol";
 
 contract CreatePayments is Script {
     // NOTE: You need to change these values before running this script
-    uint    constant NUMBER_OF_DEPOSITS = 5;
-    uint    constant AMOUNT_PER_DEPOSIT = 100 * 10**6;
-    address constant ESCROW_ADDRESS     = 0x18578b0168D940623b89Dd0Be880fF994305Fd7e;
-    address constant TOKEN              = 0x883066fabE2CC5b8f5dC626bF2eb47C6FBD4BE03;
+    uint    constant NUMBER_OF_DEPOSITS   = 5;
+    uint    constant AMOUNT_PER_DEPOSIT   = 100 * 10**6;
+    address constant ESCROW_ADDRESS       = 0x18578b0168D940623b89Dd0Be880fF994305Fd7e;
+    address constant TOKEN                = 0x883066fabE2CC5b8f5dC626bF2eb47C6FBD4BE03;
+    uint    constant REPO_ID              = 1234;
+    uint    constant REPO_ID_SOLO_PAYMENT = 0;
 
     function run() public {
+      // Create batch payments
       deploy(
         ESCROW_ADDRESS,
         TOKEN,
@@ -23,7 +26,16 @@ contract CreatePayments is Script {
         AMOUNT_PER_DEPOSIT,
         Params.SEPOLIA_TESTER_SHAFU,
         Params.SEPOLIA_TESTER_JSON
-        );
+      );
+
+      // Create solo payment
+    //   deploySoloPayment(
+    //     ESCROW_ADDRESS,
+    //     TOKEN,
+    //     AMOUNT_PER_DEPOSIT,
+    //     Params.SEPOLIA_TESTER_SHAFU,
+    //     Params.SEPOLIA_TESTER_JSON
+    //   );
     }
 
     function deploy(
@@ -53,9 +65,36 @@ contract CreatePayments is Script {
 
       mockUSDC.mint(sender, amountPerDeposit * numberOfDeposits);
       mockUSDC.approve(address(escrow), amountPerDeposit * numberOfDeposits);
-      escrow.batchDeposit(depositParams, numberOfDeposits, block.timestamp);
+      escrow.batchDeposit(depositParams, REPO_ID, block.timestamp);
 
       vm.stopBroadcast();
-        
+    }
+
+    function deploySoloPayment(
+        address escrowAddress,
+        address token,
+        uint256 amount,
+        address sender,
+        address recipient
+    ) public {
+      MockERC20 mockUSDC = MockERC20(token);
+      Escrow    escrow   = Escrow(escrowAddress);
+
+      DepositParams[] memory depositParams = new DepositParams[](1);
+      depositParams[0] = DepositParams({
+          token: mockUSDC,
+          sender: sender,
+          recipient: recipient,
+          amount: amount,
+          claimPeriod: 10000
+      });
+
+      vm.startBroadcast();
+
+      mockUSDC.mint(sender, amount);
+      mockUSDC.approve(address(escrow), amount);
+      escrow.batchDeposit(depositParams, REPO_ID_SOLO_PAYMENT, block.timestamp);
+
+      vm.stopBroadcast();
     }
 }
