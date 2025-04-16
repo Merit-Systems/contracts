@@ -32,4 +32,4 @@ We have one contract called [Escrow.sol](./src/Escrow.sol)
 
 ### Audits
 
-Audit reports live in [/audits](./audits/)
+All reports are in [audits](./audits/)
