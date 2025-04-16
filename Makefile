@@ -12,7 +12,7 @@ SEPOLIA_RPC      ?= $(SEPOLIA_INFURA_URL)
 BASE_SEPOLIA_RPC ?= $(BASE_SEPOLIA_INFURA_URL)
 
 # Sender addresses
-BASE_SENDER      ?= 0xc9C88391e50eEADb43647fAC514fA26f8dFd7E7F
+BASE_SENDER      ?= 0xC710b407f46823cBbdbDE6D344B8992c3062012F
 SEPOLIA_SENDER   ?= 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec
 
 # Common Forge script flags
@@ -24,6 +24,12 @@ FORGE_COMMON_FLAGS = \
 	--verify \
 	--optimize
 
+# Base-specific flags
+BASE_FLAGS = $(FORGE_COMMON_FLAGS) --etherscan-api-key $(BASE_ETHERSCAN_API_KEY)
+
+# Sepolia-specific flags
+SEPOLIA_FLAGS = $(FORGE_COMMON_FLAGS) --etherscan-api-key $(ETH_ETHERSCAN_API_KEY)
+
 # ---------------------------------------------------------------------------
 # Deployment & Setup Targets
 # ---------------------------------------------------------------------------
@@ -33,23 +39,13 @@ FORGE_COMMON_FLAGS = \
 		test-escrow test-escrow-with-fee gas create-payments
 
 # ----------------------
-# Deploy to "base"
-# ----------------------
-deploy:
-	forge clean
-	forge script script/Deploy.s.sol \
-		--rpc-url $(BASE_RPC) \
-		--sender $(BASE_SENDER) \
-		$(FORGE_COMMON_FLAGS)
-
-# ----------------------
 # Deploy to Sepolia
 # ----------------------
 deploy-sepolia:
 	forge script script/Deploy.Sepolia.sol \
 		--rpc-url $(SEPOLIA_RPC) \
 		--sender $(SEPOLIA_SENDER) \
-		$(FORGE_COMMON_FLAGS)
+		$(SEPOLIA_FLAGS)
 
 # ----------------------
 # Deploy to Base Sepolia
@@ -58,7 +54,7 @@ deploy-base-sepolia:
 	forge script script/Deploy.BaseSepolia.s.sol \
 		--rpc-url $(BASE_SEPOLIA_RPC) \
 		--sender $(SEPOLIA_SENDER) \
-		$(FORGE_COMMON_FLAGS)
+		$(BASE_FLAGS)
 
 # ----------------------
 # Deploy to Base Mainnet
@@ -68,7 +64,7 @@ deploy-base:
 	forge script script/Deploy.Base.s.sol \
 		--rpc-url $(BASE_RPC) \
 		--sender $(BASE_SENDER) \
-		$(FORGE_COMMON_FLAGS)
+		$(BASE_FLAGS)
 
 # ---------------------------------------------------------------------------
 # Testing Targets
