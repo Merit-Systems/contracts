@@ -15,7 +15,7 @@ contract DeploySepolia is DeployTestBase {
     testers[1] = Params.SEPOLIA_TESTER_JSON;
     testers[2] = Params.SEPOLIA_TESTER_SHAFU;
 
-    (Escrow escrow, MockERC20 mockUSDC) = deployTestEnvironment(
+    deployTestEnvironment(
       testers,
       Params.SEPOLIA_WETH,
       Params.SEPOLIA_USDC,
@@ -23,8 +23,6 @@ contract DeploySepolia is DeployTestBase {
     );
 
     createTestPayments(
-      address(escrow),
-      address(mockUSDC),
       Params.SEPOLIA_TESTER_SHAFU,
       Params.SEPOLIA_TESTER_JSON
     );

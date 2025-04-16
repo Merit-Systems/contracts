@@ -10,13 +10,16 @@ import {Escrow}         from "../src/Escrow.sol";
 
 abstract contract DeployTestBase is Script {
     uint constant AMOUNT_TO_MINT = 100_000_000 * 10**6;
+    
+    Escrow    public escrow;
+    MockERC20 public mockUSDC;
 
     function deployTestEnvironment(
         address[] memory testers,
         address weth,
         address usdc,
         address owner
-    ) internal returns (Escrow escrow, MockERC20 mockUSDC) {
+    ) internal {
         vm.startBroadcast();
 
         mockUSDC = new MockERC20("USD Coin", "USDC", 6);
@@ -35,14 +38,12 @@ abstract contract DeployTestBase is Script {
     }
 
     function createTestPayments(
-        address escrow,
-        address mockUSDC,
         address sender,
         address recipient
     ) internal {
         new CreatePayments().deploy(
-            escrow,
-            mockUSDC,
+            address(escrow),
+            address(mockUSDC),
             5,
             100 * 10**6,
             sender,
