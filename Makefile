@@ -52,7 +52,7 @@ deploy-sepolia:
 		$(FORGE_COMMON_FLAGS)
 
 # ----------------------
-# Deploy base -> Sepolia
+# Deploy to Base Sepolia
 # ----------------------
 deploy-base-sepolia:
 	forge script script/Deploy.BaseSepolia.s.sol \
@@ -61,13 +61,13 @@ deploy-base-sepolia:
 		$(FORGE_COMMON_FLAGS)
 
 # ----------------------
-# Deploy to Base mainnet
+# Deploy to Base Mainnet
 # ----------------------
 deploy-base:
 	forge clean
 	forge script script/Deploy.Base.s.sol \
 		--rpc-url $(BASE_RPC) \
-		--sender $(SEPOLIA_SENDER) \
+		--sender $(BASE_SENDER) \
 		$(FORGE_COMMON_FLAGS)
 
 # ---------------------------------------------------------------------------

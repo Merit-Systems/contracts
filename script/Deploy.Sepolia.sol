@@ -1,27 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Deploy}    from "./Deploy.s.sol";
-import {Params}    from "../libraries/Params.sol";
-import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
-import {Script} from "forge-std/Script.sol";
+import {DeployTestBase} from "./Deploy.Test.Base.s.sol";
+import {Params}         from "../libraries/Params.sol";
+import {Script}         from "forge-std/Script.sol";
+import {CreatePayments} from "./utils/CreatePayments.s.sol";
+import {Escrow}         from "../src/Escrow.sol";
 
-contract DeploySepolia is Script {
-    function run() public {
-      vm.startBroadcast();
+contract DeploySepolia is DeployTestBase {
+  function run() public {
+    address[] memory testers = new address[](3);
+    testers[0] = Params.SEPOLIA_TESTER;
+    testers[1] = Params.SEPOLIA_TESTER_JSON;
+    testers[2] = Params.SEPOLIA_TESTER_SHAFU;
 
-      MockERC20 mockUSDC = new MockERC20("USD Coin", "USDC", 6);
-      mockUSDC.mint(Params.SEPOLIA_TESTER,       1000000000000000 * 10**6);
-      mockUSDC.mint(Params.SEPOLIA_TESTER_JSON,  1000000000000000 * 10**6);
-      mockUSDC.mint(Params.SEPOLIA_TESTER_SHAFU, 1000000000000000 * 10**6);
+    deployTestEnvironment(
+      testers,
+      Params.SEPOLIA_WETH,
+      Params.SEPOLIA_USDC,
+      Params.OWNER
+    );
 
-      vm.stopBroadcast();
-
-      address[] memory initialWhitelistedTokens = new address[](3);
-      initialWhitelistedTokens[0] = Params.SEPOLIA_WETH;
-      initialWhitelistedTokens[1] = Params.SEPOLIA_USDC;
-      initialWhitelistedTokens[2] = address(mockUSDC);
-
-      new Deploy().deploy(Params.OWNER, initialWhitelistedTokens, 0);
-    }
+    createTestPayments(
+      Params.SEPOLIA_TESTER_SHAFU,
+      Params.SEPOLIA_TESTER_JSON
+    );
+  }
 }
