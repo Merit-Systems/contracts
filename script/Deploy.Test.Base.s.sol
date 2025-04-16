@@ -18,7 +18,8 @@ abstract contract DeployTestBase is Deploy {
         address[] memory testers,
         address weth,
         address usdc,
-        address owner
+        address owner,
+        address signer
     ) internal {
         vm.startBroadcast();
 
@@ -34,7 +35,7 @@ abstract contract DeployTestBase is Deploy {
         initialWhitelistedTokens[1] = usdc;
         initialWhitelistedTokens[2] = address(mockUSDC);
 
-        escrow = deploy(owner, initialWhitelistedTokens, 0);
+        escrow = deploy(owner, signer, initialWhitelistedTokens, 0);
     }
 
     function createTestPayments(
