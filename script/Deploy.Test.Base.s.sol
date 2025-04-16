@@ -37,16 +37,16 @@ abstract contract DeployTestBase is Script {
     function createTestPayments(
         address escrow,
         address mockUSDC,
-        address testerShafu,
-        address testerJson
+        address sender,
+        address recipient
     ) internal {
         new CreatePayments().deploy(
             escrow,
             mockUSDC,
             5,
             100 * 10**6,
-            testerShafu,
-            testerJson
+            sender,
+            recipient
         );
     }
 }
