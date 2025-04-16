@@ -67,7 +67,7 @@ deploy-base:
 	forge clean
 	forge script script/Deploy.Base.s.sol \
 		--rpc-url $(BASE_RPC) \
-		--sender $(SEPOLIA_SENDER) \
+		--sender $(BASE_SENDER) \
 		$(FORGE_COMMON_FLAGS)
 
 # ---------------------------------------------------------------------------
