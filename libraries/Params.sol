@@ -6,6 +6,8 @@ library Params {
     address constant OWNER        = 0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F;
     address constant SIGNER       = 0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F;
 
+    uint    constant BATCH_DEPOSIT_LIMIT = 500;
+
     // BASE
     address constant BASE_WETH    = 0x4200000000000000000000000000000000000006;
     address constant BASE_USDC    = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;

@@ -14,6 +14,7 @@ contract CreatePayments is Script {
     uint    constant AMOUNT_PER_DEPOSIT = 100 * 10**6;
     address constant ESCROW_ADDRESS     = 0x18578b0168D940623b89Dd0Be880fF994305Fd7e;
     address constant TOKEN              = 0x883066fabE2CC5b8f5dC626bF2eb47C6FBD4BE03;
+    uint    constant REPO_ID            = 1234;
 
     function run() public {
       deploy(
@@ -53,7 +54,7 @@ contract CreatePayments is Script {
 
       mockUSDC.mint(sender, amountPerDeposit * numberOfDeposits);
       mockUSDC.approve(address(escrow), amountPerDeposit * numberOfDeposits);
-      escrow.batchDeposit(depositParams, numberOfDeposits, block.timestamp);
+      escrow.batchDeposit(depositParams, REPO_ID, block.timestamp);
 
       vm.stopBroadcast();
         

@@ -46,12 +46,14 @@ contract Escrow is Owned, IEscrow {
     uint    public batchCount;
     uint    public protocolFeeBps;
     address public feeRecipient;
+    uint    public batchDepositLimit;
 
     constructor(
         address          _owner,
         address          _signer,
         address[] memory _initialWhitelistedTokens,
-        uint             _initialFeeBps
+        uint             _initialFeeBps,
+        uint             _initialBatchDepositLimit
     ) Owned(_owner) {
         require(_initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
         feeRecipient                   = _owner;
@@ -59,6 +61,7 @@ contract Escrow is Owned, IEscrow {
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
         signer                         = _signer;
+        batchDepositLimit              = _initialBatchDepositLimit;
 
         for (uint256 i = 0; i < _initialWhitelistedTokens.length; i++) {
             _whitelistedTokens.add(_initialWhitelistedTokens[i]);
@@ -129,6 +132,7 @@ contract Escrow is Owned, IEscrow {
         external 
         returns (uint[] memory depositIds) 
     {
+        require(params.length <= batchDepositLimit, Errors.BATCH_DEPOSIT_LIMIT_EXCEEDED);
         depositIds = new uint[](params.length);
 
         for (uint256 i = 0; i < params.length; i++) {
@@ -274,7 +278,7 @@ contract Escrow is Owned, IEscrow {
     }
 
     /*//////////////////////////////////////////////////////////////
-                               WHITELIST
+                           OWNER OPERATIONS
     //////////////////////////////////////////////////////////////*/
     function addWhitelistedToken(address token) external onlyOwner {
         require(token != address(0), Errors.INVALID_ADDRESS);
@@ -291,15 +295,28 @@ contract Escrow is Owned, IEscrow {
         return _whitelistedTokens.contains(token);
     }
 
-    function getWhitelistedTokens() external view returns (address[] memory) {
-        uint256 length = _whitelistedTokens.length();
-        address[] memory tokens = new address[](length);
-        
-        for (uint256 i = 0; i < length; i++) {
-            tokens[i] = _whitelistedTokens.at(i);
-        }
-        
-        return tokens;
+    function setProtocolFeeBps(uint _newFeeBps) external onlyOwner {
+        require(_newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
+        protocolFeeBps = _newFeeBps;
+        emit ProtocolFeeSet(_newFeeBps);
+    }
+
+    function setFeeRecipient(address _newFeeRecipient) external onlyOwner {
+        require(_newFeeRecipient != address(0), Errors.INVALID_ADDRESS);
+        feeRecipient = _newFeeRecipient;
+        emit FeeRecipientSet(_newFeeRecipient);
+    }
+
+    function setSigner(address _newSigner) external onlyOwner {
+        require(_newSigner != address(0), Errors.INVALID_ADDRESS);
+        signer = _newSigner;
+        emit SignerSet(_newSigner);
+    }
+
+    function setBatchDepositLimit(uint _newLimit) external onlyOwner {
+        require(_newLimit > 0, Errors.INVALID_BATCH_DEPOSIT_LIMIT);
+        batchDepositLimit = _newLimit;
+        emit BatchDepositLimitSet(_newLimit);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -313,27 +330,14 @@ contract Escrow is Owned, IEscrow {
         return recipientDeposits[recipient];
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                FEE MANAGEMENT (Owner Only)
-    //////////////////////////////////////////////////////////////*/
-    function setProtocolFeeBps(uint _newFeeBps) external onlyOwner {
-        require(_newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
-        protocolFeeBps = _newFeeBps;
-        emit ProtocolFeeSet(_newFeeBps);
-    }
-
-    function setFeeRecipient(address _newFeeRecipient) external onlyOwner {
-        require(_newFeeRecipient != address(0), Errors.INVALID_ADDRESS);
-        feeRecipient = _newFeeRecipient;
-        emit FeeRecipientSet(_newFeeRecipient);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                               SIGNER MANAGEMENT (Owner Only)
-    //////////////////////////////////////////////////////////////*/
-    function setSigner(address _newSigner) external onlyOwner {
-        require(_newSigner != address(0), Errors.INVALID_ADDRESS);
-        signer = _newSigner;
-        emit SignerSet(_newSigner);
+    function getWhitelistedTokens() external view returns (address[] memory) {
+        uint256 length = _whitelistedTokens.length();
+        address[] memory tokens = new address[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            tokens[i] = _whitelistedTokens.at(i);
+        }
+        
+        return tokens;
     }
 }
