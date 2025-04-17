@@ -54,7 +54,7 @@ contract CreatePayments is Script {
 
       mockUSDC.mint(sender, amountPerDeposit * numberOfDeposits);
       mockUSDC.approve(address(escrow), amountPerDeposit * numberOfDeposits);
-      escrow.batchDeposit(depositParams, REPO_ID, block.timestamp);
+      escrow.batchDeposit(depositParams, abi.encode(REPO_ID, block.timestamp));
 
       vm.stopBroadcast();
         
