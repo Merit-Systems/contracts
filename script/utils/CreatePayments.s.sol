@@ -18,23 +18,40 @@ contract CreatePayments is Script {
     uint    constant REPO_ID            = 1234;
 
     function run() public {
-      deploy(
+      // Create repo payment
+      createPayment(
         ESCROW_ADDRESS,
         TOKEN,
         NUMBER_OF_DEPOSITS,
         AMOUNT_PER_DEPOSIT,
         Params.SEPOLIA_TESTER_SHAFU,
-        Params.SEPOLIA_TESTER_JSON
-        );
+        Params.SEPOLIA_TESTER_JSON,
+        DepositEncoder.DEPOSIT_TYPE.REPO,
+        REPO_ID
+      );
+
+      // Create solo payment
+      createPayment(
+        ESCROW_ADDRESS,
+        TOKEN,
+        1, // Solo payments have exactly one deposit
+        AMOUNT_PER_DEPOSIT,
+        Params.SEPOLIA_TESTER_SHAFU,
+        Params.SEPOLIA_TESTER_JSON,
+        DepositEncoder.DEPOSIT_TYPE.SOLO,
+        0 // Solo payments use repo ID 0
+      );
     }
 
-    function deploy(
+    function createPayment(
         address escrowAddress,
         address token,
         uint256 numberOfDeposits,
         uint256 amountPerDeposit,
         address sender,
-        address recipient
+        address recipient,
+        DepositEncoder.DEPOSIT_TYPE depositType,
+        uint256 repoId
     ) public {
       MockERC20 mockUSDC = MockERC20(token);
       Escrow    escrow   = Escrow(escrowAddress);
@@ -56,13 +73,12 @@ contract CreatePayments is Script {
       mockUSDC.mint(sender, amountPerDeposit * numberOfDeposits);
       mockUSDC.approve(address(escrow), amountPerDeposit * numberOfDeposits);
       bytes memory data = DepositEncoder.encode(    
-            DepositEncoder.DEPOSIT_TYPE.REPO,
-            REPO_ID,
+            depositType,
+            repoId,
             block.timestamp
       );
       escrow.batchDeposit(depositParams, data);
 
       vm.stopBroadcast();
-        
     }
 }
