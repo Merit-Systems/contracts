@@ -295,17 +295,6 @@ contract Escrow is Owned, IEscrow {
         return _whitelistedTokens.contains(token);
     }
 
-    function getWhitelistedTokens() external view returns (address[] memory) {
-        uint256 length = _whitelistedTokens.length();
-        address[] memory tokens = new address[](length);
-        
-        for (uint256 i = 0; i < length; i++) {
-            tokens[i] = _whitelistedTokens.at(i);
-        }
-        
-        return tokens;
-    }
-
     function setProtocolFeeBps(uint _newFeeBps) external onlyOwner {
         require(_newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
         protocolFeeBps = _newFeeBps;
@@ -341,4 +330,14 @@ contract Escrow is Owned, IEscrow {
         return recipientDeposits[recipient];
     }
 
+    function getWhitelistedTokens() external view returns (address[] memory) {
+        uint256 length = _whitelistedTokens.length();
+        address[] memory tokens = new address[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            tokens[i] = _whitelistedTokens.at(i);
+        }
+        
+        return tokens;
+    }
 }
