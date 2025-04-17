@@ -46,12 +46,14 @@ contract Escrow is Owned, IEscrow {
     uint    public batchCount;
     uint    public protocolFeeBps;
     address public feeRecipient;
+    uint    public batchDepositLimit;
 
     constructor(
         address          _owner,
         address          _signer,
         address[] memory _initialWhitelistedTokens,
-        uint             _initialFeeBps
+        uint             _initialFeeBps,
+        uint             _initialBatchDepositLimit
     ) Owned(_owner) {
         require(_initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
         feeRecipient                   = _owner;
@@ -59,6 +61,7 @@ contract Escrow is Owned, IEscrow {
         CLAIM_INITIAL_CHAIN_ID         = block.chainid;
         CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
         signer                         = _signer;
+        batchDepositLimit              = _initialBatchDepositLimit;
 
         for (uint256 i = 0; i < _initialWhitelistedTokens.length; i++) {
             _whitelistedTokens.add(_initialWhitelistedTokens[i]);
@@ -129,6 +132,7 @@ contract Escrow is Owned, IEscrow {
         external 
         returns (uint[] memory depositIds) 
     {
+        require(params.length <= batchDepositLimit, Errors.BATCH_DEPOSIT_LIMIT_EXCEEDED);
         depositIds = new uint[](params.length);
 
         for (uint256 i = 0; i < params.length; i++) {
@@ -335,5 +339,14 @@ contract Escrow is Owned, IEscrow {
         require(_newSigner != address(0), Errors.INVALID_ADDRESS);
         signer = _newSigner;
         emit SignerSet(_newSigner);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                               BATCH DEPOSIT LIMIT MANAGEMENT (Owner Only)
+    //////////////////////////////////////////////////////////////*/
+    function setBatchDepositLimit(uint _newLimit) external onlyOwner {
+        require(_newLimit > 0, Errors.INVALID_BATCH_DEPOSIT_LIMIT);
+        batchDepositLimit = _newLimit;
+        emit BatchDepositLimitSet(_newLimit);
     }
 }

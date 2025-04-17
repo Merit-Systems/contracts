@@ -35,7 +35,7 @@ abstract contract DeployTestBase is Deploy {
         initialWhitelistedTokens[1] = usdc;
         initialWhitelistedTokens[2] = address(mockUSDC);
 
-        escrow = deploy(owner, signer, initialWhitelistedTokens, 0);
+        escrow = deploy(owner, signer, initialWhitelistedTokens, 0, Params.BATCH_DEPOSIT_LIMIT);
     }
 
     function createTestPayments(

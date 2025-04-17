@@ -10,6 +10,7 @@ import {Escrow}        from "../src/Escrow.sol";
 import {DepositParams} from "../interface/IEscrow.sol";
 import {Deploy}        from "../script/Deploy.s.sol";
 import {Errors}        from "../libraries/Errors.sol";
+import {Params}        from "../libraries/Params.sol";
 
 contract Base_Test is Test {
 
@@ -26,7 +27,7 @@ contract Base_Test is Test {
     function setUp() public {
         address[] memory initialWhitelistedTokens = new address[](1);
         initialWhitelistedTokens[0] = address(wETH);
-        escrow = new Deploy().deploy(owner, owner, initialWhitelistedTokens, 0);
+        escrow = new Deploy().deploy(owner, owner, initialWhitelistedTokens, 0, Params.BATCH_DEPOSIT_LIMIT);
 
         alice = makeAddr("alice");
         bob   = makeAddr("bob");

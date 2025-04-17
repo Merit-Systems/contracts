@@ -10,7 +10,8 @@ contract Deploy is Script {
         address          owner,
         address          signer,
         address[] memory initialWhitelistedTokens,
-        uint             feeBps
+        uint             feeBps,
+        uint             batchDepositLimit
     ) 
         public 
         returns (Escrow escrow)
@@ -21,7 +22,8 @@ contract Deploy is Script {
             owner,
             signer,
             initialWhitelistedTokens,
-            feeBps
+            feeBps,
+            batchDepositLimit
         );
 
         vm.stopBroadcast();
