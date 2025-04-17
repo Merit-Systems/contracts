@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Deploy}    from "../Deploy.s.sol";
-import {Params}    from "../../libraries/Params.sol";
-import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
-import {Script} from "forge-std/Script.sol";
-import {DepositParams} from "../../src/Escrow.sol";
-import {Escrow} from "../../src/Escrow.sol";
+import {Deploy}         from "../Deploy.s.sol";
+import {Params}         from "../../libraries/Params.sol";
+import {MockERC20}      from "solmate/test/utils/mocks/MockERC20.sol";
+import {Script}         from "forge-std/Script.sol";
+import {DepositParams}  from "../../src/Escrow.sol";
+import {Escrow}         from "../../src/Escrow.sol";
+import {DepositEncoder} from "../../libraries/Encoder.sol";
 
 contract CreatePayments is Script {
     // NOTE: You need to change these values before running this script
@@ -54,7 +55,12 @@ contract CreatePayments is Script {
 
       mockUSDC.mint(sender, amountPerDeposit * numberOfDeposits);
       mockUSDC.approve(address(escrow), amountPerDeposit * numberOfDeposits);
-      escrow.batchDeposit(depositParams, abi.encode(REPO_ID, block.timestamp));
+      bytes memory data = DepositEncoder.encode(    
+            DepositEncoder.DEPOSIT_TYPE.REPO,
+            REPO_ID,
+            block.timestamp
+      );
+      escrow.batchDeposit(depositParams, data);
 
       vm.stopBroadcast();
         
