@@ -278,7 +278,7 @@ contract Escrow is Owned, IEscrow {
     }
 
     /*//////////////////////////////////////////////////////////////
-                               WHITELIST
+                           OWNER OPERATIONS
     //////////////////////////////////////////////////////////////*/
     function addWhitelistedToken(address token) external onlyOwner {
         require(token != address(0), Errors.INVALID_ADDRESS);
@@ -306,20 +306,6 @@ contract Escrow is Owned, IEscrow {
         return tokens;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                GETTERS
-    //////////////////////////////////////////////////////////////*/
-    function getDepositsBySender(address sender) external view returns (uint[] memory) {
-        return senderDeposits[sender];
-    }
-
-    function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
-        return recipientDeposits[recipient];
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                                FEE MANAGEMENT (Owner Only)
-    //////////////////////////////////////////////////////////////*/
     function setProtocolFeeBps(uint _newFeeBps) external onlyOwner {
         require(_newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
         protocolFeeBps = _newFeeBps;
@@ -332,21 +318,27 @@ contract Escrow is Owned, IEscrow {
         emit FeeRecipientSet(_newFeeRecipient);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                               SIGNER MANAGEMENT (Owner Only)
-    //////////////////////////////////////////////////////////////*/
     function setSigner(address _newSigner) external onlyOwner {
         require(_newSigner != address(0), Errors.INVALID_ADDRESS);
         signer = _newSigner;
         emit SignerSet(_newSigner);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                               BATCH DEPOSIT LIMIT MANAGEMENT (Owner Only)
-    //////////////////////////////////////////////////////////////*/
     function setBatchDepositLimit(uint _newLimit) external onlyOwner {
         require(_newLimit > 0, Errors.INVALID_BATCH_DEPOSIT_LIMIT);
         batchDepositLimit = _newLimit;
         emit BatchDepositLimitSet(_newLimit);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                GETTERS
+    //////////////////////////////////////////////////////////////*/
+    function getDepositsBySender(address sender) external view returns (uint[] memory) {
+        return senderDeposits[sender];
+    }
+
+    function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
+        return recipientDeposits[recipient];
+    }
+
 }
