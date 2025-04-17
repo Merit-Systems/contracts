@@ -15,7 +15,7 @@ contract CreatePayments is Script {
     uint    constant AMOUNT_PER_DEPOSIT = 100 * 10**6;
     address constant ESCROW_ADDRESS     = 0x18578b0168D940623b89Dd0Be880fF994305Fd7e;
     address constant TOKEN              = 0x883066fabE2CC5b8f5dC626bF2eb47C6FBD4BE03;
-    uint    constant REPO_ID            = 1234;
+    uint64  constant REPO_ID            = 1234;
 
     function run() public {
       // Create repo payment
@@ -51,7 +51,7 @@ contract CreatePayments is Script {
         address sender,
         address recipient,
         DepositEncoder.DEPOSIT_TYPE depositType,
-        uint256 repoId
+        uint64 repoId
     ) public {
       MockERC20 mockUSDC = MockERC20(token);
       Escrow    escrow   = Escrow(escrowAddress);
@@ -75,7 +75,7 @@ contract CreatePayments is Script {
       bytes memory data = DepositEncoder.encode(    
             depositType,
             repoId,
-            block.timestamp
+            uint64(block.timestamp)
       );
       escrow.batchDeposit(depositParams, data);
 
