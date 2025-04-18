@@ -5,6 +5,7 @@ import {Deploy} from "./Deploy.s.sol";
 import {Params} from "../libraries/Params.sol";	
 import {Script} from "forge-std/Script.sol";	
 import {Escrow} from "../src/Escrow.sol";
+import {console} from "forge-std/console.sol";
 
 contract DeployBase is Deploy {	
     function run() public returns (Escrow escrow) {	
@@ -18,5 +19,7 @@ contract DeployBase is Deploy {
             Params.BASE_FEE_BPS,
             Params.BATCH_DEPOSIT_LIMIT
         );	
+
+        console.log("Escrow deployed at:", address(escrow));
     }	
 }

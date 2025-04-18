@@ -7,6 +7,7 @@ import {MockERC20}      from "solmate/test/utils/mocks/MockERC20.sol";
 import {Script}         from "forge-std/Script.sol";
 import {CreatePayments} from "./utils/CreatePayments.s.sol";
 import {Escrow}         from "../src/Escrow.sol";
+import {DepositEncoder} from "../libraries/Encoder.sol";
 
 abstract contract DeployTestBase is Deploy {
     uint constant AMOUNT_TO_MINT = 100_000_000 * 10**6;
@@ -42,13 +43,15 @@ abstract contract DeployTestBase is Deploy {
         address sender,
         address recipient
     ) internal {
-        new CreatePayments().deploy(
+        new CreatePayments().createPayment(
             address(escrow),
             address(mockUSDC),
             5,
             100 * 10**6,
             sender,
-            recipient
+            recipient,
+            DepositEncoder.DEPOSIT_TYPE.REPO,
+            100
         );
     }
 }

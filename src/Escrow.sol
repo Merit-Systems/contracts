@@ -126,8 +126,7 @@ contract Escrow is Owned, IEscrow {
     /// @inheritdoc IEscrow
     function batchDeposit(
         DepositParams[] calldata params,
-        uint repoId,
-        uint timestamp
+        bytes memory data
     ) 
         external 
         returns (uint[] memory depositIds) 
@@ -139,7 +138,7 @@ contract Escrow is Owned, IEscrow {
             depositIds[i] = deposit(params[i]);
         }
 
-        emit BatchDeposited(batchCount++, repoId, timestamp, depositIds);
+        emit BatchDeposited(batchCount++, depositIds, data);
     }
 
     /*//////////////////////////////////////////////////////////////
