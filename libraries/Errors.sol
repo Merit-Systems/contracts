@@ -36,4 +36,5 @@ library Errors {
     string internal constant INVALID_AMOUNT_AFTER_FEE     = "Invalid Amount After Fee";
     string internal constant INVALID_BATCH_DEPOSIT_LIMIT  = "Invalid Batch Deposit Limit";
     string internal constant BATCH_DEPOSIT_LIMIT_EXCEEDED = "Batch Deposit Limit Exceeded";
+    string internal constant EMPTY_BATCH                  = "Empty Batch";
 }

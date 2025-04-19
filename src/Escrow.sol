@@ -131,6 +131,7 @@ contract Escrow is Owned, IEscrow {
         external 
         returns (uint[] memory depositIds) 
     {
+        require(params.length > 0,                  Errors.EMPTY_BATCH);
         require(params.length <= batchDepositLimit, Errors.BATCH_DEPOSIT_LIMIT_EXCEEDED);
         depositIds = new uint[](params.length);
 
