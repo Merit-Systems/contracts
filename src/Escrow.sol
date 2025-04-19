@@ -156,7 +156,7 @@ contract Escrow is Owned, IEscrow {
         bytes32 s
     ) external {
         setCanClaim(recipient, status, deadline, v, r, s);
-        require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
+        require(canClaim[recipient], Errors.NO_CLAIM_PERMISSION);
         _claim(depositId, recipient);
     }
 
@@ -171,7 +171,7 @@ contract Escrow is Owned, IEscrow {
         bytes32         s
     ) external {
         setCanClaim(recipient, status, deadline, v, r, s);
-        require(canClaim[recipient], Errors.NO_PAYMENT_PERMISSION);
+        require(canClaim[recipient], Errors.NO_CLAIM_PERMISSION);
 
         for (uint256 i = 0; i < depositIds.length; i++) {
             _claim(depositIds[i], recipient);
