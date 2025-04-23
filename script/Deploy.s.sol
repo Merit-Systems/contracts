@@ -32,10 +32,6 @@ contract Deploy is Script {
 
       bytes32 salt = keccak256(abi.encodePacked(Params.SALT));
 
-      bytes32 initCodeHash = keccak256(bytecode);
-      address predicted = Create2.computeAddress(salt, initCodeHash, address(this));
-      console.log("Predicted Escrow address:", predicted);
-
       vm.startBroadcast();
       address deployed = Create2.deploy(0, salt, bytecode);
       vm.stopBroadcast();
