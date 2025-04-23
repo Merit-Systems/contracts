@@ -30,10 +30,8 @@ contract Deploy is Script {
           )
       );
 
-      bytes32 salt = keccak256(abi.encodePacked(Params.SALT));
-
       vm.startBroadcast();
-      address deployed = Create2.deploy(0, salt, bytecode);
+      address deployed = Create2.deploy(0, Params.SALT, bytecode);
       vm.stopBroadcast();
 
       escrow = Escrow(payable(deployed));
