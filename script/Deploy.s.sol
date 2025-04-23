@@ -13,8 +13,8 @@ contract Deploy is Script {
       address          owner,
       address          signer,
       address[] memory initialWhitelistedTokens,
-      uint256          feeBps,
-      uint256          batchDepositLimit
+      uint             feeBps,
+      uint             batchDepositLimit
     )
       public
       returns (Escrow escrow)
