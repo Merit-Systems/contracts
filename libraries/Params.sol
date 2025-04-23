@@ -5,7 +5,7 @@ library Params {
     address constant MAINNET_USDC     = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address constant OWNER            = 0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F;
     address constant SIGNER           = 0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F;
-    bytes32 constant SALT             = "salts";
+    bytes32 constant SALT             = 0x9a00919434c0e30af7578c0161dba531736369d55f539e1ba02960c2f795d09d;
 
     uint    constant BATCH_DEPOSIT_LIMIT = 500;
 

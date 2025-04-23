@@ -19,10 +19,10 @@ SEPOLIA_SENDER   ?= 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec
 FORGE_COMMON_FLAGS = \
 	--broadcast \
 	-i 1 \
-	-vvvv \
-	--via-ir \
-	--verify \
-	--optimize
+	-v \
+	--verify 
+	# --via-ir \
+  # --optimize
 
 # Base-specific flags
 BASE_FLAGS = $(FORGE_COMMON_FLAGS) --etherscan-api-key $(BASE_ETHERSCAN_API_KEY)

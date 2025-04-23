@@ -31,7 +31,22 @@ contract Deploy is Script {
       );
 
       vm.startBroadcast();
+
+      // Get the actual deployer address
+      address deployer = msg.sender;
+      bytes32 initCodeHash = keccak256(bytecode);
+      
+      console.log("Deployer address:", deployer);
+      console.logBytes32(Params.SALT);
+      console.logBytes32(initCodeHash);
+      
+      address predicted = Create2.computeAddress(Params.SALT, initCodeHash, deployer);
+      console.log("Predicted Escrow address:", predicted);
+
       address deployed = Create2.deploy(0, Params.SALT, bytecode);
+      
+      console.log("Deployed address:", deployed);
+      
       vm.stopBroadcast();
 
       escrow = Escrow(payable(deployed));
