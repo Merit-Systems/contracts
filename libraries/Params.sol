@@ -8,7 +8,6 @@ library Params {
     // BASE
     address constant BASE_OWNER   = 0x7163a6C74a3caB2A364F9aDD054bf83E50A1d8Bc;
     address constant BASE_SIGNER  = 0x7F26a8d1A94bD7c1Db651306f503430dF37E9037;
-    address constant BASE_WETH    = 0x4200000000000000000000000000000000000006;
     address constant BASE_USDC    = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     uint    constant BASE_FEE_BPS = 250;
 
@@ -20,6 +19,7 @@ library Params {
     address constant SEPOLIA_TESTER       = 0x99ecA80b4Ebf8fDACe6627BEcb75EF1e620E6956;
     address constant SEPOLIA_TESTER_JSON  = 0x5C87eA705eE49a96532F45f5db606A5f5fEF9780;
     address constant SEPOLIA_TESTER_SHAFU = 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec;
+    uint    constant SEPOLIA_FEE_BPS      = 0;
 
     // BASE SEPOLIA
     address constant BASESEPOLIA_OWNER        = 0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F;
@@ -29,4 +29,5 @@ library Params {
     address constant BASESEPOLIA_TESTER       = 0x5C87eA705eE49a96532F45f5db606A5f5fEF9780;
     address constant BASESEPOLIA_TESTER_SHAFU = 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec;
     address constant BASESEPOLIA_TESTER_JSON  = 0x5C87eA705eE49a96532F45f5db606A5f5fEF9780;
+    uint    constant BASESEPOLIA_FEE_BPS      = 0;
 }

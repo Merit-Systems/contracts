@@ -19,7 +19,8 @@ contract DeploySepolia is DeployTestBase {
       Params.SEPOLIA_WETH,
       Params.SEPOLIA_USDC,
       Params.SEPOLIA_OWNER,
-      Params.SEPOLIA_SIGNER
+      Params.SEPOLIA_SIGNER,
+      Params.SEPOLIA_FEE_BPS
     );
 
     createTestPayments(
