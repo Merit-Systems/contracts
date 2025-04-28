@@ -20,7 +20,8 @@ abstract contract DeployTestBase is Deploy {
         address weth,
         address usdc,
         address owner,
-        address signer
+        address signer,
+        uint    feeBps
     ) internal {
         vm.startBroadcast();
 
@@ -36,7 +37,7 @@ abstract contract DeployTestBase is Deploy {
         initialWhitelistedTokens[1] = usdc;
         initialWhitelistedTokens[2] = address(mockUSDC);
 
-        escrow = deploy(owner, signer, initialWhitelistedTokens, 0, Params.BATCH_DEPOSIT_LIMIT);
+        escrow = deploy(owner, signer, initialWhitelistedTokens, feeBps, Params.BATCH_DEPOSIT_LIMIT);
     }
 
     function createTestPayments(
