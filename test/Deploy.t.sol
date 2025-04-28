@@ -20,9 +20,9 @@ contract Deploy_Test is Test {
         assertTrue(address(escrow) != address(0),               "Escrow not deployed");
         assertTrue(escrow.isTokenWhitelisted(Params.BASE_USDC), "WETH not whitelisted");
 
-        assertEq  (escrow.owner(),             Params.OWNER,               "Incorrect owner");
-        assertEq  (escrow.signer(),            Params.SIGNER,              "Incorrect signer");
-        assertEq  (escrow.feeRecipient(),      Params.OWNER,               "Incorrect fee recipient");
+        assertEq  (escrow.owner(),             Params.BASE_OWNER,               "Incorrect owner");
+        assertEq  (escrow.signer(),            Params.BASE_SIGNER,              "Incorrect signer");
+        assertEq  (escrow.feeRecipient(),      Params.BASE_OWNER,               "Incorrect fee recipient");
         assertEq  (escrow.protocolFeeBps(),    Params.BASE_FEE_BPS,        "Incorrect fee");
         assertEq  (escrow.batchDepositLimit(), Params.BATCH_DEPOSIT_LIMIT, "Incorrect batch deposit limit");
     }
