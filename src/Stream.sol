@@ -28,16 +28,16 @@ contract StreamCreator {
 
         Lockup.CreateWithDurations memory params;
 
-        params.sender = msg.sender;
-        params.recipient = recipient;
-        params.totalAmount = totalAmount;
-        params.token = token;
-        params.cancelable = false;
+        params.sender       = msg.sender;
+        params.recipient    = recipient;
+        params.totalAmount  = totalAmount;
+        params.token        = token;
+        params.cancelable   = false;
         params.transferable = false;
 
         LockupLinear.UnlockAmounts memory unlockAmounts = LockupLinear.UnlockAmounts({ start: 0, cliff: 0 });
         LockupLinear.Durations memory durations = LockupLinear.Durations({
-            cliff: 0, // Setting a cliff of 0
+            cliff: 0,
             total: duration
          });
 
