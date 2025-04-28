@@ -13,8 +13,8 @@ contract DeployBase is Deploy {
         initialWhitelistedTokens[0] = Params.BASE_USDC;	
 
         escrow = deploy(
-            Params.OWNER,
-            Params.SIGNER,
+            Params.BASE_OWNER,
+            Params.BASE_SIGNER,
             initialWhitelistedTokens,
             Params.BASE_FEE_BPS,
             Params.BATCH_DEPOSIT_LIMIT

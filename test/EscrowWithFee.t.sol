@@ -42,7 +42,8 @@ contract Base_Test is Test {
     function test_deposit() public {
         uint amount = 1000000000000000000;
         uint depositId = deposit(amount, alice);
-        assertEq(wETH.balanceOf(address(escrow)), 995000000000000000);
+        uint expectedBalance = amount - amount.mulDivUp(Params.BASE_FEE_BPS, 10_000);
+        assertEq(wETH.balanceOf(address(escrow)), expectedBalance);
         assertEq(depositId, 0);
     }
 
@@ -56,32 +57,39 @@ contract Base_Test is Test {
     function test_deposit_1_USDC() public {
         uint amount = 1e6;
         uint depositId = deposit(amount, alice);
-        assertEq(wETH.balanceOf(address(escrow)), 995000);
+        uint expectedBalance = amount - amount.mulDivUp(Params.BASE_FEE_BPS, 10_000);
+        assertEq(wETH.balanceOf(address(escrow)), expectedBalance);
         assertEq(depositId, 0);
     }
 
     function test_claim() public {
-        uint depositId = deposit(1000000000000000000, alice);
+        uint amount = 1000000000000000000;
+        uint depositId = deposit(amount, alice);
         (uint8 v, bytes32 r, bytes32 s) = generateSignature(alice, true);
         escrow.claim(depositId, alice, true, 1 days, v, r, s);
-        assertEq(wETH.balanceOf(alice), 995000000000000000);
+        uint expectedBalance = amount - amount.mulDivUp(Params.BASE_FEE_BPS, 10_000);
+        assertEq(wETH.balanceOf(alice), expectedBalance);
     }
 
     function test_reclaim() public {
-        uint depositId = deposit(1000000000000000000, alice);
+        uint amount = 1000000000000000000;
+        uint depositId = deposit(amount, alice);
         vm.warp(block.timestamp + 2 days);
         assertEq(wETH.balanceOf(bob), 0);
         escrow.reclaim(depositId);
-        assertEq(wETH.balanceOf(bob), 995000000000000000);
+        uint expectedBalance = amount - amount.mulDivUp(Params.BASE_FEE_BPS, 10_000);
+        assertEq(wETH.balanceOf(bob), expectedBalance);
     }
 
     function test_batchReclaim() public {
+        uint amount = 1000000000000000000;
         uint[] memory depositIds = new uint[](1);
-        depositIds[0] = deposit(1000000000000000000, alice);
+        depositIds[0] = deposit(amount, alice);
         vm.warp(block.timestamp + 2 days);
         assertEq(wETH.balanceOf(bob), 0);
         escrow.batchReclaim(depositIds);
-        assertEq(wETH.balanceOf(bob), 995000000000000000);
+        uint expectedBalance = amount - amount.mulDivUp(Params.BASE_FEE_BPS, 10_000);
+        assertEq(wETH.balanceOf(bob), expectedBalance);
     }
 
     function deposit(uint amount, address recipient) public returns (uint depositId) {
