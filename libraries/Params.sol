@@ -2,7 +2,7 @@
 pragma solidity =0.8.26;
 
 library Params {
-    bytes32 constant SALT = "salts";
+    bytes32 constant SALT = "new-salt";
     uint    constant BATCH_DEPOSIT_LIMIT = 500;
 
     /*//////////////////////////////////////////////////////////////
