@@ -7,4 +7,4 @@ evm_version = "cancun"
 bytecode_hash = "none"
 cbor_metadata = false
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+always_use_create_2_factory = true

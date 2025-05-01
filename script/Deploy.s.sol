@@ -3,10 +3,9 @@ pragma solidity ^0.8.26;
 
 import "forge-std/console.sol";
 
-import {Script}   from "forge-std/Script.sol";
-import {Create2}  from "@openzeppelin/contracts/utils/Create2.sol";
-import {Escrow}   from "../src/Escrow.sol";
-import {Params}   from "../libraries/Params.sol";
+import {Script} from "forge-std/Script.sol";
+import {Escrow} from "../src/Escrow.sol";
+import {Params} from "../libraries/Params.sol";
 
 contract Deploy is Script {
     function deploy(
@@ -19,21 +18,16 @@ contract Deploy is Script {
       public
       returns (Escrow escrow)
     {
-      bytes memory bytecode = abi.encodePacked(
-          type(Escrow).creationCode,
-          abi.encode(
-              owner,
-              signer,
-              initialWhitelistedTokens,
-              feeBps,
-              batchDepositLimit
-          )
+      vm.startBroadcast();
+
+      escrow = new Escrow{salt: Params.SALT}(
+          owner,
+          signer,
+          initialWhitelistedTokens,
+          feeBps,
+          batchDepositLimit
       );
 
-      vm.startBroadcast();
-      address deployed = Create2.deploy(0, Params.SALT, bytecode);
       vm.stopBroadcast();
-
-      escrow = Escrow(payable(deployed));
     }
 }
