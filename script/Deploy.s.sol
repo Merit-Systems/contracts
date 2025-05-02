@@ -18,6 +18,22 @@ contract Deploy is Script {
       public
       returns (Escrow escrow)
     {
+      /*//////////////////////////////////////////////////////////////
+                            PRINT INIT CODE HASH
+      //////////////////////////////////////////////////////////////*/
+      bytes memory bytecode = type(Escrow).creationCode;
+      bytes memory args = abi.encode(
+          owner,
+          signer,
+          initialWhitelistedTokens,
+          feeBps,
+          batchDepositLimit
+      );
+      bytes memory initCode = bytes.concat(bytecode, args);
+      bytes32 initCodeHash = keccak256(initCode);
+      console.log("Init code hash:");
+      console.logBytes32(initCodeHash);
+
       vm.startBroadcast();
 
       escrow = new Escrow{salt: Params.SALT}(
