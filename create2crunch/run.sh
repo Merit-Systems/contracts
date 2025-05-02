@@ -8,6 +8,10 @@ TOKENS="[0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913]"
 FEE_BPS=250
 BATCH_LIMIT=500
 
+# Create2 configuration
+FACTORY=0x4e59b44847b379578588920ca78fbf26c0b4956c
+CALLER=0xC710b407f46823cBbdbDE6D344B8992c3062012F
+
 # Get contract creation bytecode from forge
 echo "Getting creation bytecode..."
 BYTECODE=$(forge inspect Escrow bytecode | cut -c3-)
@@ -27,8 +31,8 @@ INIT_CODE_HASH=$(cast keccak 0x$INIT_CODE)
 echo "INIT_CODE_HASH = $INIT_CODE_HASH"
 
 # Run create2 crunch with the generated hash
-export FACTORY="0x4e59b44847b379578588920ca78fbf26c0b4956c"
-export CALLER="0xC710b407f46823cBbdbDE6D344B8992c3062012F"
+export FACTORY=$FACTORY
+export CALLER=$CALLER
 export INIT_CODE_HASH=$INIT_CODE_HASH
 
 echo "Running create2 crunch..."
