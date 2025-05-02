@@ -18,10 +18,10 @@ contract Deploy is Script {
       public
       returns (Escrow escrow)
     {
-      // Get contract creation bytecode
+      /*//////////////////////////////////////////////////////////////
+                            PRINT INIT CODE HASH
+      //////////////////////////////////////////////////////////////*/
       bytes memory bytecode = type(Escrow).creationCode;
-      
-      // Encode constructor arguments
       bytes memory args = abi.encode(
           owner,
           signer,
@@ -29,8 +29,6 @@ contract Deploy is Script {
           feeBps,
           batchDepositLimit
       );
-      
-      // Calculate the init code hash
       bytes memory initCode = bytes.concat(bytecode, args);
       bytes32 initCodeHash = keccak256(initCode);
       console.log("Init code hash:");
