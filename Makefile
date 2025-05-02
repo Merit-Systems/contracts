@@ -64,7 +64,9 @@ deploy-base:
 	forge script script/Deploy.Base.s.sol \
 		--rpc-url $(BASE_RPC) \
 		--sender $(BASE_SENDER) \
-		$(BASE_FLAGS)
+		$(BASE_FLAGS) \
+		--always-use-create-2-factory \
+		-- --dry-run -vvvv
 
 # ---------------------------------------------------------------------------
 # Testing Targets
