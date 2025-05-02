@@ -1,0 +1,1 @@
+/Users/shafu/merit/contracts/create2crunch/target/release/create2crunch: /Users/shafu/merit/contracts/create2crunch/src/kernels/keccak256.cl /Users/shafu/merit/contracts/create2crunch/src/lib.rs /Users/shafu/merit/contracts/create2crunch/src/main.rs /Users/shafu/merit/contracts/create2crunch/src/reward.rs
