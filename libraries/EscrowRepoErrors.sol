@@ -17,4 +17,8 @@ library Errors {
     string internal constant REPO_EXISTS                  = "Repo Exists";
     string internal constant REPO_UNKNOWN                 = "Repo Unknown";
     string internal constant NOT_REPO_ADMIN               = "Not Repo Admin";
+    string internal constant ARRAY_LENGTH_MISMATCH        = "Array Length Mismatch";
+    string internal constant RECIPIENT_ALREADY_SET        = "Recipient Already Set";
+    string internal constant REPO_ALREADY_EXISTS          = "Repo Already Exists";
+    string internal constant RECIPIENT_NOT_SET            = "Recipient Not Set";
 } 
