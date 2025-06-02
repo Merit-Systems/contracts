@@ -6,6 +6,7 @@ import {ERC20}           from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {EnumerableSet}   from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {ECDSA}           from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {IEscrowRepo}     from "../interface/IEscrowRepo.sol";
 
 /*═══════════════════════════════════════════════════════════════════════*\
 │                                 ERRORS                                 │
@@ -31,7 +32,7 @@ library Errors {
 /*═══════════════════════════════════════════════════════════════════════*\
 │                                CONTRACT                                │
 \*═══════════════════════════════════════════════════════════════════════*/
-contract RepoEscrow is Owned {
+contract RepoEscrow is Owned, IEscrowRepo {
     using SafeTransferLib for ERC20;
     using EnumerableSet   for EnumerableSet.AddressSet;
 
@@ -90,27 +91,6 @@ contract RepoEscrow is Owned {
     bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
 
     address public signer; // trusted off-chain signer for `setCanClaim`
-
-    /* ------------------------------------------------------------------- */
-    /*                                EVENTS                               */
-    /* ------------------------------------------------------------------- */
-    event RepoAdded(uint256 indexed repoId, address indexed admin);
-    event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
-    event Deposited(
-        uint256 indexed repoId,
-        uint256 indexed depositId,
-        address token,
-        address indexed recipient,
-        address sender,
-        uint256 netAmount,
-        uint256 feeAmount,
-        uint32  claimDeadline
-    );
-    event Claimed(uint256 indexed repoId, uint256 indexed depositId, address recipient, uint256 amount);
-    event Reclaimed(uint256 indexed repoId, uint256 indexed depositId, address sender,   uint256 amount);
-    event CanClaimSet(address indexed recipient, bool status);
-    event TokenWhitelisted(address token);
-    event TokenRemovedFromWhitelist(address token);
 
     /* ------------------------------------------------------------------- */
     /*                             CONSTRUCTOR                             */
