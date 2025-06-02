@@ -222,17 +222,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 repoId,
         uint256 depositId,
         address recipient
-    ) public {
-        require(msg.sender == repoAdmin[repoId],             Errors.NOT_REPO_ADMIN);
-        require(recipient != address(0),                     Errors.INVALID_ADDRESS);
-        require(depositId < _repoDeposits[repoId].length,    Errors.INVALID_DEPOSIT_ID);
-
-        Deposit storage d = _repoDeposits[repoId][depositId];
-        require(d.status   == Status.Deposited,              Errors.ALREADY_CLAIMED);
-        require(d.recipient == address(0),                   Errors.RECIPIENT_ALREADY_SET);
-
-        d.recipient = recipient;
-        emit Distribute(repoId, depositId, recipient);
+    ) external {
+        _distribute(repoId, depositId, recipient);
     }
 
     /// @notice Batch-assign recipients (aka "distribute")
@@ -243,9 +234,21 @@ contract EscrowRepo is Owned, IEscrowRepo {
     ) external {
         require(depositIds.length == recipients.length, Errors.ARRAY_LENGTH_MISMATCH);
         for (uint256 i; i < depositIds.length; ++i) {
-            distribute(repoId, depositIds[i], recipients[i]);
+            _distribute(repoId, depositIds[i], recipients[i]);
         }
-        emit BatchDistribute(repoId, depositIds, recipients);
+    }
+
+    function _distribute(uint256 repoId, uint256 depositId, address recipient) internal {
+        require(msg.sender == repoAdmin[repoId],             Errors.NOT_REPO_ADMIN);
+        require(recipient != address(0),                     Errors.INVALID_ADDRESS);
+        require(depositId < _repoDeposits[repoId].length,    Errors.INVALID_DEPOSIT_ID);
+
+        Deposit storage d = _repoDeposits[repoId][depositId];
+        require(d.status   == Status.Deposited,              Errors.ALREADY_CLAIMED);
+        require(d.recipient == address(0),                   Errors.RECIPIENT_ALREADY_SET);
+
+        d.recipient = recipient;
+        emit Distribute(repoId, depositId, recipient);
     }
 
     /* -------------------------------------------------------------------------- */
