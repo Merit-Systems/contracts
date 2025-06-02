@@ -25,6 +25,7 @@ library Errors {
     string internal constant TOKEN_NOT_WHITELISTED    = "TOKEN_NOT_WL";
     string internal constant REPO_EXISTS              = "REPO_EXISTS";
     string internal constant REPO_UNKNOWN             = "REPO_UNKNOWN";
+    string internal constant NOT_REPO_ADMIN           = "NOT_REPO_ADMIN";
 }
 
 /*═══════════════════════════════════════════════════════════════════════*\
@@ -40,6 +41,8 @@ contract RepoEscrow is Owned {
     uint16  public constant MAX_FEE_BPS    = 1_000; // 10 %
     bytes32 public constant CLAIM_TYPEHASH =
         keccak256("Claim(uint256 repoId,address recipient,bool status,uint256 nonce,uint256 deadline)");
+    bytes32 public constant ADD_REPO_TYPEHASH =
+        keccak256("AddRepo(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
 
     /* ------------------------------------------------------------------- */
     /*                               TYPES                                 */
@@ -67,11 +70,7 @@ contract RepoEscrow is Owned {
     /* ------------------------------------------------------------------- */
     /*                            REPO REGISTRY                            */
     /* ------------------------------------------------------------------- */
-    struct RepoInfo {
-        address admin;
-        bool    exists;
-    }
-    mapping(uint256 => RepoInfo) public repoInfo; // repoId → info
+    mapping(uint256 => address) public repoAdmin; // repoId → admin
 
     /* ------------------------------------------------------------------- */
     /*                           ESCROW STORAGE                            */
@@ -79,6 +78,7 @@ contract RepoEscrow is Owned {
     mapping(uint256 => Deposit[]) private _repoDeposits;   // repoId → deposits[]
     mapping(address => bool)      public  canClaim;        // off-chain signer toggles this
     mapping(address => uint256)   public  recipientNonce;  // EIP-712 replay protection
+    uint256 public ownerNonce; // nonce for owner operations like adding repos
 
     /* Whitelisting & fees */
     EnumerableSet.AddressSet private _whitelistedTokens;
@@ -95,6 +95,7 @@ contract RepoEscrow is Owned {
     /*                                EVENTS                               */
     /* ------------------------------------------------------------------- */
     event RepoAdded(uint256 indexed repoId, address indexed admin);
+    event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
     event Deposited(
         uint256 indexed repoId,
         uint256 indexed depositId,
@@ -136,10 +137,36 @@ contract RepoEscrow is Owned {
     /* ------------------------------------------------------------------- */
     /*                           OWNER-ONLY OPS                            */
     /* ------------------------------------------------------------------- */
-    function addRepo(uint256 repoId, address admin) external onlyOwner {
-        require(!repoInfo[repoId].exists, Errors.REPO_EXISTS);
-        require(admin != address(0),       Errors.INVALID_ADDRESS);
-        repoInfo[repoId] = RepoInfo({admin: admin, exists: true});
+    function addRepo(
+        uint256 repoId, 
+        address admin,
+        uint256 deadline,
+        uint8   v,
+        bytes32 r,
+        bytes32 s
+    ) external {
+        require(repoAdmin[repoId] == address(0), Errors.REPO_EXISTS);
+        require(admin != address(0), Errors.INVALID_ADDRESS);
+        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
+
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    ADD_REPO_TYPEHASH,
+                    repoId,
+                    admin,
+                    ownerNonce,
+                    deadline
+                ))
+            )
+        );
+        address recovered = ECDSA.recover(digest, v, r, s);
+        require(recovered == owner, Errors.INVALID_SIGNATURE);
+
+        ownerNonce++;
+        repoAdmin[repoId] = admin;
         emit RepoAdded(repoId, admin);
     }
 
@@ -163,11 +190,21 @@ contract RepoEscrow is Owned {
         signer = newSigner;
     }
 
+    function setRepoAdmin(uint256 repoId, address newAdmin) external {
+        require(repoAdmin[repoId] != address(0), Errors.REPO_UNKNOWN);
+        require(msg.sender == repoAdmin[repoId], Errors.NOT_REPO_ADMIN);
+        require(newAdmin != address(0), Errors.INVALID_ADDRESS);
+        
+        address oldAdmin = repoAdmin[repoId];
+        repoAdmin[repoId] = newAdmin;
+        emit RepoAdminChanged(repoId, oldAdmin, newAdmin);
+    }
+
     /* ------------------------------------------------------------------- */
     /*                                DEPOSIT                              */
     /* ------------------------------------------------------------------- */
     function deposit(DepositParams calldata p) external returns (uint256 depositId) {
-        require(repoInfo[p.repoId].exists,              Errors.REPO_UNKNOWN);
+        require(repoAdmin[p.repoId] != address(0),              Errors.REPO_UNKNOWN);
         require(p.token != ERC20(address(0)),           Errors.INVALID_TOKEN);
         require(_whitelistedTokens.contains(address(p.token)), Errors.INVALID_TOKEN);
         require(p.sender    != address(0) && p.recipient != address(0), Errors.INVALID_ADDRESS);
