@@ -6,33 +6,11 @@ import {ERC20}           from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {EnumerableSet}   from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {ECDSA}           from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
 import {IEscrowRepo}     from "../interface/IEscrowRepo.sol";
+import {Errors}          from "../libraries/EscrowRepoErrors.sol";
 
-/*═══════════════════════════════════════════════════════════════════════*\
-│                                 ERRORS                                 │
-\*═══════════════════════════════════════════════════════════════════════*/
-library Errors {
-    string internal constant INVALID_ADDRESS          = "INVALID_ADDRESS";
-    string internal constant INVALID_AMOUNT           = "INVALID_AMOUNT";
-    string internal constant INVALID_TOKEN            = "INVALID_TOKEN";
-    string internal constant INVALID_CLAIM_PERIOD     = "INVALID_CLAIM_PERIOD";
-    string internal constant INVALID_DEPOSIT_ID       = "INVALID_DEPOSIT_ID";
-    string internal constant ALREADY_CLAIMED          = "ALREADY_CLAIMED";
-    string internal constant STILL_CLAIMABLE          = "STILL_CLAIMABLE";
-    string internal constant SIGNATURE_EXPIRED        = "SIG_EXPIRED";
-    string internal constant INVALID_SIGNATURE        = "BAD_SIG";
-    string internal constant NO_CLAIM_PERMISSION      = "NO_CLAIM_PERMISSION";
-    string internal constant TOKEN_ALREADY_WHITELISTED= "TOKEN_ALREADY_WL";
-    string internal constant TOKEN_NOT_WHITELISTED    = "TOKEN_NOT_WL";
-    string internal constant REPO_EXISTS              = "REPO_EXISTS";
-    string internal constant REPO_UNKNOWN             = "REPO_UNKNOWN";
-    string internal constant NOT_REPO_ADMIN           = "NOT_REPO_ADMIN";
-}
-
-/*═══════════════════════════════════════════════════════════════════════*\
-│                                CONTRACT                                │
-\*═══════════════════════════════════════════════════════════════════════*/
-contract RepoEscrow is Owned, IEscrowRepo {
+contract EscrowRepo is Owned, IEscrowRepo {
     using SafeTransferLib for ERC20;
     using EnumerableSet   for EnumerableSet.AddressSet;
 
