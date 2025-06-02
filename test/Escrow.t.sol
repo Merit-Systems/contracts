@@ -9,7 +9,7 @@ import {ERC20}     from "solmate/tokens/ERC20.sol";
 import {Escrow}        from "../src/Escrow.sol";
 import {DepositParams} from "../interface/IEscrow.sol";
 import {Deploy}        from "../script/Deploy.s.sol";
-import {Errors}        from "../libraries/Errors.sol";
+import {Errors}        from "../libraries/EscrowErrors.sol";
 import {Params}        from "../libraries/Params.sol";
 
 contract Base_Test is Test {
