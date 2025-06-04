@@ -21,4 +21,5 @@ library Errors {
     string internal constant RECIPIENT_ALREADY_SET        = "Recipient Already Set";
     string internal constant REPO_ALREADY_EXISTS          = "Repo Already Exists";
     string internal constant RECIPIENT_NOT_SET            = "Recipient Not Set";
+    string internal constant INVALID_FEE_BPS              = "Invalid Fee BPS";
 } 

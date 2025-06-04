@@ -17,7 +17,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                   CONSTANTS                                */
     /* -------------------------------------------------------------------------- */
-    uint16  public constant MAX_FEE_BPS    = 1_000; // 10 %
+    uint16  public constant MAX_FEE_BPS  = 1_000; // 10 %
+
     bytes32 public constant CLAIM_TYPEHASH     =
         keccak256("Claim(uint256 repoId,address recipient,bool status,uint256 nonce,uint256 deadline)");
     bytes32 public constant ADD_REPO_TYPEHASH  =
@@ -55,7 +56,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     mapping(uint256 => Deposit[]) private _repoDeposits;   // repoId → deposits[]
     mapping(address => bool)      public  canClaim;        // off-chain signer toggles this
     mapping(address => uint256)   public  recipientNonce;  // EIP-712 replay protection
-    uint256 public ownerNonce;                               // for addRepo sigs
+    uint256 public ownerNonce;                             // for addRepo sigs
 
     /* -------------------------------------------------------------------------- */
     /*                             FEES & WHITELIST                               */
@@ -84,12 +85,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
         address[] memory initialWhitelist,
         uint16  initialFeeBps
     ) Owned(_owner) {
-        require(initialFeeBps <= MAX_FEE_BPS, "fee too high");
+        require(initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
 
-        signer               = _signer;
-        feeRecipient         = _owner;
-        protocolFeeBps       = initialFeeBps;
-        INITIAL_CHAIN_ID     = block.chainid;
+        signer                   = _signer;
+        feeRecipient             = _owner;
+        protocolFeeBps           = initialFeeBps;
+        INITIAL_CHAIN_ID         = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = _domainSeparator();
 
         for (uint256 i; i < initialWhitelist.length; ++i) {
@@ -98,11 +99,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
         }
     }
 
-    /* -------------------------------------------------------------------------- */
-    /*                              OWNER-ONLY ACTIONS                            */
-    /* -------------------------------------------------------------------------- */
-
-    /// @dev Add a repo by EIP-712 signature (owner signs off-chain)
     function addRepo(
         uint256 repoId,
         address admin,
@@ -112,8 +108,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         bytes32 s
     ) external {
         require(repoAdmin[repoId] == address(0), Errors.REPO_EXISTS);
-        require(admin != address(0),            Errors.INVALID_ADDRESS);
-        require(block.timestamp <= deadline,    Errors.SIGNATURE_EXPIRED);
+        require(admin != address(0),             Errors.INVALID_ADDRESS);
+        require(block.timestamp <= deadline,     Errors.SIGNATURE_EXPIRED);
 
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -135,6 +131,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
         emit RepoAdded(repoId, admin);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                              ONLY OWNER                                    */
+    /* -------------------------------------------------------------------------- */
+
     function addWhitelistedToken(address token) external onlyOwner {
         require(_whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
         emit TokenWhitelisted(token);
@@ -145,7 +145,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     function setProtocolFee(uint16 newFeeBps) external onlyOwner {
-        require(newFeeBps <= MAX_FEE_BPS, "fee too high");
+        require(newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
         protocolFeeBps = newFeeBps;
     }
     function setFeeRecipient(address newRec) external onlyOwner {
@@ -159,10 +159,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                               REPO-ADMIN OPs                              */
     /* -------------------------------------------------------------------------- */
 
-    /// @notice Change admin for a repo
     function setRepoAdmin(uint256 repoId, address newAdmin) external {
-        require(repoAdmin[repoId] != address(0),  Errors.REPO_UNKNOWN);
-        require(msg.sender == repoAdmin[repoId],  Errors.NOT_REPO_ADMIN);
+        require(repoAdmin[repoId] != address(0), Errors.REPO_UNKNOWN);
+        require(msg.sender == repoAdmin[repoId], Errors.NOT_REPO_ADMIN);
         require(newAdmin != address(0),          Errors.INVALID_ADDRESS);
 
         address old = repoAdmin[repoId];
