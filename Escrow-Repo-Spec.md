@@ -40,3 +40,34 @@ Each account within a repo:
 | 3. **Claim**           | `claim()` / `batchClaim()`                   | Recipient proves `canClaim=true` (Signer EIP-712 signature). If before `deadline`, tokens sent and claim → _Claimed_.         |
 | 4. **Reclaim fund**    | `reclaimFund()`                              | If account has no active deposits, admin withdraws unused pool balance.                                                       |
 | 5. **Reclaim deposit** | `reclaimDeposit()` / `batchReclaimDeposit()` | After `deadline`, admin returns expired claim to pool (status → _Reclaimed_).                                                 |
+
+flowchart TD
+%% ───────────────────────────── ROLES ─────────────────────────────
+Funder["Funder"]
+Admin["Repo Admin /<br>Authorized Depositor"]
+Signer["Trusted Signer<br>(off-chain)"]
+Escrow["EscrowRepo Contract<br>(pool + claims)"]
+Claim["Claim Lot<br>(status: Deposited / Claimed / Reclaimed)"]
+Recipient["Recipient"]
+FeeRec["Fee Recipient"]
+
+%% ───────────────────────────── FUND ──────────────────────────────
+Funder -- "fund()" --> Escrow
+Escrow -- "≤ 10 % fee" --> FeeRec
+Escrow -- "net tokens ➜ pool balance" --> Escrow
+
+%% ──────────────────────────── DEPOSIT ────────────────────────────
+Admin -- "deposit() / batchDeposit()" --> Escrow
+Escrow -- "create Claim record<br>(tokens stay in contract)" --> Claim
+
+%% ───────────────────────────── CLAIM ─────────────────────────────
+Signer -- "EIP-712 signature:<br>canClaim = true" --> Recipient
+Recipient -- "claim() / batchClaim()" --> Claim
+Claim -- "transfer if<br>now ≤ deadline" --> Recipient
+
+%% ──────────────────────────── RECLAIM ────────────────────────────
+Admin -- "reclaimFund()<br>(no active claims)" --> Escrow
+Escrow -- "unused pool ➜ admin" --> Admin
+
+Admin -- "reclaimDeposit()<br>(after deadline)" --> Claim
+Claim -- "amount ➜ pool balance" --> Escrow
