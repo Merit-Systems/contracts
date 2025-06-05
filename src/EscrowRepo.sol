@@ -1,22 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-/*
- * EscrowRepo v2 — funding pool ➜ claimable lots
- * ----------------------------------------------------
- * 1. fund()       — Anyone can fund a repo (tokens flow ➜ contract pool).
- * 2. deposit()    — Repo admin slices pool into claimable lots for recipients.
- * 3. claim()      — Recipients (if canClaim=true) pull their lots.
- * 4. reclaim()    — Admin recovers expired lots.
- *
- * Design notes
- * -------------
- * • Pooled balances per repo/token kept in `_balance`.
- * • Provenance of funding tracked via `Funding[]`.
- * • Actual payable obligations live in `Claim[]`.
- * • Protocol fee is charged up‑front on fund().
- */
-
 import {Owned}           from "solmate/auth/Owned.sol";
 import {ERC20}           from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
