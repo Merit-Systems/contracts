@@ -31,12 +31,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     enum Status { Deposited, Claimed, Reclaimed }
 
-    struct Funding {
-        uint256 amount;
-        ERC20   token;
-        address sender;      // originator of funds
-    }
-
     struct Claim {
         uint256 amount;
         ERC20   token;
@@ -69,9 +63,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
     mapping(uint256 => bool)                                         public repoExists;           // repoId → whether repo was ever created
     mapping(uint256 => mapping(uint256 => mapping(address => bool))) public authorizedDepositors; // repoId → accountId → depositor → authorized
 
-    mapping(uint256 => mapping(uint256 => Funding[]))                   private _fundings; // repoId → accountId → inbound deposits
-    mapping(uint256 => mapping(uint256 => Claim[]))                     private _claims;   // repoId → accountId → claimable deposits
-    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _balance;  // repoId → accountId → token → balance
+
+    mapping(uint256 => mapping(uint256 => Claim[]))                     private _claims;           // repoId → accountId → claimable deposits
+    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _balance;          // repoId → accountId → token → balance
 
     /* -------------------------------------------------------------------------- */
     /*                                STATE — CLAIMS                              */
@@ -203,7 +197,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                     FUND                                   */
     /* -------------------------------------------------------------------------- */
-    function fund(FundParams calldata p) external returns (uint256 fundingId) {
+    function fund(FundParams calldata p) external {
         require(repoAdmin[p.repoId][p.accountId] != address(0), Errors.REPO_UNKNOWN);
         require(_whitelistedTokens.contains(address(p.token)),  Errors.INVALID_TOKEN);
         require(p.amount > 0,                                   Errors.INVALID_AMOUNT);
@@ -216,10 +210,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
         _balance[p.repoId][p.accountId][address(p.token)] += netAmt;
 
-        fundingId = _fundings[p.repoId][p.accountId].length;
-        _fundings[p.repoId][p.accountId].push(Funding({amount: netAmt, token: p.token, sender: msg.sender}));
-
-        emit Funded(p.repoId, fundingId, address(p.token), msg.sender, netAmt, fee);
+        emit Funded(p.repoId, address(p.token), msg.sender, netAmt, fee);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -490,10 +481,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                    GETTERS                                 */
     /* -------------------------------------------------------------------------- */
-    function fundingsOf(uint256 repoId, uint256 accountId) external view returns (Funding[] memory) {
-        return _fundings[repoId][accountId];
-    }
-
     function claimsOf(uint256 repoId, uint256 accountId) external view returns (Claim[] memory) {
         return _claims[repoId][accountId];
     }
