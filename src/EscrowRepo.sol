@@ -10,23 +10,18 @@ import {ECDSA}           from "@openzeppelin/contracts/utils/cryptography/ECDSA.
 import {IEscrowRepo}     from "../interface/IEscrowRepo.sol";
 import {Errors}          from "../libraries/EscrowRepoErrors.sol";
 
-contract EscrowRepo is Owned {
+contract EscrowRepo is Owned, IEscrowRepo {
     using SafeTransferLib for ERC20;
     using EnumerableSet   for EnumerableSet.AddressSet;
 
     /* -------------------------------------------------------------------------- */
     /*                                   CONSTANTS                                */
     /* -------------------------------------------------------------------------- */
-    uint16  public constant MAX_FEE_BPS  = 1_000; // 10 %
+    uint16 public constant MAX_FEE_BPS = 1_000; // 10 %
 
-    /*
-     * Claim(authorise) & AddRepo EIP‑712 type hashes
-     * NOTE: claimId is NOT part of the signed data. Only (repo,recipient,status)
-     *       This lets backend toggle claim‑ability once per repo per user.
-     */
-    bytes32 public constant CLAIM_TYPEHASH     =
+    bytes32 public constant CLAIM_TYPEHASH =
         keccak256("Claim(uint256 repoId,address recipient,bool status,uint256 nonce,uint256 deadline)");
-    bytes32 public constant ADD_REPO_TYPEHASH  =
+    bytes32 public constant ADD_REPO_TYPEHASH =
         keccak256("AddRepo(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
     bytes32 public constant CREATE_ACCOUNT_TYPEHASH =
         keccak256("CreateAccount(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
@@ -104,50 +99,6 @@ contract EscrowRepo is Owned {
     /*                                OFF‑CHAIN SIGS                              */
     /* -------------------------------------------------------------------------- */
     address public signer; // trusted backend that signs {repoId,recipient,status}
-
-    /* -------------------------------------------------------------------------- */
-    /*                                 EVENTS                                     */
-    /* -------------------------------------------------------------------------- */
-    event Funded(
-        uint256 indexed repoId,
-        uint256 indexed fundingId,
-        address indexed token,
-        address sender,
-        uint256 amount,
-        uint256 fee
-    );
-
-    event Deposited(
-        uint256 indexed repoId,
-        uint256 indexed claimId,
-        address indexed recipient,
-        address token,
-        uint256 amount,
-        uint32  deadline
-    );
-
-    event Claimed(
-        uint256 indexed repoId,
-        uint256 indexed claimId,
-        address indexed recipient,
-        uint256 amount
-    );
-
-    event Reclaimed(
-        uint256 indexed repoId,
-        uint256 indexed claimId,
-        address indexed admin,
-        uint256 amount
-    );
-
-    event CanClaimSet(address indexed recipient, bool status);
-    event RepoAdded(uint256 indexed repoId, address indexed admin);
-    event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
-    event AccountAdded(uint256 indexed repoId, uint256 indexed accountId, address indexed admin);
-    event TokenWhitelisted(address indexed token);
-    event TokenRemovedFromWhitelist(address indexed token);
-    event DepositorAuthorized(uint256 indexed repoId, uint256 indexed accountId, address indexed depositor);
-    event DepositorDeauthorized(uint256 indexed repoId, uint256 indexed accountId, address indexed depositor);
 
     /* -------------------------------------------------------------------------- */
     /*                                 CONSTRUCTOR                                */
