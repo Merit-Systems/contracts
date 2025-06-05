@@ -156,7 +156,7 @@ contract EscrowRepo is Owned {
     event CanClaimSet(address indexed recipient, bool status);
     event RepoAdded(uint256 indexed repoId, address indexed admin);
     event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
-    event AdminRotated(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
+    event AccountAdded(uint256 indexed repoId, uint256 indexed accountId, address indexed admin);
     event TokenWhitelisted(address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
 
@@ -186,7 +186,6 @@ contract EscrowRepo is Owned {
     /* -------------------------------------------------------------------------- */
     /*                              ADMIN REGISTRY                                */
     /* -------------------------------------------------------------------------- */
-
     function addRepo(
         uint256 repoId,
         address admin,
@@ -196,8 +195,8 @@ contract EscrowRepo is Owned {
         bytes32 s
     ) external {
         require(!repoExists[repoId], Errors.REPO_EXISTS);
-        require(admin != address(0),             Errors.INVALID_ADDRESS);
-        require(block.timestamp <= deadline,     Errors.SIGNATURE_EXPIRED);
+        require(admin != address(0), Errors.INVALID_ADDRESS);
+        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
 
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -216,23 +215,10 @@ contract EscrowRepo is Owned {
 
         ownerNonce++;
         repoExists[repoId] = true;
-        repoAdmin[repoId][0] = admin;  // First account is always ID 0
-        repoAccountCount[repoId] = 1;  // Start count at 1
+        
+        // Create the first account for this repo
+        _addAccount(repoId, admin);
         emit RepoAdded(repoId, admin);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                               REPO‑ADMIN OPs                              */
-    /* -------------------------------------------------------------------------- */
-
-    function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) external {
-        require(repoAdmin[repoId][accountId] != address(0), Errors.REPO_UNKNOWN);
-        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
-        require(newAdmin != address(0),          Errors.INVALID_ADDRESS);
-
-        address old = repoAdmin[repoId][accountId];
-        repoAdmin[repoId][accountId] = newAdmin;
-        emit RepoAdminChanged(repoId, old, newAdmin);
     }
 
     function addAccount(
@@ -263,16 +249,21 @@ contract EscrowRepo is Owned {
         require(ECDSA.recover(digest, v, r, s) == owner, Errors.INVALID_SIGNATURE);
 
         ownerNonce++;
+        
+        // Create a new account for this existing repo
+        accountId = _addAccount(repoId, admin);
+        emit AccountAdded(repoId, accountId, admin);
+    }
+
+    function _addAccount(uint256 repoId, address admin) internal returns (uint256 accountId) {
         accountId = repoAccountCount[repoId];
-        repoAccountCount[repoId]++;
         repoAdmin[repoId][accountId] = admin;
-        emit AdminRotated(repoId, address(0), admin);
+        repoAccountCount[repoId]++;
     }
 
     /* -------------------------------------------------------------------------- */
     /*                                     FUND                                   */
     /* -------------------------------------------------------------------------- */
-
     function fund(FundParams calldata p) external returns (uint256 fundingId) {
         require(repoAdmin[p.repoId][p.accountId] != address(0), Errors.REPO_UNKNOWN);
         require(_whitelistedTokens.contains(address(p.token)),  Errors.INVALID_TOKEN);
@@ -299,7 +290,6 @@ contract EscrowRepo is Owned {
     /* -------------------------------------------------------------------------- */
     /*                                  DEPOSIT                                   */
     /* -------------------------------------------------------------------------- */
-
     function deposit(DepositParams calldata d) external returns (uint256 claimId) {
         _deposit(d);
         claimId = _claims[d.repoId][d.accountId].length - 1;
@@ -423,7 +413,6 @@ contract EscrowRepo is Owned {
     /* -------------------------------------------------------------------------- */
     /*                              ONLY OWNER                                    */
     /* -------------------------------------------------------------------------- */
-
     function addWhitelistedToken(address token) external onlyOwner {
         require(_whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
         emit TokenWhitelisted(token);
@@ -442,6 +431,19 @@ contract EscrowRepo is Owned {
     }
     function setSigner(address newSigner) external onlyOwner {
         signer = newSigner;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               REPO‑ADMIN OPs                              */
+    /* -------------------------------------------------------------------------- */
+    function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) external {
+        require(repoAdmin[repoId][accountId] != address(0), Errors.REPO_UNKNOWN);
+        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
+        require(newAdmin != address(0),          Errors.INVALID_ADDRESS);
+
+        address old = repoAdmin[repoId][accountId];
+        repoAdmin[repoId][accountId] = newAdmin;
+        emit RepoAdminChanged(repoId, old, newAdmin);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -499,7 +501,6 @@ contract EscrowRepo is Owned {
     /* -------------------------------------------------------------------------- */
     /*                                    GETTERS                                 */
     /* -------------------------------------------------------------------------- */
-
     function fundingsOf(uint256 repoId, uint256 accountId) external view returns (Funding[] memory) {
         return _fundings[repoId][accountId];
     }
