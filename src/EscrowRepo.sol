@@ -274,18 +274,14 @@ contract EscrowRepo is Owned {
         require(_whitelistedTokens.contains(address(p.token)),  Errors.INVALID_TOKEN);
         require(p.amount > 0,                                   Errors.INVALID_AMOUNT);
 
-        /* fee */
         uint256 fee    = (protocolFeeBps == 0) ? 0 : (p.amount * protocolFeeBps + 9_999) / 10_000;
         uint256 netAmt = p.amount - fee;
 
-        /* transfer funds */
         p.token.safeTransferFrom(msg.sender, address(this), p.amount);
         if (fee > 0) p.token.safeTransfer(feeRecipient, fee);
 
-        /* pool balance */
         _balance[p.repoId][p.accountId][address(p.token)] += netAmt;
 
-        /* store funding record */
         fundingId = _fundings[p.repoId][p.accountId].length;
         _fundings[p.repoId][p.accountId].push(Funding({amount: netAmt, token: p.token, sender: msg.sender}));
 

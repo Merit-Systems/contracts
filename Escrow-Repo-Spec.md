@@ -1,58 +1,42 @@
 ### EscrowRepo v2 — Quick Reference
 
 **What it is**  
-ERC-20 escrow pool. Repo admins earmark pooled funds as individual **claims** with expiry windows.
+Repository "bank accounts".
 
 ---
 
 #### Roles
 
-- **Owner** – sets fee, whitelist, signer; signs new repos/accounts.
-- **Repo Admin** – controls a `(repoId, accountId)`; deposits claims, can reclaim.
+- **Owner (Merit Systems)** – sets fee, whitelist, signer; signs EIP-712 messages for new repos/accounts.
+- **Repo Admin** – controls a `(repoId, accountId)`; deposits claims, can reclaim, authorizes depositors.
 - **Funder** – anyone calling `fund()`.
-- **Recipient** – pulls their claim after being authorised.
+- **Recipient** – pulls their claim after being authorised via EIP-712 signature.
 - **Signer** – off-chain backend that issues EIP-712 signatures to enable claiming.
 - **Authorized Depositor** – addresses authorized by repo admin to call `deposit()` functions.
 
 ---
 
-#### Repo Accounts
+#### Repo & Account Creation
 
-Each repo can have **multiple accounts** (identified by `accountId`). Each account:
+**Repos** are created via `addRepo()` with owner's EIP-712 signature:
 
-- Has its own admin (can be different people)
+- First account (accountId=0) is automatically created for the specified admin
+- Additional accounts can be created via `addAccount()` (also requires owner signature)
+
+Each account within a repo:
+
+- Has its own admin
 - Maintains separate pool balances, fundings, and claims
 - Operates independently within the same repo
 
 ---
 
-#### Depositor Management
+#### Token Journey
 
-The repo admin can authorize additional addresses to call `deposit()` functions:
-
-- **`authorizeDepositor()`** – Admin grants deposit permission to an address
-- **`deauthorizeDepositor()`** – Admin revokes deposit permission from an address
-- **`batchAuthorizeDepositors()`** – Admin grants permission to multiple addresses
-- **`batchDeauthorizeDepositors()`** – Admin revokes permission from multiple addresses
-- **`isAuthorizedDepositor()`** – Check if an address is authorized to deposit
-- **`canDeposit()`** – Check if an address can deposit (admin or authorized)
-
----
-
-#### Token journey
-
-| Step                   | Call               | What happens                                                                                                                       |
-| ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 1. **Fund**            | `fund()`           | Tokens sent in ➜ fee (≤10 %) to `feeRecipient`; net added to `_balance`.                                                           |
-| 2. **Deposit**         | `deposit()`        | Admin or authorized depositor earmarks an **amount** & `deadline` for a recipient → new **Claim** record (funds stay in contract). |
-| 3. **Claim**           | `claim()`          | Recipient proves `canClaim=true` (Signer signature). If before `deadline`, tokens sent and claim ➜ _Claimed_.                      |
-| 4. **Reclaim pool**    | `reclaimFund()`    | If account has no active claims, admin withdraws unused pool balance.                                                              |
-| 5. **Reclaim deposit** | `reclaimDeposit()` | After `deadline`, admin returns expired claim to pool (status ➜ _Reclaimed_).                                                      |
-
----
-
-#### Safety
-
-- Max protocol fee: **10 %** (`MAX_FEE_BPS = 1000`).
-- Only whitelisted ERC-20 tokens accepted.
-- Transfers use `SafeTransferLib`.
+| Step                   | Call                                         | What happens                                                                                                                  |
+| ---------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 1. **Fund**            | `fund()`                                     | Tokens sent in ➜ fee (≤10%) to `feeRecipient`; net added to `_balance`.                                                       |
+| 2. **Deposit**         | `deposit()` / `batchDeposit()`               | Admin or authorized depositor earmarks **amount** & `deadline` for recipient → new **Claim** record (funds stay in contract). |
+| 3. **Claim**           | `claim()` / `batchClaim()`                   | Recipient proves `canClaim=true` (Signer EIP-712 signature). If before `deadline`, tokens sent and claim → _Claimed_.         |
+| 4. **Reclaim fund**    | `reclaimFund()`                              | If account has no active deposits, admin withdraws unused pool balance.                                                       |
+| 5. **Reclaim deposit** | `reclaimDeposit()` / `batchReclaimDeposit()` | After `deadline`, admin returns expired claim to pool (status → _Reclaimed_).                                                 |
