@@ -23,8 +23,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         keccak256("Claim(uint256 repoId,address recipient,bool status,uint256 nonce,uint256 deadline)");
     bytes32 public constant ADD_REPO_TYPEHASH =
         keccak256("AddRepo(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
-    bytes32 public constant CREATE_ACCOUNT_TYPEHASH =
-        keccak256("CreateAccount(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
+    bytes32 public constant ADD_ACCOUNT_TYPEHASH =
+        keccak256("AddAccount(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
 
     /* -------------------------------------------------------------------------- */
     /*                                     TYPES                                  */
@@ -178,7 +178,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
                 "\x19\x01",
                 DOMAIN_SEPARATOR(),
                 keccak256(abi.encode(
-                    CREATE_ACCOUNT_TYPEHASH,
+                    ADD_ACCOUNT_TYPEHASH,
                     repoId,
                     admin,
                     ownerNonce,
