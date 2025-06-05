@@ -1,6 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+/*
+ * EscrowRepo v2 — funding pool ➜ claimable lots
+ * ----------------------------------------------------
+ * 1. fund()       — Anyone can fund a repo (tokens flow ➜ contract pool).
+ * 2. deposit()    — Repo admin slices pool into claimable lots for recipients.
+ * 3. claim()      — Recipients (if canClaim=true) pull their lots.
+ * 4. reclaim()    — Admin recovers expired lots.
+ *
+ * Design notes
+ * -------------
+ * • Pooled balances per repo/token kept in `_pooled`.
+ * • Provenance of funding tracked via `Funding[]`.
+ * • Actual payable obligations live in `Claim[]`.
+ * • Protocol fee is charged up‑front on fund().
+ */
+
 import {Owned}           from "solmate/auth/Owned.sol";
 import {ERC20}           from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
@@ -10,15 +26,20 @@ import {ECDSA}           from "@openzeppelin/contracts/utils/cryptography/ECDSA.
 import {IEscrowRepo}     from "../interface/IEscrowRepo.sol";
 import {Errors}          from "../libraries/EscrowRepoErrors.sol";
 
-contract EscrowRepo is Owned, IEscrowRepo {
+contract EscrowRepo is Owned {
     using SafeTransferLib for ERC20;
     using EnumerableSet   for EnumerableSet.AddressSet;
 
     /* -------------------------------------------------------------------------- */
     /*                                   CONSTANTS                                */
     /* -------------------------------------------------------------------------- */
-    uint16  public constant MAX_FEE_BPS  = 1_000; // 10 %
+    uint16  public constant MAX_FEE_BPS  = 1_000; // 10 %
 
+    /*
+     * Claim(authorise) & AddRepo EIP‑712 type hashes
+     * NOTE: claimId is NOT part of the signed data. Only (repo,recipient,status)
+     *       This lets backend toggle claim‑ability once per repo per user.
+     */
     bytes32 public constant CLAIM_TYPEHASH     =
         keccak256("Claim(uint256 repoId,address recipient,bool status,uint256 nonce,uint256 deadline)");
     bytes32 public constant ADD_REPO_TYPEHASH  =
@@ -29,33 +50,48 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     enum Status { Deposited, Claimed, Reclaimed }
 
-    struct Deposit {
+    struct Funding {
         uint256 amount;
         ERC20   token;
-        address sender;          // who sent the funds
-        address recipient;       // chosen later by repo-admin
-        uint32  claimDeadline;   // unix-seconds
-        Status  status;
+        address sender;      // originator of funds
+    }
+
+    struct Claim {
+        uint256 amount;
+        ERC20   token;
+        address recipient;
+        uint32  deadline;    // unix seconds
+        Status  status;      // Deposited → Claimed / Reclaimed
+    }
+
+    struct FundParams {
+        uint256 repoId;
+        ERC20   token;
+        uint256 amount;
     }
 
     struct DepositParams {
         uint256 repoId;
-        ERC20   token;
         uint256 amount;
-        uint32  claimPeriod;     // seconds
+        address recipient;
+        uint32  claimPeriod; // seconds
+        ERC20   token;
     }
 
     /* -------------------------------------------------------------------------- */
     /*                                STATE  — REGISTRY                           */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => address) public repoAdmin;      // repoId → admin address
+    mapping(uint256 => address) public repoAdmin;      // repoId → admin
 
     /* -------------------------------------------------------------------------- */
-    /*                                STATE — ESCROW                              */
+    /*                                STATE — POOL & CLAIMS                       */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => Deposit[]) private _repoDeposits;   // repoId → deposits[]
-    mapping(address => bool)      public  canClaim;        // off-chain signer toggles this
-    mapping(address => uint256)   public  recipientNonce;  // EIP-712 replay protection
+    mapping(uint256 => Funding[])  private _fundings;    // repoId → inbound deposits
+    mapping(uint256 => Claim[])    private _claims;      // repoId → claimable lots
+    mapping(uint256 => mapping(address => uint256)) private _pooled; // repoId → token → balance
+
+    mapping(address => bool)      public  canClaim;        // off‑chain signer toggles this
+    mapping(address => uint256)   public  recipientNonce;  // EIP‑712 replay protection
     uint256 public ownerNonce;                             // for addRepo sigs
 
     /* -------------------------------------------------------------------------- */
@@ -66,15 +102,56 @@ contract EscrowRepo is Owned, IEscrowRepo {
     address public feeRecipient;
 
     /* -------------------------------------------------------------------------- */
-    /*                               EIP-712 DOMAIN                               */
+    /*                               EIP‑712 DOMAIN                               */
     /* -------------------------------------------------------------------------- */
     uint256 internal immutable INITIAL_CHAIN_ID;
     bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
 
     /* -------------------------------------------------------------------------- */
-    /*                                OFF-CHAIN SIGS                              */
+    /*                                OFF‑CHAIN SIGS                              */
     /* -------------------------------------------------------------------------- */
     address public signer; // trusted backend that signs {repoId,recipient,status}
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 EVENTS                                     */
+    /* -------------------------------------------------------------------------- */
+    event Funded(
+        uint256 indexed repoId,
+        uint256 indexed fundingId,
+        address indexed token,
+        address sender,
+        uint256 amount,
+        uint256 fee
+    );
+
+    event Deposited(
+        uint256 indexed repoId,
+        uint256 indexed claimId,
+        address indexed recipient,
+        address token,
+        uint256 amount,
+        uint32  deadline
+    );
+
+    event Claimed(
+        uint256 indexed repoId,
+        uint256 indexed claimId,
+        address indexed recipient,
+        uint256 amount
+    );
+
+    event Reclaimed(
+        uint256 indexed repoId,
+        uint256 indexed claimId,
+        address indexed admin,
+        uint256 amount
+    );
+
+    event CanClaimSet(address indexed recipient, bool status);
+    event RepoAdded(uint256 indexed repoId, address indexed admin);
+    event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
+    event TokenWhitelisted(address indexed token);
+    event TokenRemovedFromWhitelist(address indexed token);
 
     /* -------------------------------------------------------------------------- */
     /*                                 CONSTRUCTOR                                */
@@ -98,6 +175,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
             emit TokenWhitelisted(initialWhitelist[i]);
         }
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              ADMIN REGISTRY                                */
+    /* -------------------------------------------------------------------------- */
 
     function addRepo(
         uint256 repoId,
@@ -156,7 +237,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               REPO-ADMIN OPs                              */
+    /*                               REPO‑ADMIN OPs                              */
     /* -------------------------------------------------------------------------- */
 
     function setRepoAdmin(uint256 repoId, address newAdmin) external {
@@ -170,15 +251,13 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                   DEPOSIT                                  */
+    /*                                     FUND                                   */
     /* -------------------------------------------------------------------------- */
 
-    function deposit(DepositParams calldata p) external returns (uint256 depositId) {
+    function fund(FundParams calldata p) external returns (uint256 fundingId) {
         require(repoAdmin[p.repoId] != address(0),              Errors.REPO_UNKNOWN);
-        require(p.token != ERC20(address(0)),                   Errors.INVALID_TOKEN);
         require(_whitelistedTokens.contains(address(p.token)),  Errors.INVALID_TOKEN);
         require(p.amount > 0,                                   Errors.INVALID_AMOUNT);
-        require(p.claimPeriod > 0 && p.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
 
         /* fee */
         uint256 fee    = (protocolFeeBps == 0) ? 0 : (p.amount * protocolFeeBps + 9_999) / 10_000;
@@ -188,67 +267,54 @@ contract EscrowRepo is Owned, IEscrowRepo {
         p.token.safeTransferFrom(msg.sender, address(this), p.amount);
         if (fee > 0) p.token.safeTransfer(feeRecipient, fee);
 
-        /* store escrow record */
-        depositId = _repoDeposits[p.repoId].length;
-        _repoDeposits[p.repoId].push(
-            Deposit({
-                amount:        netAmt,
-                token:         p.token,
-                sender:        msg.sender,
-                recipient:     address(0), // chosen later
-                claimDeadline: uint32(block.timestamp + p.claimPeriod),
-                status:        Status.Deposited
+        /* pool balance */
+        _pooled[p.repoId][address(p.token)] += netAmt;
+
+        /* store funding record */
+        fundingId = _fundings[p.repoId].length;
+        _fundings[p.repoId].push(Funding({amount: netAmt, token: p.token, sender: msg.sender}));
+
+        emit Funded(p.repoId, fundingId, address(p.token), msg.sender, netAmt, fee);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  DEPOSIT                                   */
+    /* -------------------------------------------------------------------------- */
+
+    function deposit(DepositParams calldata d) external returns (uint256 claimId) {
+        _deposit(d);
+        claimId = _claims[d.repoId].length - 1;
+    }
+
+    function batchDeposit(DepositParams[] calldata ds) external {
+        for (uint256 i; i < ds.length; ++i) _deposit(ds[i]);
+    }
+
+    function _deposit(DepositParams calldata d) internal {
+        require(msg.sender == repoAdmin[d.repoId],            Errors.NOT_REPO_ADMIN);
+        require(d.recipient != address(0),                    Errors.INVALID_ADDRESS);
+        require(_whitelistedTokens.contains(address(d.token)),Errors.INVALID_TOKEN);
+        require(d.amount > 0,                                 Errors.INVALID_AMOUNT);
+        require(d.claimPeriod > 0 && d.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
+
+        uint256 bal = _pooled[d.repoId][address(d.token)];
+        require(bal >= d.amount, Errors.INSUFFICIENT_POOL_BALANCE);
+        _pooled[d.repoId][address(d.token)] = bal - d.amount;
+
+        uint32 deadline = uint32(block.timestamp + d.claimPeriod);
+
+        uint256 claimId = _claims[d.repoId].length;
+        _claims[d.repoId].push(
+            Claim({
+                amount:     d.amount,
+                token:      d.token,
+                recipient:  d.recipient,
+                deadline:   deadline,
+                status:     Status.Deposited
             })
         );
 
-        emit Deposited(
-            p.repoId,
-            depositId,
-            address(p.token),
-            address(0),
-            msg.sender,
-            netAmt,
-            fee,
-            uint32(block.timestamp + p.claimPeriod)
-        );
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                           DISTRIBUTE                                       */
-    /* -------------------------------------------------------------------------- */
-
-    /// @notice Assign a recipient to one deposit
-    function distribute(
-        uint256 repoId,
-        uint256 depositId,
-        address recipient
-    ) external {
-        _distribute(repoId, depositId, recipient);
-    }
-
-    /// @notice Batch-assign recipients (aka "distribute")
-    function batchDistribute(
-        uint256 repoId,
-        uint256[] calldata depositIds,
-        address[] calldata recipients
-    ) external {
-        require(depositIds.length == recipients.length, Errors.ARRAY_LENGTH_MISMATCH);
-        for (uint256 i; i < depositIds.length; ++i) {
-            _distribute(repoId, depositIds[i], recipients[i]);
-        }
-    }
-
-    function _distribute(uint256 repoId, uint256 depositId, address recipient) internal {
-        require(msg.sender == repoAdmin[repoId],             Errors.NOT_REPO_ADMIN);
-        require(recipient != address(0),                     Errors.INVALID_ADDRESS);
-        require(depositId < _repoDeposits[repoId].length,    Errors.INVALID_DEPOSIT_ID);
-
-        Deposit storage d = _repoDeposits[repoId][depositId];
-        require(d.status   == Status.Deposited,              Errors.ALREADY_CLAIMED);
-        require(d.recipient == address(0),                   Errors.RECIPIENT_ALREADY_SET);
-
-        d.recipient = recipient;
-        emit Distribute(repoId, depositId, recipient);
+        emit Deposited(d.repoId, claimId, d.recipient, address(d.token), d.amount, deadline);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -256,72 +322,85 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     function claim(
         uint256 repoId,
-        uint256 depositId,
+        uint256 claimId,
         bool    status,
         uint256 deadline,
         uint8   v, bytes32 r, bytes32 s
     ) external {
         _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
-        _claim(repoId, depositId, msg.sender);
+        _claim(repoId, claimId, msg.sender);
     }
 
     function batchClaim(
         uint256 repoId,
-        uint256[] calldata depositIds,
+        uint256[] calldata claimIds,
         bool    status,
         uint256 deadline,
         uint8   v, bytes32 r, bytes32 s
     ) external {
         _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
-
-        for (uint256 i; i < depositIds.length; ++i) {
-            _claim(repoId, depositIds[i], msg.sender);
-        }
+        for (uint256 i; i < claimIds.length; ++i) _claim(repoId, claimIds[i], msg.sender);
     }
 
-    function _claim(uint256 repoId, uint256 depositId, address recipient) internal {
-        require(depositId < _repoDeposits[repoId].length, Errors.INVALID_DEPOSIT_ID);
-        Deposit storage d = _repoDeposits[repoId][depositId];
+    function _claim(uint256 repoId, uint256 claimId, address recipient) internal {
+        require(claimId < _claims[repoId].length, Errors.INVALID_CLAIM_ID);
+        Claim storage c = _claims[repoId][claimId];
 
-        require(d.status    == Status.Deposited, Errors.ALREADY_CLAIMED);
-        require(d.recipient != address(0),       Errors.RECIPIENT_NOT_SET);
-        require(d.recipient == recipient,        Errors.INVALID_ADDRESS);
+        require(c.status    == Status.Deposited, Errors.ALREADY_CLAIMED);
+        require(c.recipient == recipient,        Errors.INVALID_ADDRESS);
+        require(block.timestamp <= c.deadline,   Errors.CLAIM_DEADLINE_PASSED);
 
-        d.status = Status.Claimed;
-        d.token.safeTransfer(recipient, d.amount);
-        emit Claimed(repoId, depositId, recipient, d.amount);
+        c.status = Status.Claimed;
+        c.token.safeTransfer(recipient, c.amount);
+        emit Claimed(repoId, claimId, recipient, c.amount);
     }
 
     /* -------------------------------------------------------------------------- */
     /*                                   RECLAIM                                  */
     /* -------------------------------------------------------------------------- */
-    function reclaimDistribute(uint256 repoId, uint256 depositId) external {
-        _reclaimDistribute(repoId, depositId);
+    function reclaim(uint256 repoId, uint256 claimId) external {
+        _reclaim(repoId, claimId);
     }
 
-    function batchReclaimDistribute(uint256 repoId, uint256[] calldata depositIds) external {
-        for (uint256 i; i < depositIds.length; ++i) {
-            _reclaimDistribute(repoId, depositIds[i]);
-        }
+    function batchReclaim(uint256 repoId, uint256[] calldata claimIds) external {
+        for (uint256 i; i < claimIds.length; ++i) _reclaim(repoId, claimIds[i]);
     }
 
-    function _reclaimDistribute(uint256 repoId, uint256 depositId) internal {
+    function _reclaim(uint256 repoId, uint256 claimId) internal {
         require(msg.sender == repoAdmin[repoId],            Errors.NOT_REPO_ADMIN);
-        require(depositId < _repoDeposits[repoId].length,   Errors.INVALID_DEPOSIT_ID);
+        require(claimId < _claims[repoId].length,           Errors.INVALID_CLAIM_ID);
 
-        Deposit storage d = _repoDeposits[repoId][depositId];
-        require(d.status       == Status.Deposited,     Errors.ALREADY_CLAIMED);
-        require(block.timestamp > d.claimDeadline,      Errors.STILL_CLAIMABLE);
+        Claim storage c = _claims[repoId][claimId];
+        require(c.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
+        require(block.timestamp > c.deadline,     Errors.STILL_CLAIMABLE);
 
-        d.status = Status.Reclaimed;
-        d.token.safeTransfer(msg.sender, d.amount);
-        emit Reclaimed(repoId, depositId, msg.sender, d.amount);
+        c.status = Status.Reclaimed;
+        _pooled[repoId][address(c.token)] += c.amount;
+        emit Reclaimed(repoId, claimId, msg.sender, c.amount);
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                         INTERNAL: canClaim EIP-712                         */
+    /*                                RECLAIM FUND                                */
+    /* -------------------------------------------------------------------------- */
+    function reclaimFund(uint256 repoId, address token, uint256 amount) external {
+        require(msg.sender == repoAdmin[repoId], Errors.NOT_REPO_ADMIN);
+        require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
+        require(amount > 0, Errors.INVALID_AMOUNT);
+        require(_claims[repoId].length == 0, Errors.REPO_HAS_DEPOSITS);
+        
+        uint256 bal = _pooled[repoId][token];
+        require(bal >= amount, Errors.INSUFFICIENT_POOL_BALANCE);
+        
+        _pooled[repoId][token] = bal - amount;
+        ERC20(token).safeTransfer(msg.sender, amount);
+        
+        emit Reclaimed(repoId, type(uint256).max, msg.sender, amount);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                         INTERNAL: canClaim EIP‑712                         */
     /* -------------------------------------------------------------------------- */
     function _setCanClaim(
         uint256 repoId,
@@ -355,14 +434,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                           DOMAIN-SEPARATOR LOGIC                           */
+    /*                           DOMAIN‑SEPARATOR LOGIC                           */
     /* -------------------------------------------------------------------------- */
     function _domainSeparator() private view returns (bytes32) {
         return keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("RepoEscrow")),
-                keccak256(bytes("1")),
+                keccak256(bytes("2")), // version 2
                 block.chainid,
                 address(this)
             )
@@ -375,14 +454,22 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                    GETTERS                                 */
     /* -------------------------------------------------------------------------- */
-    function depositsOf(uint256 repoId) external view returns (Deposit[] memory) {
-        return _repoDeposits[repoId];
+
+    function fundingsOf(uint256 repoId) external view returns (Funding[] memory) {
+        return _fundings[repoId];
     }
+
+    function claimsOf(uint256 repoId) external view returns (Claim[] memory) {
+        return _claims[repoId];
+    }
+
+    function poolBalance(uint256 repoId, address token) external view returns (uint256) {
+        return _pooled[repoId][token];
+    }
+
     function whitelist() external view returns (address[] memory tokens) {
         uint256 len = _whitelistedTokens.length();
         tokens = new address[](len);
-        for (uint256 i; i < len; ++i) {
-            tokens[i] = _whitelistedTokens.at(i);
-        }
+        for (uint256 i; i < len; ++i) tokens[i] = _whitelistedTokens.at(i);
     }
 }

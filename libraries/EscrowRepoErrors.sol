@@ -22,4 +22,8 @@ library Errors {
     string internal constant REPO_ALREADY_EXISTS          = "Repo Already Exists";
     string internal constant RECIPIENT_NOT_SET            = "Recipient Not Set";
     string internal constant INVALID_FEE_BPS              = "Invalid Fee BPS";
+    string internal constant INSUFFICIENT_POOL_BALANCE    = "Insufficient Pool Balance";
+    string internal constant INVALID_CLAIM_ID             = "Invalid Claim ID";
+    string internal constant CLAIM_DEADLINE_PASSED        = "Claim Deadline Passed";
+    string internal constant REPO_HAS_DEPOSITS           = "Repo Has Deposits";
 } 
