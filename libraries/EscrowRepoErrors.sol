@@ -25,5 +25,5 @@ library Errors {
     string internal constant INSUFFICIENT_POOL_BALANCE    = "Insufficient Pool Balance";
     string internal constant INVALID_CLAIM_ID             = "Invalid Claim ID";
     string internal constant CLAIM_DEADLINE_PASSED        = "Claim Deadline Passed";
-    string internal constant REPO_HAS_DEPOSITS           = "Repo Has Deposits";
+    string internal constant REPO_HAS_DEPOSITS            = "Repo Has Deposits";
 } 

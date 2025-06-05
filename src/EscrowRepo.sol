@@ -66,12 +66,14 @@ contract EscrowRepo is Owned {
 
     struct FundParams {
         uint256 repoId;
+        uint256 accountId;
         ERC20   token;
         uint256 amount;
     }
 
     struct DepositParams {
         uint256 repoId;
+        uint256 accountId;
         uint256 amount;
         address recipient;
         uint32  claimPeriod; // seconds
@@ -81,14 +83,16 @@ contract EscrowRepo is Owned {
     /* -------------------------------------------------------------------------- */
     /*                                STATE  — REGISTRY                           */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => address) public repoAdmin;      // repoId → admin
+    mapping(uint256 => mapping(uint256 => address)) public repoAdmin;      // repoId → accountId → admin
+    mapping(uint256 => uint256) public repoAccountCount;                   // repoId → number of accounts created
+    mapping(uint256 => bool) public repoExists;                           // repoId → whether repo was ever created
 
     /* -------------------------------------------------------------------------- */
     /*                                STATE — POOL & CLAIMS                       */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => Funding[])  private _fundings;    // repoId → inbound deposits
-    mapping(uint256 => Claim[])    private _claims;      // repoId → claimable lots
-    mapping(uint256 => mapping(address => uint256)) private _pooled; // repoId → token → balance
+    mapping(uint256 => mapping(uint256 => Funding[]))  private _fundings;    // repoId → accountId → inbound deposits
+    mapping(uint256 => mapping(uint256 => Claim[]))    private _claims;      // repoId → accountId → claimable lots
+    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _pooled; // repoId → accountId → token → balance
 
     mapping(address => bool)      public  canClaim;        // off‑chain signer toggles this
     mapping(address => uint256)   public  recipientNonce;  // EIP‑712 replay protection
@@ -150,6 +154,7 @@ contract EscrowRepo is Owned {
     event CanClaimSet(address indexed recipient, bool status);
     event RepoAdded(uint256 indexed repoId, address indexed admin);
     event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
+    event AdminRotated(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
     event TokenWhitelisted(address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
 
@@ -188,7 +193,7 @@ contract EscrowRepo is Owned {
         bytes32 r,
         bytes32 s
     ) external {
-        require(repoAdmin[repoId] == address(0), Errors.REPO_EXISTS);
+        require(!repoExists[repoId], Errors.REPO_EXISTS);
         require(admin != address(0),             Errors.INVALID_ADDRESS);
         require(block.timestamp <= deadline,     Errors.SIGNATURE_EXPIRED);
 
@@ -208,8 +213,209 @@ contract EscrowRepo is Owned {
         require(ECDSA.recover(digest, v, r, s) == owner, Errors.INVALID_SIGNATURE);
 
         ownerNonce++;
-        repoAdmin[repoId] = admin;
+        repoExists[repoId] = true;
+        repoAdmin[repoId][0] = admin;
+        repoAccountCount[repoId] = 1;
         emit RepoAdded(repoId, admin);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               REPO‑ADMIN OPs                              */
+    /* -------------------------------------------------------------------------- */
+
+    function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) external {
+        require(repoAdmin[repoId][accountId] != address(0), Errors.REPO_UNKNOWN);
+        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
+        require(newAdmin != address(0),          Errors.INVALID_ADDRESS);
+
+        address old = repoAdmin[repoId][accountId];
+        repoAdmin[repoId][accountId] = newAdmin;
+        emit RepoAdminChanged(repoId, old, newAdmin);
+    }
+
+    function createNewAccount(
+        uint256 repoId,
+        address admin,
+        uint256 deadline,
+        uint8   v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (uint256 accountId) {
+        require(repoExists[repoId], Errors.REPO_UNKNOWN);
+        require(admin != address(0), Errors.INVALID_ADDRESS);
+        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
+
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    ADD_REPO_TYPEHASH,
+                    repoId,
+                    admin,
+                    ownerNonce,
+                    deadline
+                ))
+            )
+        );
+        require(ECDSA.recover(digest, v, r, s) == owner, Errors.INVALID_SIGNATURE);
+
+        ownerNonce++;
+        accountId = repoAccountCount[repoId];
+        repoAccountCount[repoId]++;
+        repoAdmin[repoId][accountId] = admin;
+        emit AdminRotated(repoId, address(0), admin);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                     FUND                                   */
+    /* -------------------------------------------------------------------------- */
+
+    function fund(FundParams calldata p) external returns (uint256 fundingId) {
+        require(repoAdmin[p.repoId][p.accountId] != address(0), Errors.REPO_UNKNOWN);
+        require(_whitelistedTokens.contains(address(p.token)),  Errors.INVALID_TOKEN);
+        require(p.amount > 0,                                   Errors.INVALID_AMOUNT);
+
+        /* fee */
+        uint256 fee    = (protocolFeeBps == 0) ? 0 : (p.amount * protocolFeeBps + 9_999) / 10_000;
+        uint256 netAmt = p.amount - fee;
+
+        /* transfer funds */
+        p.token.safeTransferFrom(msg.sender, address(this), p.amount);
+        if (fee > 0) p.token.safeTransfer(feeRecipient, fee);
+
+        /* pool balance */
+        _pooled[p.repoId][p.accountId][address(p.token)] += netAmt;
+
+        /* store funding record */
+        fundingId = _fundings[p.repoId][p.accountId].length;
+        _fundings[p.repoId][p.accountId].push(Funding({amount: netAmt, token: p.token, sender: msg.sender}));
+
+        emit Funded(p.repoId, fundingId, address(p.token), msg.sender, netAmt, fee);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  DEPOSIT                                   */
+    /* -------------------------------------------------------------------------- */
+
+    function deposit(DepositParams calldata d) external returns (uint256 claimId) {
+        _deposit(d);
+        claimId = _claims[d.repoId][d.accountId].length - 1;
+    }
+
+    function batchDeposit(DepositParams[] calldata ds) external {
+        for (uint256 i; i < ds.length; ++i) _deposit(ds[i]);
+    }
+
+    function _deposit(DepositParams calldata d) internal {
+        require(msg.sender == repoAdmin[d.repoId][d.accountId], Errors.NOT_REPO_ADMIN);
+        require(d.recipient != address(0),                    Errors.INVALID_ADDRESS);
+        require(_whitelistedTokens.contains(address(d.token)),Errors.INVALID_TOKEN);
+        require(d.amount > 0,                                 Errors.INVALID_AMOUNT);
+        require(d.claimPeriod > 0 && d.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
+
+        uint256 bal = _pooled[d.repoId][d.accountId][address(d.token)];
+        require(bal >= d.amount, Errors.INSUFFICIENT_POOL_BALANCE);
+        _pooled[d.repoId][d.accountId][address(d.token)] = bal - d.amount;
+
+        uint32 deadline = uint32(block.timestamp + d.claimPeriod);
+
+        uint256 claimId = _claims[d.repoId][d.accountId].length;
+        _claims[d.repoId][d.accountId].push(
+            Claim({
+                amount:     d.amount,
+                token:      d.token,
+                recipient:  d.recipient,
+                deadline:   deadline,
+                status:     Status.Deposited
+            })
+        );
+
+        emit Deposited(d.repoId, claimId, d.recipient, address(d.token), d.amount, deadline);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   CLAIM                                    */
+    /* -------------------------------------------------------------------------- */
+    function claim(
+        uint256 repoId,
+        uint256 accountId,
+        uint256 claimId,
+        bool    status,
+        uint256 deadline,
+        uint8   v, bytes32 r, bytes32 s
+    ) external {
+        _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
+        require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
+        _claim(repoId, accountId, claimId, msg.sender);
+    }
+
+    function batchClaim(
+        uint256 repoId,
+        uint256 accountId,
+        uint256[] calldata claimIds,
+        bool    status,
+        uint256 deadline,
+        uint8   v, bytes32 r, bytes32 s
+    ) external {
+        _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
+        require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
+        for (uint256 i; i < claimIds.length; ++i) _claim(repoId, accountId, claimIds[i], msg.sender);
+    }
+
+    function _claim(uint256 repoId, uint256 accountId, uint256 claimId, address recipient) internal {
+        require(claimId < _claims[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
+        Claim storage c = _claims[repoId][accountId][claimId];
+
+        require(c.status    == Status.Deposited, Errors.ALREADY_CLAIMED);
+        require(c.recipient == recipient,        Errors.INVALID_ADDRESS);
+        require(block.timestamp <= c.deadline,   Errors.CLAIM_DEADLINE_PASSED);
+
+        c.status = Status.Claimed;
+        c.token.safeTransfer(recipient, c.amount);
+        emit Claimed(repoId, claimId, recipient, c.amount);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   RECLAIM                                  */
+    /* -------------------------------------------------------------------------- */
+    function reclaim(uint256 repoId, uint256 accountId, uint256 claimId) external {
+        _reclaim(repoId, accountId, claimId);
+    }
+
+    function batchReclaim(uint256 repoId, uint256 accountId, uint256[] calldata claimIds) external {
+        for (uint256 i; i < claimIds.length; ++i) _reclaim(repoId, accountId, claimIds[i]);
+    }
+
+    function _reclaim(uint256 repoId, uint256 accountId, uint256 claimId) internal {
+        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
+        require(claimId < _claims[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
+
+        Claim storage c = _claims[repoId][accountId][claimId];
+        require(c.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
+        require(block.timestamp > c.deadline,     Errors.STILL_CLAIMABLE);
+
+        c.status = Status.Reclaimed;
+        _pooled[repoId][accountId][address(c.token)] += c.amount;
+        emit Reclaimed(repoId, claimId, msg.sender, c.amount);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                RECLAIM FUND                                */
+    /* -------------------------------------------------------------------------- */
+    function reclaimFund(uint256 repoId, uint256 accountId, address token, uint256 amount) external {
+        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
+        require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
+        require(amount > 0, Errors.INVALID_AMOUNT);
+        require(_claims[repoId][accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
+        
+        uint256 bal = _pooled[repoId][accountId][token];
+        require(bal >= amount, Errors.INSUFFICIENT_POOL_BALANCE);
+        
+        _pooled[repoId][accountId][token] = bal - amount;
+        ERC20(token).safeTransfer(msg.sender, amount);
+        
+        emit Reclaimed(repoId, type(uint256).max, msg.sender, amount);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -234,169 +440,6 @@ contract EscrowRepo is Owned {
     }
     function setSigner(address newSigner) external onlyOwner {
         signer = newSigner;
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                               REPO‑ADMIN OPs                              */
-    /* -------------------------------------------------------------------------- */
-
-    function setRepoAdmin(uint256 repoId, address newAdmin) external {
-        require(repoAdmin[repoId] != address(0), Errors.REPO_UNKNOWN);
-        require(msg.sender == repoAdmin[repoId], Errors.NOT_REPO_ADMIN);
-        require(newAdmin != address(0),          Errors.INVALID_ADDRESS);
-
-        address old = repoAdmin[repoId];
-        repoAdmin[repoId] = newAdmin;
-        emit RepoAdminChanged(repoId, old, newAdmin);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                                     FUND                                   */
-    /* -------------------------------------------------------------------------- */
-
-    function fund(FundParams calldata p) external returns (uint256 fundingId) {
-        require(repoAdmin[p.repoId] != address(0),              Errors.REPO_UNKNOWN);
-        require(_whitelistedTokens.contains(address(p.token)),  Errors.INVALID_TOKEN);
-        require(p.amount > 0,                                   Errors.INVALID_AMOUNT);
-
-        /* fee */
-        uint256 fee    = (protocolFeeBps == 0) ? 0 : (p.amount * protocolFeeBps + 9_999) / 10_000;
-        uint256 netAmt = p.amount - fee;
-
-        /* transfer funds */
-        p.token.safeTransferFrom(msg.sender, address(this), p.amount);
-        if (fee > 0) p.token.safeTransfer(feeRecipient, fee);
-
-        /* pool balance */
-        _pooled[p.repoId][address(p.token)] += netAmt;
-
-        /* store funding record */
-        fundingId = _fundings[p.repoId].length;
-        _fundings[p.repoId].push(Funding({amount: netAmt, token: p.token, sender: msg.sender}));
-
-        emit Funded(p.repoId, fundingId, address(p.token), msg.sender, netAmt, fee);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                                  DEPOSIT                                   */
-    /* -------------------------------------------------------------------------- */
-
-    function deposit(DepositParams calldata d) external returns (uint256 claimId) {
-        _deposit(d);
-        claimId = _claims[d.repoId].length - 1;
-    }
-
-    function batchDeposit(DepositParams[] calldata ds) external {
-        for (uint256 i; i < ds.length; ++i) _deposit(ds[i]);
-    }
-
-    function _deposit(DepositParams calldata d) internal {
-        require(msg.sender == repoAdmin[d.repoId],            Errors.NOT_REPO_ADMIN);
-        require(d.recipient != address(0),                    Errors.INVALID_ADDRESS);
-        require(_whitelistedTokens.contains(address(d.token)),Errors.INVALID_TOKEN);
-        require(d.amount > 0,                                 Errors.INVALID_AMOUNT);
-        require(d.claimPeriod > 0 && d.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
-
-        uint256 bal = _pooled[d.repoId][address(d.token)];
-        require(bal >= d.amount, Errors.INSUFFICIENT_POOL_BALANCE);
-        _pooled[d.repoId][address(d.token)] = bal - d.amount;
-
-        uint32 deadline = uint32(block.timestamp + d.claimPeriod);
-
-        uint256 claimId = _claims[d.repoId].length;
-        _claims[d.repoId].push(
-            Claim({
-                amount:     d.amount,
-                token:      d.token,
-                recipient:  d.recipient,
-                deadline:   deadline,
-                status:     Status.Deposited
-            })
-        );
-
-        emit Deposited(d.repoId, claimId, d.recipient, address(d.token), d.amount, deadline);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                                   CLAIM                                    */
-    /* -------------------------------------------------------------------------- */
-    function claim(
-        uint256 repoId,
-        uint256 claimId,
-        bool    status,
-        uint256 deadline,
-        uint8   v, bytes32 r, bytes32 s
-    ) external {
-        _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
-        require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
-        _claim(repoId, claimId, msg.sender);
-    }
-
-    function batchClaim(
-        uint256 repoId,
-        uint256[] calldata claimIds,
-        bool    status,
-        uint256 deadline,
-        uint8   v, bytes32 r, bytes32 s
-    ) external {
-        _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
-        require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
-        for (uint256 i; i < claimIds.length; ++i) _claim(repoId, claimIds[i], msg.sender);
-    }
-
-    function _claim(uint256 repoId, uint256 claimId, address recipient) internal {
-        require(claimId < _claims[repoId].length, Errors.INVALID_CLAIM_ID);
-        Claim storage c = _claims[repoId][claimId];
-
-        require(c.status    == Status.Deposited, Errors.ALREADY_CLAIMED);
-        require(c.recipient == recipient,        Errors.INVALID_ADDRESS);
-        require(block.timestamp <= c.deadline,   Errors.CLAIM_DEADLINE_PASSED);
-
-        c.status = Status.Claimed;
-        c.token.safeTransfer(recipient, c.amount);
-        emit Claimed(repoId, claimId, recipient, c.amount);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                                   RECLAIM                                  */
-    /* -------------------------------------------------------------------------- */
-    function reclaim(uint256 repoId, uint256 claimId) external {
-        _reclaim(repoId, claimId);
-    }
-
-    function batchReclaim(uint256 repoId, uint256[] calldata claimIds) external {
-        for (uint256 i; i < claimIds.length; ++i) _reclaim(repoId, claimIds[i]);
-    }
-
-    function _reclaim(uint256 repoId, uint256 claimId) internal {
-        require(msg.sender == repoAdmin[repoId],            Errors.NOT_REPO_ADMIN);
-        require(claimId < _claims[repoId].length,           Errors.INVALID_CLAIM_ID);
-
-        Claim storage c = _claims[repoId][claimId];
-        require(c.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
-        require(block.timestamp > c.deadline,     Errors.STILL_CLAIMABLE);
-
-        c.status = Status.Reclaimed;
-        _pooled[repoId][address(c.token)] += c.amount;
-        emit Reclaimed(repoId, claimId, msg.sender, c.amount);
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                                RECLAIM FUND                                */
-    /* -------------------------------------------------------------------------- */
-    function reclaimFund(uint256 repoId, address token, uint256 amount) external {
-        require(msg.sender == repoAdmin[repoId], Errors.NOT_REPO_ADMIN);
-        require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
-        require(amount > 0, Errors.INVALID_AMOUNT);
-        require(_claims[repoId].length == 0, Errors.REPO_HAS_DEPOSITS);
-        
-        uint256 bal = _pooled[repoId][token];
-        require(bal >= amount, Errors.INSUFFICIENT_POOL_BALANCE);
-        
-        _pooled[repoId][token] = bal - amount;
-        ERC20(token).safeTransfer(msg.sender, amount);
-        
-        emit Reclaimed(repoId, type(uint256).max, msg.sender, amount);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -455,16 +498,29 @@ contract EscrowRepo is Owned {
     /*                                    GETTERS                                 */
     /* -------------------------------------------------------------------------- */
 
-    function fundingsOf(uint256 repoId) external view returns (Funding[] memory) {
-        return _fundings[repoId];
+    function fundingsOf(uint256 repoId, uint256 accountId) external view returns (Funding[] memory) {
+        return _fundings[repoId][accountId];
     }
 
-    function claimsOf(uint256 repoId) external view returns (Claim[] memory) {
-        return _claims[repoId];
+    function claimsOf(uint256 repoId, uint256 accountId) external view returns (Claim[] memory) {
+        return _claims[repoId][accountId];
     }
 
-    function poolBalance(uint256 repoId, address token) external view returns (uint256) {
-        return _pooled[repoId][token];
+    function poolBalance(uint256 repoId, uint256 accountId, address token) external view returns (uint256) {
+        return _pooled[repoId][accountId][token];
+    }
+
+    function getAccountAdmin(uint256 repoId, uint256 accountId) external view returns (address) {
+        return repoAdmin[repoId][accountId];
+    }
+
+    function getAllAccountAdmins(uint256 repoId) external view returns (address[] memory) {
+        uint256 count = repoAccountCount[repoId];
+        address[] memory admins = new address[](count);
+        for (uint256 i = 0; i < count; i++) {
+            admins[i] = repoAdmin[repoId][i];
+        }
+        return admins;
     }
 
     function whitelist() external view returns (address[] memory tokens) {
