@@ -64,19 +64,18 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                STATE  — REGISTRY                           */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => mapping(uint256 => address)) public repoAdmin;        // repoId → accountId → admin
-    mapping(uint256 => uint256)                     public repoAccountCount; // repoId → number of accounts created
-    mapping(uint256 => bool)                        public repoExists;       // repoId → whether repo was ever created
-    
+    mapping(uint256 => mapping(uint256 => address))                  public repoAdmin;            // repoId → accountId → admin
+    mapping(uint256 => uint256)                                      public repoAccountCount;     // repoId → number of accounts created
+    mapping(uint256 => bool)                                         public repoExists;           // repoId → whether repo was ever created
     mapping(uint256 => mapping(uint256 => mapping(address => bool))) public authorizedDepositors; // repoId → accountId → depositor → authorized
 
-    /* -------------------------------------------------------------------------- */
-    /*                                STATE — POOL & CLAIMS                       */
-    /* -------------------------------------------------------------------------- */
     mapping(uint256 => mapping(uint256 => Funding[]))                   private _fundings; // repoId → accountId → inbound deposits
-    mapping(uint256 => mapping(uint256 => Claim[]))                     private _claims;   // repoId → accountId → claimable lots
+    mapping(uint256 => mapping(uint256 => Claim[]))                     private _claims;   // repoId → accountId → claimable deposits
     mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _balance;  // repoId → accountId → token → balance
 
+    /* -------------------------------------------------------------------------- */
+    /*                                STATE — CLAIMS                              */
+    /* -------------------------------------------------------------------------- */
     mapping(address => bool)    public canClaim;
     mapping(address => uint256) public recipientNonce;
     uint256                     public ownerNonce;
