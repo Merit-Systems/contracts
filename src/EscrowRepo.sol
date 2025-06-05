@@ -31,7 +31,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     enum Status { Deposited, Claimed, Reclaimed }
 
-    struct Claim {
+    struct Deposit {
         uint256 amount;
         ERC20   token;
         address recipient;
@@ -64,7 +64,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     mapping(uint256 => mapping(uint256 => mapping(address => bool))) public authorizedDepositors; // repoId → accountId → depositor → authorized
 
 
-    mapping(uint256 => mapping(uint256 => Claim[]))                     private _claims;           // repoId → accountId → claimable deposits
+    mapping(uint256 => mapping(uint256 => Deposit[]))                   private _deposits;         // repoId → accountId → claimable deposits
     mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _balance;          // repoId → accountId → token → balance
 
     /* -------------------------------------------------------------------------- */
@@ -216,9 +216,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                  DEPOSIT                                   */
     /* -------------------------------------------------------------------------- */
-    function deposit(DepositParams calldata d) external returns (uint256 claimId) {
+    function deposit(DepositParams calldata d) external returns (uint256 depositId) {
         _deposit(d);
-        claimId = _claims[d.repoId][d.accountId].length - 1;
+        depositId = _deposits[d.repoId][d.accountId].length - 1;
     }
 
     function batchDeposit(DepositParams[] calldata ds) external {
@@ -242,9 +242,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
         uint32 deadline = uint32(block.timestamp + d.claimPeriod);
 
-        uint256 claimId = _claims[d.repoId][d.accountId].length;
-        _claims[d.repoId][d.accountId].push(
-            Claim({
+        uint256 depositId = _deposits[d.repoId][d.accountId].length;
+        _deposits[d.repoId][d.accountId].push(
+            Deposit({
                 amount:     d.amount,
                 token:      d.token,
                 recipient:  d.recipient,
@@ -253,7 +253,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             })
         );
 
-        emit Deposited(d.repoId, claimId, d.recipient, address(d.token), d.amount, deadline);
+        emit Deposited(d.repoId, depositId, d.recipient, address(d.token), d.amount, deadline);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -262,40 +262,40 @@ contract EscrowRepo is Owned, IEscrowRepo {
     function claim(
         uint256 repoId,
         uint256 accountId,
-        uint256 claimId,
+        uint256 depositId,
         bool    status,
         uint256 deadline,
         uint8   v, bytes32 r, bytes32 s
     ) external {
         _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
-        _claim(repoId, accountId, claimId, msg.sender);
+        _claim(repoId, accountId, depositId, msg.sender);
     }
 
     function batchClaim(
         uint256 repoId,
         uint256 accountId,
-        uint256[] calldata claimIds,
+        uint256[] calldata depositIds,
         bool    status,
         uint256 deadline,
         uint8   v, bytes32 r, bytes32 s
     ) external {
         _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
-        for (uint256 i; i < claimIds.length; ++i) _claim(repoId, accountId, claimIds[i], msg.sender);
+        for (uint256 i; i < depositIds.length; ++i) _claim(repoId, accountId, depositIds[i], msg.sender);
     }
 
-    function _claim(uint256 repoId, uint256 accountId, uint256 claimId, address recipient) internal {
-        require(claimId < _claims[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
-        Claim storage c = _claims[repoId][accountId][claimId];
+    function _claim(uint256 repoId, uint256 accountId, uint256 depositId, address recipient) internal {
+        require(depositId < _deposits[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
+        Deposit storage d = _deposits[repoId][accountId][depositId];
 
-        require(c.status    == Status.Deposited, Errors.ALREADY_CLAIMED);
-        require(c.recipient == recipient,        Errors.INVALID_ADDRESS);
-        require(block.timestamp <= c.deadline,   Errors.CLAIM_DEADLINE_PASSED);
+        require(d.status    == Status.Deposited, Errors.ALREADY_CLAIMED);
+        require(d.recipient == recipient,        Errors.INVALID_ADDRESS);
+        require(block.timestamp <= d.deadline,   Errors.CLAIM_DEADLINE_PASSED);
 
-        c.status = Status.Claimed;
-        c.token.safeTransfer(recipient, c.amount);
-        emit Claimed(repoId, claimId, recipient, c.amount);
+        d.status = Status.Claimed;
+        d.token.safeTransfer(recipient, d.amount);
+        emit Claimed(repoId, depositId, recipient, d.amount);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -305,7 +305,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         _validateRepoAdmin(repoId, accountId);
         require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
         require(amount > 0, Errors.INVALID_AMOUNT);
-        require(_claims[repoId][accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
+        require(_deposits[repoId][accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
         
         uint256 bal = _balance[repoId][accountId][token];
         require(bal >= amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
@@ -319,25 +319,25 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                RECLAIM DEPOSIT                            */
     /* -------------------------------------------------------------------------- */
-    function reclaimDeposit(uint256 repoId, uint256 accountId, uint256 claimId) external {
-        _reclaimDeposit(repoId, accountId, claimId);
+    function reclaimDeposit(uint256 repoId, uint256 accountId, uint256 depositId) external {
+        _reclaimDeposit(repoId, accountId, depositId);
     }
 
-    function batchReclaimDeposit(uint256 repoId, uint256 accountId, uint256[] calldata claimIds) external {
-        for (uint256 i; i < claimIds.length; ++i) _reclaimDeposit(repoId, accountId, claimIds[i]);
+    function batchReclaimDeposit(uint256 repoId, uint256 accountId, uint256[] calldata depositIds) external {
+        for (uint256 i; i < depositIds.length; ++i) _reclaimDeposit(repoId, accountId, depositIds[i]);
     }
 
-    function _reclaimDeposit(uint256 repoId, uint256 accountId, uint256 claimId) internal {
+    function _reclaimDeposit(uint256 repoId, uint256 accountId, uint256 depositId) internal {
         _validateRepoAdmin(repoId, accountId);
-        require(claimId < _claims[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
+        require(depositId < _deposits[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
 
-        Claim storage c = _claims[repoId][accountId][claimId];
-        require(c.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
-        require(block.timestamp > c.deadline,     Errors.STILL_CLAIMABLE);
+        Deposit storage d = _deposits[repoId][accountId][depositId];
+        require(d.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
+        require(block.timestamp > d.deadline,     Errors.STILL_CLAIMABLE);
 
-        c.status = Status.Reclaimed;
-        _balance[repoId][accountId][address(c.token)] += c.amount;
-        emit Reclaimed(repoId, claimId, msg.sender, c.amount);
+        d.status = Status.Reclaimed;
+        _balance[repoId][accountId][address(d.token)] += d.amount;
+        emit Reclaimed(repoId, depositId, msg.sender, d.amount);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -481,8 +481,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                    GETTERS                                 */
     /* -------------------------------------------------------------------------- */
-    function claimsOf(uint256 repoId, uint256 accountId) external view returns (Claim[] memory) {
-        return _claims[repoId][accountId];
+    function depositsOf(uint256 repoId, uint256 accountId) external view returns (Deposit[] memory) {
+        return _deposits[repoId][accountId];
     }
 
     function balanceOf(uint256 repoId, uint256 accountId, address token) external view returns (uint256) {
