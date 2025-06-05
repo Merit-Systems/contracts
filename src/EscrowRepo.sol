@@ -65,35 +65,26 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                STATE  — REGISTRY                           */
+    /*                                STATE VARIABLES                             */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => Repo) public repos;  // repoId → Repo
+    mapping(uint256 => Repo)     public repos;         // repoId → Repo
 
-    /* -------------------------------------------------------------------------- */
-    /*                                STATE — CLAIMS                              */
-    /* -------------------------------------------------------------------------- */
-    mapping(address => bool)    public canClaim;
-    mapping(address => uint256) public recipientNonce;
-    uint256                     public ownerNonce;
+    mapping(address => bool)     public canClaim;       // recipient → canClaim
+    mapping(address => uint256)  public recipientNonce; // recipient → nonce
+    uint256                      public ownerNonce;    
 
-    /* -------------------------------------------------------------------------- */
-    /*                             FEES & WHITELIST                               */
-    /* -------------------------------------------------------------------------- */
     uint16  public protocolFeeBps;
     address public feeRecipient;
 
     EnumerableSet.AddressSet private _whitelistedTokens;
+
+    address public signer;
 
     /* -------------------------------------------------------------------------- */
     /*                               EIP‑712 DOMAIN                               */
     /* -------------------------------------------------------------------------- */
     uint256 internal immutable INITIAL_CHAIN_ID;
     bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
-
-    /* -------------------------------------------------------------------------- */
-    /*                                OFF‑CHAIN SIGS                              */
-    /* -------------------------------------------------------------------------- */
-    address public signer;
 
     /* -------------------------------------------------------------------------- */
     /*                                 CONSTRUCTOR                                */
