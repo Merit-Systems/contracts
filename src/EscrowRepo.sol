@@ -172,6 +172,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                   DEPOSIT                                  */
     /* -------------------------------------------------------------------------- */
+
     function deposit(DepositParams calldata p) external returns (uint256 depositId) {
         require(repoAdmin[p.repoId] != address(0),              Errors.REPO_UNKNOWN);
         require(p.token != ERC20(address(0)),                   Errors.INVALID_TOKEN);
@@ -213,7 +214,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                           ASSIGN / DISTRIBUTE                              */
+    /*                           DISTRIBUTE                                       */
     /* -------------------------------------------------------------------------- */
 
     /// @notice Assign a recipient to one deposit
@@ -296,17 +297,17 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                   RECLAIM                                  */
     /* -------------------------------------------------------------------------- */
-    function reclaim(uint256 repoId, uint256 depositId) external {
-        _reclaim(repoId, depositId);
+    function reclaimDistribute(uint256 repoId, uint256 depositId) external {
+        _reclaimDistribute(repoId, depositId);
     }
 
-    function batchReclaim(uint256 repoId, uint256[] calldata depositIds) external {
+    function batchReclaimDistribute(uint256 repoId, uint256[] calldata depositIds) external {
         for (uint256 i; i < depositIds.length; ++i) {
-            _reclaim(repoId, depositIds[i]);
+            _reclaimDistribute(repoId, depositIds[i]);
         }
     }
 
-    function _reclaim(uint256 repoId, uint256 depositId) internal {
+    function _reclaimDistribute(uint256 repoId, uint256 depositId) internal {
         require(msg.sender == repoAdmin[repoId],            Errors.NOT_REPO_ADMIN);
         require(depositId < _repoDeposits[repoId].length,   Errors.INVALID_DEPOSIT_ID);
 

@@ -2,9 +2,6 @@
 pragma solidity ^0.8.26;
 
 interface IEscrowRepo {
-    /* ------------------------------------------------------------------- */
-    /*                                EVENTS                               */
-    /* ------------------------------------------------------------------- */
     event RepoAdded(uint256 indexed repoId, address indexed admin);
     event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
     event Deposited(
@@ -26,19 +23,4 @@ interface IEscrowRepo {
 
     event Distribute(uint256 indexed repoId, uint256 indexed depositId, address indexed recipient);
     event BatchDistribute(uint256 indexed repoId, uint256[] depositIds, address[] recipients);
-
-    /* ------------------------------------------------------------------- */
-    /*                              FUNCTIONS                              */
-    /* ------------------------------------------------------------------- */
-    function batchClaim(
-        uint256   repoId,
-        uint256[] calldata depositIds,
-        bool      status,
-        uint256   deadline,
-        uint8     v,
-        bytes32   r,
-        bytes32   s
-    ) external;
-
-    function batchReclaim(uint256 repoId, uint256[] calldata depositIds) external;
 } 
