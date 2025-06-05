@@ -88,6 +88,9 @@ contract EscrowRepo is Owned {
     mapping(uint256 => mapping(uint256 => address)) public repoAdmin;      // repoId → accountId → admin
     mapping(uint256 => uint256) public repoAccountCount;                   // repoId → number of accounts created
     mapping(uint256 => bool) public repoExists;                           // repoId → whether repo was ever created
+    
+    // Authorized depositors: admin can authorize addresses to call deposit()
+    mapping(uint256 => mapping(uint256 => mapping(address => bool))) public authorizedDepositors; // repoId → accountId → depositor → authorized
 
     /* -------------------------------------------------------------------------- */
     /*                                STATE — POOL & CLAIMS                       */
@@ -159,6 +162,8 @@ contract EscrowRepo is Owned {
     event AccountAdded(uint256 indexed repoId, uint256 indexed accountId, address indexed admin);
     event TokenWhitelisted(address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
+    event DepositorAuthorized(uint256 indexed repoId, uint256 indexed accountId, address indexed depositor);
+    event DepositorDeauthorized(uint256 indexed repoId, uint256 indexed accountId, address indexed depositor);
 
     /* -------------------------------------------------------------------------- */
     /*                                 CONSTRUCTOR                                */
@@ -300,7 +305,11 @@ contract EscrowRepo is Owned {
     }
 
     function _deposit(DepositParams calldata d) internal {
-        require(msg.sender == repoAdmin[d.repoId][d.accountId], Errors.NOT_REPO_ADMIN);
+        require(
+            msg.sender == repoAdmin[d.repoId][d.accountId] || 
+            authorizedDepositors[d.repoId][d.accountId][msg.sender], 
+            Errors.NOT_REPO_ADMIN
+        );
         require(d.recipient != address(0),                    Errors.INVALID_ADDRESS);
         require(_whitelistedTokens.contains(address(d.token)),Errors.INVALID_TOKEN);
         require(d.amount > 0,                                 Errors.INVALID_AMOUNT);
@@ -372,7 +381,7 @@ contract EscrowRepo is Owned {
     /*                                RECLAIM FUND                                */
     /* -------------------------------------------------------------------------- */
     function reclaimFund(uint256 repoId, uint256 accountId, address token, uint256 amount) external {
-        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
+        _validateRepoAdmin(repoId, accountId);
         require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
         require(amount > 0, Errors.INVALID_AMOUNT);
         require(_claims[repoId][accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
@@ -398,7 +407,7 @@ contract EscrowRepo is Owned {
     }
 
     function _reclaimDeposit(uint256 repoId, uint256 accountId, uint256 claimId) internal {
-        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
+        _validateRepoAdmin(repoId, accountId);
         require(claimId < _claims[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
 
         Claim storage c = _claims[repoId][accountId][claimId];
@@ -434,16 +443,66 @@ contract EscrowRepo is Owned {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               REPO‑ADMIN OPs                              */
+    /*                               SET REPO ADMIN                              */
     /* -------------------------------------------------------------------------- */
     function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) external {
-        require(repoAdmin[repoId][accountId] != address(0), Errors.REPO_UNKNOWN);
-        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
-        require(newAdmin != address(0),          Errors.INVALID_ADDRESS);
+        _validateRepoAdmin(repoId, accountId);
+        require(newAdmin != address(0), Errors.INVALID_ADDRESS);
 
         address old = repoAdmin[repoId][accountId];
         repoAdmin[repoId][accountId] = newAdmin;
         emit RepoAdminChanged(repoId, old, newAdmin);
+    }
+
+    function _validateRepoAdmin(uint256 repoId, uint256 accountId) internal view {
+        require(repoAdmin[repoId][accountId] != address(0), Errors.REPO_UNKNOWN);
+        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               AUTHORIZE DEPOSITOR                          */
+    /* -------------------------------------------------------------------------- */
+    function authorizeDepositor(uint256 repoId, uint256 accountId, address depositor) external {
+        _validateRepoAdmin(repoId, accountId);
+        _authorizeDepositor(repoId, accountId, depositor);
+    }
+
+    function batchAuthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) external {
+        _validateRepoAdmin(repoId, accountId);
+        for (uint256 i = 0; i < depositors.length; i++) {
+            _authorizeDepositor(repoId, accountId, depositors[i]);
+        }
+    }
+
+    function _authorizeDepositor(uint256 repoId, uint256 accountId, address depositor) internal {
+        require(depositor != address(0), Errors.INVALID_ADDRESS);
+        if (!authorizedDepositors[repoId][accountId][depositor]) {
+            authorizedDepositors[repoId][accountId][depositor] = true;
+            emit DepositorAuthorized(repoId, accountId, depositor);
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               DEAUTHORIZE DEPOSITOR                        */
+    /* -------------------------------------------------------------------------- */
+    function deauthorizeDepositor(uint256 repoId, uint256 accountId, address depositor) external {
+        _validateRepoAdmin(repoId, accountId);
+        _deauthorizeDepositor(repoId, accountId, depositor);
+    }
+
+
+    function batchDeauthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) external {
+        _validateRepoAdmin(repoId, accountId);
+        for (uint256 i = 0; i < depositors.length; i++) {
+            _deauthorizeDepositor(repoId, accountId, depositors[i]);
+        }
+    }
+
+    function _deauthorizeDepositor(uint256 repoId, uint256 accountId, address depositor) internal {
+        if (authorizedDepositors[repoId][accountId][depositor]) {
+            authorizedDepositors[repoId][accountId][depositor] = false;
+            emit DepositorDeauthorized(repoId, accountId, depositor);
+        }
     }
 
     /* -------------------------------------------------------------------------- */
@@ -530,5 +589,13 @@ contract EscrowRepo is Owned {
         uint256 len = _whitelistedTokens.length();
         tokens = new address[](len);
         for (uint256 i; i < len; ++i) tokens[i] = _whitelistedTokens.at(i);
+    }
+
+    function isAuthorizedDepositor(uint256 repoId, uint256 accountId, address depositor) external view returns (bool) {
+        return authorizedDepositors[repoId][accountId][depositor];
+    }
+
+    function canDeposit(uint256 repoId, uint256 accountId, address caller) external view returns (bool) {
+        return caller == repoAdmin[repoId][accountId] || authorizedDepositors[repoId][accountId][caller];
     }
 }
