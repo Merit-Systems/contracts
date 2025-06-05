@@ -44,6 +44,8 @@ contract EscrowRepo is Owned {
         keccak256("Claim(uint256 repoId,address recipient,bool status,uint256 nonce,uint256 deadline)");
     bytes32 public constant ADD_REPO_TYPEHASH  =
         keccak256("AddRepo(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
+    bytes32 public constant CREATE_ACCOUNT_TYPEHASH =
+        keccak256("CreateAccount(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
 
     /* -------------------------------------------------------------------------- */
     /*                                     TYPES                                  */
@@ -214,8 +216,8 @@ contract EscrowRepo is Owned {
 
         ownerNonce++;
         repoExists[repoId] = true;
-        repoAdmin[repoId][0] = admin;
-        repoAccountCount[repoId] = 1;
+        repoAdmin[repoId][0] = admin;  // First account is always ID 0
+        repoAccountCount[repoId] = 1;  // Start count at 1
         emit RepoAdded(repoId, admin);
     }
 
@@ -233,7 +235,7 @@ contract EscrowRepo is Owned {
         emit RepoAdminChanged(repoId, old, newAdmin);
     }
 
-    function createNewAccount(
+    function addAccount(
         uint256 repoId,
         address admin,
         uint256 deadline,
@@ -250,7 +252,7 @@ contract EscrowRepo is Owned {
                 "\x19\x01",
                 DOMAIN_SEPARATOR(),
                 keccak256(abi.encode(
-                    ADD_REPO_TYPEHASH,
+                    CREATE_ACCOUNT_TYPEHASH,
                     repoId,
                     admin,
                     ownerNonce,
