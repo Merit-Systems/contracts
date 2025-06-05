@@ -576,6 +576,12 @@ contract EscrowRepo is Owned {
         return repoAdmin[repoId][accountId];
     }
 
+    function getLatestAccountId(uint256 repoId) external view returns (uint256) {
+        require(repoExists[repoId], Errors.REPO_UNKNOWN);
+        require(repoAccountCount[repoId] > 0, Errors.NO_ACCOUNTS_EXIST);
+        return repoAccountCount[repoId] - 1;
+    }
+
     function getAllAccountAdmins(uint256 repoId) external view returns (address[] memory) {
         uint256 count = repoAccountCount[repoId];
         address[] memory admins = new address[](count);

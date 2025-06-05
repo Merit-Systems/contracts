@@ -28,4 +28,5 @@ library Errors {
     string internal constant REPO_HAS_DEPOSITS            = "Repo Has Deposits";
     string internal constant DEPOSITOR_ALREADY_AUTHORIZED = "Depositor Already Authorized";
     string internal constant DEPOSITOR_NOT_AUTHORIZED     = "Depositor Not Authorized";
+    string internal constant NO_ACCOUNTS_EXIST            = "No Accounts Exist";
 } 
