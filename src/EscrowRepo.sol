@@ -231,13 +231,13 @@ contract EscrowRepo is Owned, IEscrowRepo {
             authorizedDepositors[d.repoId][d.accountId][msg.sender], 
             Errors.NOT_REPO_ADMIN
         );
-        require(d.recipient != address(0),                    Errors.INVALID_ADDRESS);
-        require(_whitelistedTokens.contains(address(d.token)),Errors.INVALID_TOKEN);
-        require(d.amount > 0,                                 Errors.INVALID_AMOUNT);
+        require(d.recipient != address(0),                             Errors.INVALID_ADDRESS);
+        require(_whitelistedTokens.contains(address(d.token)),         Errors.INVALID_TOKEN);
+        require(d.amount > 0,                                          Errors.INVALID_AMOUNT);
         require(d.claimPeriod > 0 && d.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
 
         uint256 bal = _balance[d.repoId][d.accountId][address(d.token)];
-        require(bal >= d.amount, Errors.INSUFFICIENT_POOL_BALANCE);
+        require(bal >= d.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
         _balance[d.repoId][d.accountId][address(d.token)] = bal - d.amount;
 
         uint32 deadline = uint32(block.timestamp + d.claimPeriod);
@@ -308,7 +308,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(_claims[repoId][accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
         
         uint256 bal = _balance[repoId][accountId][token];
-        require(bal >= amount, Errors.INSUFFICIENT_POOL_BALANCE);
+        require(bal >= amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
         
         _balance[repoId][accountId][token] = bal - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
