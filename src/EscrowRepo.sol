@@ -64,30 +64,30 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                STATE  — REGISTRY                           */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => mapping(uint256 => address)) public repoAdmin;      // repoId → accountId → admin
-    mapping(uint256 => uint256) public repoAccountCount;                   // repoId → number of accounts created
-    mapping(uint256 => bool) public repoExists;                           // repoId → whether repo was ever created
+    mapping(uint256 => mapping(uint256 => address)) public repoAdmin;        // repoId → accountId → admin
+    mapping(uint256 => uint256)                     public repoAccountCount; // repoId → number of accounts created
+    mapping(uint256 => bool)                        public repoExists;       // repoId → whether repo was ever created
     
-    // Authorized depositors: admin can authorize addresses to call deposit()
     mapping(uint256 => mapping(uint256 => mapping(address => bool))) public authorizedDepositors; // repoId → accountId → depositor → authorized
 
     /* -------------------------------------------------------------------------- */
     /*                                STATE — POOL & CLAIMS                       */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => mapping(uint256 => Funding[]))  private _fundings;    // repoId → accountId → inbound deposits
-    mapping(uint256 => mapping(uint256 => Claim[]))    private _claims;      // repoId → accountId → claimable lots
-    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _balance; // repoId → accountId → token → balance
+    mapping(uint256 => mapping(uint256 => Funding[]))                   private _fundings; // repoId → accountId → inbound deposits
+    mapping(uint256 => mapping(uint256 => Claim[]))                     private _claims;   // repoId → accountId → claimable lots
+    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _balance;  // repoId → accountId → token → balance
 
-    mapping(address => bool)      public  canClaim;        // off‑chain signer toggles this
-    mapping(address => uint256)   public  recipientNonce;  // EIP‑712 replay protection
-    uint256 public ownerNonce;                             // for addRepo sigs
+    mapping(address => bool)    public canClaim;
+    mapping(address => uint256) public recipientNonce;
+    uint256                     public ownerNonce;
 
     /* -------------------------------------------------------------------------- */
     /*                             FEES & WHITELIST                               */
     /* -------------------------------------------------------------------------- */
-    EnumerableSet.AddressSet private _whitelistedTokens;
     uint16  public protocolFeeBps;
     address public feeRecipient;
+
+    EnumerableSet.AddressSet private _whitelistedTokens;
 
     /* -------------------------------------------------------------------------- */
     /*                               EIP‑712 DOMAIN                               */
@@ -98,7 +98,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                OFF‑CHAIN SIGS                              */
     /* -------------------------------------------------------------------------- */
-    address public signer; // trusted backend that signs {repoId,recipient,status}
+    address public signer;
 
     /* -------------------------------------------------------------------------- */
     /*                                 CONSTRUCTOR                                */
