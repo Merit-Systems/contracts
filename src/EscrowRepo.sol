@@ -369,30 +369,6 @@ contract EscrowRepo is Owned {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                   RECLAIM                                  */
-    /* -------------------------------------------------------------------------- */
-    function reclaim(uint256 repoId, uint256 accountId, uint256 claimId) external {
-        _reclaim(repoId, accountId, claimId);
-    }
-
-    function batchReclaim(uint256 repoId, uint256 accountId, uint256[] calldata claimIds) external {
-        for (uint256 i; i < claimIds.length; ++i) _reclaim(repoId, accountId, claimIds[i]);
-    }
-
-    function _reclaim(uint256 repoId, uint256 accountId, uint256 claimId) internal {
-        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
-        require(claimId < _claims[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
-
-        Claim storage c = _claims[repoId][accountId][claimId];
-        require(c.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
-        require(block.timestamp > c.deadline,     Errors.STILL_CLAIMABLE);
-
-        c.status = Status.Reclaimed;
-        _pooled[repoId][accountId][address(c.token)] += c.amount;
-        emit Reclaimed(repoId, claimId, msg.sender, c.amount);
-    }
-
-    /* -------------------------------------------------------------------------- */
     /*                                RECLAIM FUND                                */
     /* -------------------------------------------------------------------------- */
     function reclaimFund(uint256 repoId, uint256 accountId, address token, uint256 amount) external {
@@ -408,6 +384,30 @@ contract EscrowRepo is Owned {
         ERC20(token).safeTransfer(msg.sender, amount);
         
         emit Reclaimed(repoId, type(uint256).max, msg.sender, amount);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                RECLAIM DEPOSIT                            */
+    /* -------------------------------------------------------------------------- */
+    function reclaimDeposit(uint256 repoId, uint256 accountId, uint256 claimId) external {
+        _reclaimDeposit(repoId, accountId, claimId);
+    }
+
+    function batchReclaimDeposit(uint256 repoId, uint256 accountId, uint256[] calldata claimIds) external {
+        for (uint256 i; i < claimIds.length; ++i) _reclaimDeposit(repoId, accountId, claimIds[i]);
+    }
+
+    function _reclaimDeposit(uint256 repoId, uint256 accountId, uint256 claimId) internal {
+        require(msg.sender == repoAdmin[repoId][accountId], Errors.NOT_REPO_ADMIN);
+        require(claimId < _claims[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
+
+        Claim storage c = _claims[repoId][accountId][claimId];
+        require(c.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
+        require(block.timestamp > c.deadline,     Errors.STILL_CLAIMABLE);
+
+        c.status = Status.Reclaimed;
+        _pooled[repoId][accountId][address(c.token)] += c.amount;
+        emit Reclaimed(repoId, claimId, msg.sender, c.amount);
     }
 
     /* -------------------------------------------------------------------------- */
