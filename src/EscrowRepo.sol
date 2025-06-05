@@ -64,8 +64,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     mapping(uint256 => mapping(uint256 => mapping(address => bool))) public authorizedDepositors; // repoId → accountId → depositor → authorized
 
 
-    mapping(uint256 => mapping(uint256 => Deposit[]))                   private _deposits;         // repoId → accountId → claimable deposits
-    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _balance;          // repoId → accountId → token → balance
+    mapping(uint256 => mapping(uint256 => Deposit[]))                   public deposits;           // repoId → accountId → claimable deposits
+    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) public balance;            // repoId → accountId → token → balance
 
     /* -------------------------------------------------------------------------- */
     /*                                STATE — CLAIMS                              */
@@ -208,7 +208,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         p.token.safeTransferFrom(msg.sender, address(this), p.amount);
         if (fee > 0) p.token.safeTransfer(feeRecipient, fee);
 
-        _balance[p.repoId][p.accountId][address(p.token)] += netAmt;
+        balance[p.repoId][p.accountId][address(p.token)] += netAmt;
 
         emit Funded(p.repoId, address(p.token), msg.sender, netAmt, fee);
     }
@@ -218,7 +218,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     function deposit(DepositParams calldata d) external returns (uint256 depositId) {
         _deposit(d);
-        depositId = _deposits[d.repoId][d.accountId].length - 1;
+        depositId = deposits[d.repoId][d.accountId].length - 1;
     }
 
     function batchDeposit(DepositParams[] calldata ds) external {
@@ -236,14 +236,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(d.amount > 0,                                          Errors.INVALID_AMOUNT);
         require(d.claimPeriod > 0 && d.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
 
-        uint256 bal = _balance[d.repoId][d.accountId][address(d.token)];
+        uint256 bal = balance[d.repoId][d.accountId][address(d.token)];
         require(bal >= d.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
-        _balance[d.repoId][d.accountId][address(d.token)] = bal - d.amount;
+        balance[d.repoId][d.accountId][address(d.token)] = bal - d.amount;
 
         uint32 deadline = uint32(block.timestamp + d.claimPeriod);
 
-        uint256 depositId = _deposits[d.repoId][d.accountId].length;
-        _deposits[d.repoId][d.accountId].push(
+        uint256 depositId = deposits[d.repoId][d.accountId].length;
+        deposits[d.repoId][d.accountId].push(
             Deposit({
                 amount:     d.amount,
                 token:      d.token,
@@ -286,8 +286,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     function _claim(uint256 repoId, uint256 accountId, uint256 depositId, address recipient) internal {
-        require(depositId < _deposits[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
-        Deposit storage d = _deposits[repoId][accountId][depositId];
+        require(depositId < deposits[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
+        Deposit storage d = deposits[repoId][accountId][depositId];
 
         require(d.status    == Status.Deposited, Errors.ALREADY_CLAIMED);
         require(d.recipient == recipient,        Errors.INVALID_ADDRESS);
@@ -305,12 +305,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
         _validateRepoAdmin(repoId, accountId);
         require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
         require(amount > 0, Errors.INVALID_AMOUNT);
-        require(_deposits[repoId][accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
+        require(deposits[repoId][accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
         
-        uint256 bal = _balance[repoId][accountId][token];
+        uint256 bal = balance[repoId][accountId][token];
         require(bal >= amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
         
-        _balance[repoId][accountId][token] = bal - amount;
+        balance[repoId][accountId][token] = bal - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
         
         emit Reclaimed(repoId, type(uint256).max, msg.sender, amount);
@@ -329,14 +329,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
     function _reclaimDeposit(uint256 repoId, uint256 accountId, uint256 depositId) internal {
         _validateRepoAdmin(repoId, accountId);
-        require(depositId < _deposits[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
+        require(depositId < deposits[repoId][accountId].length, Errors.INVALID_CLAIM_ID);
 
-        Deposit storage d = _deposits[repoId][accountId][depositId];
+        Deposit storage d = deposits[repoId][accountId][depositId];
         require(d.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
         require(block.timestamp > d.deadline,     Errors.STILL_CLAIMABLE);
 
         d.status = Status.Reclaimed;
-        _balance[repoId][accountId][address(d.token)] += d.amount;
+        balance[repoId][accountId][address(d.token)] += d.amount;
         emit Reclaimed(repoId, depositId, msg.sender, d.amount);
     }
 
@@ -481,14 +481,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                    GETTERS                                 */
     /* -------------------------------------------------------------------------- */
-    function depositsOf(uint256 repoId, uint256 accountId) external view returns (Deposit[] memory) {
-        return _deposits[repoId][accountId];
-    }
-
-    function balanceOf(uint256 repoId, uint256 accountId, address token) external view returns (uint256) {
-        return _balance[repoId][accountId][token];
-    }
-
     function getAccountAdmin(uint256 repoId, uint256 accountId) external view returns (address) {
         return repoAdmin[repoId][accountId];
     }
