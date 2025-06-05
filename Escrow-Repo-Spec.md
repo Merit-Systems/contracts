@@ -43,7 +43,7 @@ The repo admin can authorize additional addresses to call `deposit()` functions:
 
 | Step                   | Call               | What happens                                                                                                                       |
 | ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 1. **Fund**            | `fund()`           | Tokens sent in ➜ fee (≤10 %) to `feeRecipient`; net added to `_pooled`.                                                            |
+| 1. **Fund**            | `fund()`           | Tokens sent in ➜ fee (≤10 %) to `feeRecipient`; net added to `_balance`.                                                           |
 | 2. **Deposit**         | `deposit()`        | Admin or authorized depositor earmarks an **amount** & `deadline` for a recipient → new **Claim** record (funds stay in contract). |
 | 3. **Claim**           | `claim()`          | Recipient proves `canClaim=true` (Signer signature). If before `deadline`, tokens sent and claim ➜ _Claimed_.                      |
 | 4. **Reclaim pool**    | `reclaimFund()`    | If account has no active claims, admin withdraws unused pool balance.                                                              |

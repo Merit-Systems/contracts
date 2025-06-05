@@ -11,7 +11,7 @@ pragma solidity ^0.8.26;
  *
  * Design notes
  * -------------
- * • Pooled balances per repo/token kept in `_pooled`.
+ * • Pooled balances per repo/token kept in `_balance`.
  * • Provenance of funding tracked via `Funding[]`.
  * • Actual payable obligations live in `Claim[]`.
  * • Protocol fee is charged up‑front on fund().
@@ -97,7 +97,7 @@ contract EscrowRepo is Owned {
     /* -------------------------------------------------------------------------- */
     mapping(uint256 => mapping(uint256 => Funding[]))  private _fundings;    // repoId → accountId → inbound deposits
     mapping(uint256 => mapping(uint256 => Claim[]))    private _claims;      // repoId → accountId → claimable lots
-    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _pooled; // repoId → accountId → token → balance
+    mapping(uint256 => mapping(uint256 => mapping(address => uint256))) private _balance; // repoId → accountId → token → balance
 
     mapping(address => bool)      public  canClaim;        // off‑chain signer toggles this
     mapping(address => uint256)   public  recipientNonce;  // EIP‑712 replay protection
@@ -283,7 +283,7 @@ contract EscrowRepo is Owned {
         if (fee > 0) p.token.safeTransfer(feeRecipient, fee);
 
         /* pool balance */
-        _pooled[p.repoId][p.accountId][address(p.token)] += netAmt;
+        _balance[p.repoId][p.accountId][address(p.token)] += netAmt;
 
         /* store funding record */
         fundingId = _fundings[p.repoId][p.accountId].length;
@@ -315,9 +315,9 @@ contract EscrowRepo is Owned {
         require(d.amount > 0,                                 Errors.INVALID_AMOUNT);
         require(d.claimPeriod > 0 && d.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
 
-        uint256 bal = _pooled[d.repoId][d.accountId][address(d.token)];
+        uint256 bal = _balance[d.repoId][d.accountId][address(d.token)];
         require(bal >= d.amount, Errors.INSUFFICIENT_POOL_BALANCE);
-        _pooled[d.repoId][d.accountId][address(d.token)] = bal - d.amount;
+        _balance[d.repoId][d.accountId][address(d.token)] = bal - d.amount;
 
         uint32 deadline = uint32(block.timestamp + d.claimPeriod);
 
@@ -386,10 +386,10 @@ contract EscrowRepo is Owned {
         require(amount > 0, Errors.INVALID_AMOUNT);
         require(_claims[repoId][accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
         
-        uint256 bal = _pooled[repoId][accountId][token];
+        uint256 bal = _balance[repoId][accountId][token];
         require(bal >= amount, Errors.INSUFFICIENT_POOL_BALANCE);
         
-        _pooled[repoId][accountId][token] = bal - amount;
+        _balance[repoId][accountId][token] = bal - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
         
         emit Reclaimed(repoId, type(uint256).max, msg.sender, amount);
@@ -415,7 +415,7 @@ contract EscrowRepo is Owned {
         require(block.timestamp > c.deadline,     Errors.STILL_CLAIMABLE);
 
         c.status = Status.Reclaimed;
-        _pooled[repoId][accountId][address(c.token)] += c.amount;
+        _balance[repoId][accountId][address(c.token)] += c.amount;
         emit Reclaimed(repoId, claimId, msg.sender, c.amount);
     }
 
@@ -568,8 +568,8 @@ contract EscrowRepo is Owned {
         return _claims[repoId][accountId];
     }
 
-    function poolBalance(uint256 repoId, uint256 accountId, address token) external view returns (uint256) {
-        return _pooled[repoId][accountId][token];
+    function balanceOf(uint256 repoId, uint256 accountId, address token) external view returns (uint256) {
+        return _balance[repoId][accountId][token];
     }
 
     function getAccountAdmin(uint256 repoId, uint256 accountId) external view returns (address) {
