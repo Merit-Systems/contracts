@@ -142,8 +142,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         ownerNonce++;
         repos[repoId].exists = true;
         
-        _addAccount(repoId, admin); // Create the first account for this repo
         emit RepoAdded(repoId, admin);
+        _addAccount(repoId, admin); // Create the first account for this repo
     }
 
     function addAccount(
