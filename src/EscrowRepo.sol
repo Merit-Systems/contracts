@@ -32,10 +32,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
     struct Repo {
         bool                                            exists;
         uint256                                         accountCount;
+        mapping(uint256 => mapping(address => uint256)) balance;              // accountId → token → balance
+        mapping(uint256 => Deposit[])                   deposits;             // accountId → deposits
         mapping(uint256 => address)                     admin;                // accountId → admin
         mapping(uint256 => mapping(address => bool))    authorizedDepositors; // accountId → depositor → authorized
-        mapping(uint256 => Deposit[])                   deposits;             // accountId → deposits
-        mapping(uint256 => mapping(address => uint256)) balance;              // accountId → token → balance
     }
 
     enum Status { Deposited, Claimed, Reclaimed }
