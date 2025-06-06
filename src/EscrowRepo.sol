@@ -44,8 +44,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 amount;
         ERC20   token;
         address recipient;
-        uint32  deadline;    // unix seconds
-        Status  status;      // Deposited → Claimed / Reclaimed
+        uint256 claimDeadline; // unix seconds
+        Status  status;        // Deposited → Claimed / Reclaimed
     }
 
     struct FundParams {
@@ -232,20 +232,20 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(bal >= d.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
         repos[d.repoId].balance[d.accountId][address(d.token)] = bal - d.amount;
 
-        uint32 deadline = uint32(block.timestamp + d.claimPeriod);
+        uint256 claimDeadline = block.timestamp + d.claimPeriod;
 
         uint256 depositId = repos[d.repoId].deposits[d.accountId].length;
         repos[d.repoId].deposits[d.accountId].push(
             Deposit({
-                amount:     d.amount,
-                token:      d.token,
-                recipient:  d.recipient,
-                deadline:   deadline,
-                status:     Status.Deposited
+                amount:        d.amount,
+                token:         d.token,
+                recipient:     d.recipient,
+                claimDeadline: claimDeadline,
+                status:        Status.Deposited
             })
         );
 
-        emit Deposited(d.repoId, depositId, d.recipient, address(d.token), d.amount, deadline);
+        emit Deposited(d.repoId, depositId, d.recipient, address(d.token), d.amount, claimDeadline);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -283,7 +283,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
         require(d.status    == Status.Deposited, Errors.ALREADY_CLAIMED);
         require(d.recipient == recipient,        Errors.INVALID_ADDRESS);
-        require(block.timestamp <= d.deadline,   Errors.CLAIM_DEADLINE_PASSED);
+        require(block.timestamp <= d.claimDeadline,   Errors.CLAIM_DEADLINE_PASSED);
 
         d.status = Status.Claimed;
         d.token.safeTransfer(recipient, d.amount);
@@ -325,7 +325,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
         Deposit storage d = repos[repoId].deposits[accountId][depositId];
         require(d.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
-        require(block.timestamp > d.deadline,     Errors.STILL_CLAIMABLE);
+        require(block.timestamp > d.claimDeadline,     Errors.STILL_CLAIMABLE);
 
         d.status = Status.Reclaimed;
         repos[repoId].balance[accountId][address(d.token)] += d.amount;

@@ -16,7 +16,7 @@ interface IEscrowRepo {
         address indexed recipient,
         address token,
         uint256 amount,
-        uint32  deadline
+        uint256 claimDeadline
     );
 
     event Claimed(
