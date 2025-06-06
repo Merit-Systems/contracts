@@ -67,7 +67,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                STATE VARIABLES                             */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => Repo)     public repos;         // repoId → Repo
+    mapping(uint256 => Repo)     public repos;          // repoId → Repo
 
     mapping(address => bool)     public canClaim;       // recipient → canClaim
     mapping(address => uint256)  public recipientNonce; // recipient → nonce
@@ -189,9 +189,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                                     FUND                                   */
     /* -------------------------------------------------------------------------- */
     function fund(FundParams calldata p) external {
-        require(repos[p.repoId].admin[p.accountId] != address(0), Errors.REPO_UNKNOWN);
-        require(_whitelistedTokens.contains(address(p.token)),  Errors.INVALID_TOKEN);
-        require(p.amount > 0,                                   Errors.INVALID_AMOUNT);
+        require(repos[p.repoId].exists,                        Errors.REPO_UNKNOWN);
+        require(p.accountId < repos[p.repoId].accountCount,    Errors.ACCOUNT_UNKNOWN);
+        require(_whitelistedTokens.contains(address(p.token)), Errors.INVALID_TOKEN);
+        require(p.amount > 0,                                  Errors.INVALID_AMOUNT);
 
         uint256 fee    = (protocolFeeBps == 0) ? 0 : (p.amount * protocolFeeBps + 9_999) / 10_000;
         uint256 netAmt = p.amount - fee;
@@ -367,7 +368,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     function _validateRepoAdmin(uint256 repoId, uint256 accountId) internal view {
-        require(repos[repoId].admin[accountId] != address(0), Errors.REPO_UNKNOWN);
+        require(repos[repoId].exists,                         Errors.REPO_UNKNOWN);
+        require(accountId < repos[repoId].accountCount,       Errors.ACCOUNT_UNKNOWN);
         require(msg.sender == repos[repoId].admin[accountId], Errors.NOT_REPO_ADMIN);
     }
 

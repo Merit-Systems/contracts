@@ -16,6 +16,7 @@ library Errors {
     string internal constant TOKEN_NOT_WHITELISTED        = "Token Not Whitelisted";
     string internal constant REPO_EXISTS                  = "Repo Exists";
     string internal constant REPO_UNKNOWN                 = "Repo Unknown";
+    string internal constant ACCOUNT_UNKNOWN              = "Account Unknown";
     string internal constant NOT_REPO_ADMIN               = "Not Repo Admin";
     string internal constant ARRAY_LENGTH_MISMATCH        = "Array Length Mismatch";
     string internal constant RECIPIENT_ALREADY_SET        = "Recipient Already Set";
