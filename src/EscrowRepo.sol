@@ -389,13 +389,13 @@ contract EscrowRepo is Owned, IEscrowRepo {
     function _reclaimDeposit(uint256 repoId, uint256 accountId, uint256 depositId) internal {
         require(depositId < repos[repoId].deposits[accountId].length, Errors.INVALID_CLAIM_ID);
 
-        Deposit storage d = repos[repoId].deposits[accountId][depositId];
-        require(d.status     == Status.Deposited, Errors.ALREADY_CLAIMED);
-        require(block.timestamp > d.claimDeadline,     Errors.STILL_CLAIMABLE);
+        Deposit storage _deposit = repos[repoId].deposits[accountId][depositId];
+        require(_deposit.status == Status.Deposited,      Errors.ALREADY_CLAIMED);
+        require(block.timestamp > _deposit.claimDeadline, Errors.STILL_CLAIMABLE);
 
-        d.status = Status.Reclaimed;
-        repos[repoId].balance[accountId][address(d.token)] += d.amount;
-        emit Reclaimed(repoId, depositId, msg.sender, d.amount);
+        _deposit.status = Status.Reclaimed;
+        repos[repoId].balance[accountId][address(_deposit.token)] += _deposit.amount;
+        emit Reclaimed(repoId, depositId, msg.sender, _deposit.amount);
     }
 
     /* -------------------------------------------------------------------------- */
