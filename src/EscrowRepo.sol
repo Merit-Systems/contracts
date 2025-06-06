@@ -176,13 +176,13 @@ contract EscrowRepo is Owned, IEscrowRepo {
         ownerNonce++;
         
         accountId = _addAccount(repoId, admin); 
-        emit AccountAdded(repoId, accountId, admin);
     }
 
     function _addAccount(uint256 repoId, address admin) internal returns (uint256 accountId) {
         accountId = repos[repoId].accountCount;
         repos[repoId].admin[accountId] = admin;
         repos[repoId].accountCount++;
+        emit AccountAdded(repoId, accountId, admin);
     }
 
     /* -------------------------------------------------------------------------- */
