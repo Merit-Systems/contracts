@@ -87,6 +87,20 @@ contract EscrowRepo is Owned, IEscrowRepo {
     bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
 
     /* -------------------------------------------------------------------------- */
+    /*                                 MODIFIERS                                  */
+    /* -------------------------------------------------------------------------- */
+    modifier accountExists(uint256 repoId, uint256 accountId) {
+        require(repos[repoId].exists, Errors.REPO_UNKNOWN);
+        require(accountId < repos[repoId].accountCount, Errors.ACCOUNT_UNKNOWN);
+        _;
+    }
+
+    modifier isRepoAdmin(uint256 repoId, uint256 accountId) accountExists(repoId, accountId) {
+        require(msg.sender == repos[repoId].admin[accountId], Errors.NOT_REPO_ADMIN);
+        _;
+    }
+
+    /* -------------------------------------------------------------------------- */
     /*                                 CONSTRUCTOR                                */
     /* -------------------------------------------------------------------------- */
     constructor(
@@ -188,9 +202,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                     FUND                                   */
     /* -------------------------------------------------------------------------- */
-    function fund(FundParams calldata p) external {
-        require(repos[p.repoId].exists,                        Errors.REPO_UNKNOWN);
-        require(p.accountId < repos[p.repoId].accountCount,    Errors.ACCOUNT_UNKNOWN);
+    function fund(FundParams calldata p) external accountExists(p.repoId, p.accountId) {
         require(_whitelistedTokens.contains(address(p.token)), Errors.INVALID_TOKEN);
         require(p.amount > 0,                                  Errors.INVALID_AMOUNT);
 
@@ -208,13 +220,17 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                  DEPOSIT                                   */
     /* -------------------------------------------------------------------------- */
-    function deposit(DepositParams calldata d) external returns (uint256 depositId) {
+    function deposit(DepositParams calldata d) external accountExists(d.repoId, d.accountId) returns (uint256 depositId) {
         _deposit(d);
         depositId = repos[d.repoId].deposits[d.accountId].length - 1;
     }
 
     function batchDeposit(DepositParams[] calldata ds) external {
-        for (uint256 i; i < ds.length; ++i) _deposit(ds[i]);
+        for (uint256 i; i < ds.length; ++i) {
+            require(repos[ds[i].repoId].exists, Errors.REPO_UNKNOWN);
+            require(ds[i].accountId < repos[ds[i].repoId].accountCount, Errors.ACCOUNT_UNKNOWN);
+            _deposit(ds[i]);
+        }
     }
 
     function _deposit(DepositParams calldata d) internal {
@@ -258,7 +274,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         bool    status,
         uint256 deadline,
         uint8   v, bytes32 r, bytes32 s
-    ) external {
+    ) external accountExists(repoId, accountId) {
         _setCanClaim(msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
         _claim(repoId, accountId, depositId, msg.sender);
@@ -271,7 +287,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         bool    status,
         uint256 deadline,
         uint8   v, bytes32 r, bytes32 s
-    ) external {
+    ) external accountExists(repoId, accountId) {
         _setCanClaim(msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
         for (uint256 i; i < depositIds.length; ++i) _claim(repoId, accountId, depositIds[i], msg.sender);
@@ -293,8 +309,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                RECLAIM FUND                                */
     /* -------------------------------------------------------------------------- */
-    function reclaimFund(uint256 repoId, uint256 accountId, address token, uint256 amount) external {
-        _validateRepoAdmin(repoId, accountId);
+    function reclaimFund(uint256 repoId, uint256 accountId, address token, uint256 amount) external isRepoAdmin(repoId, accountId) {
         require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
         require(amount > 0, Errors.INVALID_AMOUNT);
         require(repos[repoId].deposits[accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
@@ -311,16 +326,15 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                RECLAIM DEPOSIT                            */
     /* -------------------------------------------------------------------------- */
-    function reclaimDeposit(uint256 repoId, uint256 accountId, uint256 depositId) external {
+    function reclaimDeposit(uint256 repoId, uint256 accountId, uint256 depositId) external isRepoAdmin(repoId, accountId) {
         _reclaimDeposit(repoId, accountId, depositId);
     }
 
-    function batchReclaimDeposit(uint256 repoId, uint256 accountId, uint256[] calldata depositIds) external {
+    function batchReclaimDeposit(uint256 repoId, uint256 accountId, uint256[] calldata depositIds) external isRepoAdmin(repoId, accountId) {
         for (uint256 i; i < depositIds.length; ++i) _reclaimDeposit(repoId, accountId, depositIds[i]);
     }
 
     function _reclaimDeposit(uint256 repoId, uint256 accountId, uint256 depositId) internal {
-        _validateRepoAdmin(repoId, accountId);
         require(depositId < repos[repoId].deposits[accountId].length, Errors.INVALID_CLAIM_ID);
 
         Deposit storage d = repos[repoId].deposits[accountId][depositId];
@@ -358,8 +372,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                               SET REPO ADMIN                              */
     /* -------------------------------------------------------------------------- */
-    function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) external {
-        _validateRepoAdmin(repoId, accountId);
+    function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) external isRepoAdmin(repoId, accountId) {
         require(newAdmin != address(0), Errors.INVALID_ADDRESS);
 
         address old = repos[repoId].admin[accountId];
@@ -367,22 +380,16 @@ contract EscrowRepo is Owned, IEscrowRepo {
         emit RepoAdminChanged(repoId, old, newAdmin);
     }
 
-    function _validateRepoAdmin(uint256 repoId, uint256 accountId) internal view {
-        require(repos[repoId].exists,                         Errors.REPO_UNKNOWN);
-        require(accountId < repos[repoId].accountCount,       Errors.ACCOUNT_UNKNOWN);
-        require(msg.sender == repos[repoId].admin[accountId], Errors.NOT_REPO_ADMIN);
-    }
+
 
     /* -------------------------------------------------------------------------- */
     /*                               AUTHORIZE DEPOSITOR                          */
     /* -------------------------------------------------------------------------- */
-    function authorizeDepositor(uint256 repoId, uint256 accountId, address depositor) external {
-        _validateRepoAdmin(repoId, accountId);
+    function authorizeDepositor(uint256 repoId, uint256 accountId, address depositor) external isRepoAdmin(repoId, accountId) {
         _authorizeDepositor(repoId, accountId, depositor);
     }
 
-    function batchAuthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) external {
-        _validateRepoAdmin(repoId, accountId);
+    function batchAuthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) external isRepoAdmin(repoId, accountId) {
         for (uint256 i = 0; i < depositors.length; i++) {
             _authorizeDepositor(repoId, accountId, depositors[i]);
         }
@@ -399,14 +406,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                               DEAUTHORIZE DEPOSITOR                        */
     /* -------------------------------------------------------------------------- */
-    function deauthorizeDepositor(uint256 repoId, uint256 accountId, address depositor) external {
-        _validateRepoAdmin(repoId, accountId);
+    function deauthorizeDepositor(uint256 repoId, uint256 accountId, address depositor) external isRepoAdmin(repoId, accountId) {
         _deauthorizeDepositor(repoId, accountId, depositor);
     }
 
 
-    function batchDeauthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) external {
-        _validateRepoAdmin(repoId, accountId);
+    function batchDeauthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) external isRepoAdmin(repoId, accountId) {
         for (uint256 i = 0; i < depositors.length; i++) {
             _deauthorizeDepositor(repoId, accountId, depositors[i]);
         }
@@ -486,7 +491,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         return repos[repoId].accountCount - 1;
     }
 
-    function getAccountAdmin(uint256 repoId, uint256 accountId) external view returns (address) {
+    function getAccountAdmin(uint256 repoId, uint256 accountId) external view accountExists(repoId, accountId) returns (address) {
         return repos[repoId].admin[accountId];
     }
 
@@ -499,23 +504,23 @@ contract EscrowRepo is Owned, IEscrowRepo {
         return admins;
     }
 
-    function isAuthorizedDepositor(uint256 repoId, uint256 accountId, address depositor) external view returns (bool) {
+    function isAuthorizedDepositor(uint256 repoId, uint256 accountId, address depositor) external view accountExists(repoId, accountId) returns (bool) {
         return repos[repoId].authorizedDepositors[accountId][depositor];
     }
 
-    function canDeposit(uint256 repoId, uint256 accountId, address caller) external view returns (bool) {
+    function canDeposit(uint256 repoId, uint256 accountId, address caller) external view accountExists(repoId, accountId) returns (bool) {
         return caller == repos[repoId].admin[accountId] || repos[repoId].authorizedDepositors[accountId][caller];
     }
 
-    function getAccountBalance(uint256 repoId, uint256 accountId, address token) external view returns (uint256) {
+    function getAccountBalance(uint256 repoId, uint256 accountId, address token) external view accountExists(repoId, accountId) returns (uint256) {
         return repos[repoId].balance[accountId][token];
     }
 
-    function getAccountDepositsCount(uint256 repoId, uint256 accountId) external view returns (uint256) {
+    function getAccountDepositsCount(uint256 repoId, uint256 accountId) external view accountExists(repoId, accountId) returns (uint256) {
         return repos[repoId].deposits[accountId].length;
     }
 
-    function getAccountDeposit(uint256 repoId, uint256 accountId, uint256 depositId) external view returns (Deposit memory) {
+    function getAccountDeposit(uint256 repoId, uint256 accountId, uint256 depositId) external view accountExists(repoId, accountId) returns (Deposit memory) {
         require(depositId < repos[repoId].deposits[accountId].length, Errors.INVALID_CLAIM_ID);
         return repos[repoId].deposits[accountId][depositId];
     }
