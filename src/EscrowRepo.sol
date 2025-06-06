@@ -380,19 +380,16 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 depositId
     ) 
         external 
-        accountExists(repoId, accountId)
-        isRepoAdmin(repoId, accountId) 
     {
         _reclaimDeposit(repoId, accountId, depositId);
     }
 
     function batchReclaimDeposit(
-        uint256 repoId,
-        uint256 accountId,
+        uint256            repoId,
+        uint256            accountId,
         uint256[] calldata depositIds
     ) 
         external 
-        isRepoAdmin(repoId, accountId) 
     {
         for (uint256 i; i < depositIds.length; ++i) _reclaimDeposit(repoId, accountId, depositIds[i]);
     }
