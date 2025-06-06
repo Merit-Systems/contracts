@@ -571,25 +571,45 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                   GETTERS                                  */
     /* -------------------------------------------------------------------------- */
-    function repoExists(uint256 repoId) external view returns (bool) {
+    function repoExists(uint256 repoId) 
+        external 
+        view 
+        returns (bool) 
+    {
         return repos[repoId].exists;
     }
 
-    function getRepoAccountCount(uint256 repoId) external view returns (uint256) {
+    function getRepoAccountCount(uint256 repoId) 
+        external 
+        view 
+        returns (uint256) 
+    {
         return repos[repoId].accountCount;
     }
 
-    function getRepoLatestAccountId(uint256 repoId) external view returns (uint256) {
+    function getRepoLatestAccountId(uint256 repoId) 
+        external 
+        view 
+        returns (uint256) 
+    {
         require(repos[repoId].exists, Errors.REPO_UNKNOWN);
         require(repos[repoId].accountCount > 0, Errors.NO_ACCOUNTS_EXIST);
         return repos[repoId].accountCount - 1;
     }
 
-    function getAccountAdmin(uint256 repoId, uint256 accountId) external view accountExists(repoId, accountId) returns (address) {
+    function getAccountAdmin(uint256 repoId, uint256 accountId) 
+        external 
+        view 
+        returns (address) 
+    {
         return repos[repoId].admin[accountId];
     }
 
-    function getAllAccountAdmins(uint256 repoId) external view returns (address[] memory) {
+    function getAllAccountAdmins(uint256 repoId) 
+        external 
+        view 
+        returns (address[] memory)
+    {
         uint256 count = repos[repoId].accountCount;
         address[] memory admins = new address[](count);
         for (uint256 i = 0; i < count; i++) {
@@ -598,34 +618,62 @@ contract EscrowRepo is Owned, IEscrowRepo {
         return admins;
     }
 
-    function getIsAuthorizedDepositor(uint256 repoId, uint256 accountId, address depositor) external view accountExists(repoId, accountId) returns (bool) {
+    function getIsAuthorizedDepositor(uint256 repoId, uint256 accountId, address depositor) 
+        external 
+        view 
+        returns (bool) 
+    {
         return repos[repoId].authorizedDepositors[accountId][depositor];
     }
 
-    function canDeposit(uint256 repoId, uint256 accountId, address caller) external view accountExists(repoId, accountId) returns (bool) {
+    function canDeposit(uint256 repoId, uint256 accountId, address caller) 
+        external 
+        view 
+        returns (bool) 
+    {
         return caller == repos[repoId].admin[accountId] || repos[repoId].authorizedDepositors[accountId][caller];
     }
 
-    function getAccountBalance(uint256 repoId, uint256 accountId, address token) external view accountExists(repoId, accountId) returns (uint256) {
+    function getAccountBalance(uint256 repoId, uint256 accountId, address token) 
+        external 
+        view 
+        returns (uint256) 
+    {
         return repos[repoId].balance[accountId][token];
     }
 
-    function getAccountDepositsCount(uint256 repoId, uint256 accountId) external view accountExists(repoId, accountId) returns (uint256) {
+    function getAccountDepositsCount(uint256 repoId, uint256 accountId) 
+        external 
+        view 
+        returns (uint256) 
+    {
         return repos[repoId].deposits[accountId].length;
     }
 
-    function getAccountDeposit(uint256 repoId, uint256 accountId, uint256 depositId) external view accountExists(repoId, accountId) returns (Deposit memory) {
+    function getAccountDeposit(uint256 repoId, uint256 accountId, uint256 depositId) 
+        external 
+        view 
+        returns (Deposit memory) 
+    {
         require(depositId < repos[repoId].deposits[accountId].length, Errors.INVALID_CLAIM_ID);
         return repos[repoId].deposits[accountId][depositId];
     }
 
-    function getAllWhitelistedTokens() external view returns (address[] memory tokens) {
+    function getAllWhitelistedTokens() 
+        external 
+        view 
+        returns (address[] memory tokens) 
+    {
         uint256 len = _whitelistedTokens.length();
         tokens = new address[](len);
         for (uint256 i; i < len; ++i) tokens[i] = _whitelistedTokens.at(i);
     }
 
-    function isTokenWhitelisted(address token) external view returns (bool) {
+    function isTokenWhitelisted(address token) 
+        external 
+        view 
+        returns (bool) 
+    {
         return _whitelistedTokens.contains(token);
     }
 }
