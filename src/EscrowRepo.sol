@@ -90,22 +90,22 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                                 CONSTRUCTOR                                */
     /* -------------------------------------------------------------------------- */
     constructor(
-        address _owner,
-        address _signer,
-        address[] memory initialWhitelist,
-        uint16  initialFeeBps
+        address          _owner,
+        address          _signer,
+        address[] memory _initialWhitelist,
+        uint16           _initialFeeBps
     ) Owned(_owner) {
-        require(initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
+        require(_initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
 
         signer                   = _signer;
         feeRecipient             = _owner;
-        protocolFeeBps           = initialFeeBps;
+        protocolFeeBps           = _initialFeeBps;
         INITIAL_CHAIN_ID         = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = _domainSeparator();
 
-        for (uint256 i; i < initialWhitelist.length; ++i) {
-            _whitelistedTokens.add(initialWhitelist[i]);
-            emit TokenWhitelisted(initialWhitelist[i]);
+        for (uint256 i; i < _initialWhitelist.length; ++i) {
+            _whitelistedTokens.add(_initialWhitelist[i]);
+            emit TokenWhitelisted(_initialWhitelist[i]);
         }
     }
 
