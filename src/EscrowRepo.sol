@@ -374,7 +374,11 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                RECLAIM DEPOSIT                            */
     /* -------------------------------------------------------------------------- */
-    function reclaimDeposit(uint256 repoId, uint256 accountId, uint256 depositId) 
+    function reclaimDeposit(
+        uint256 repoId,
+        uint256 accountId,
+        uint256 depositId
+    ) 
         external 
         accountExists(repoId, accountId)
         isRepoAdmin(repoId, accountId) 
@@ -382,14 +386,27 @@ contract EscrowRepo is Owned, IEscrowRepo {
         _reclaimDeposit(repoId, accountId, depositId);
     }
 
-    function batchReclaimDeposit(uint256 repoId, uint256 accountId, uint256[] calldata depositIds) external isRepoAdmin(repoId, accountId) {
+    function batchReclaimDeposit(
+        uint256 repoId,
+        uint256 accountId,
+        uint256[] calldata depositIds
+    ) 
+        external 
+        isRepoAdmin(repoId, accountId) 
+    {
         for (uint256 i; i < depositIds.length; ++i) _reclaimDeposit(repoId, accountId, depositIds[i]);
     }
 
-    function _reclaimDeposit(uint256 repoId, uint256 accountId, uint256 depositId) internal {
+    function _reclaimDeposit(
+        uint256 repoId,
+        uint256 accountId,
+        uint256 depositId
+    ) 
+        internal 
+    {
         Deposit storage d = repos[repoId].deposits[accountId][depositId];
 
-        require(depositId < repos[repoId].deposits[accountId].length, Errors.INVALID_CLAIM_ID);
+        require(depositId < repos[repoId].deposits[accountId].length, Errors.INVALID_DEPOSIT_ID);
         require(d.status == Status.Deposited,                         Errors.ALREADY_CLAIMED);
         require(block.timestamp > d.claimDeadline,                    Errors.STILL_CLAIMABLE);
 
