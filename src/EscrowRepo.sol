@@ -48,13 +48,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
         Status  status;        // Deposited → Claimed / Reclaimed
     }
 
-    struct FundParams {
-        uint256 repoId;
-        uint256 accountId;
-        ERC20   token;
-        uint256 amount;
-    }
-
     struct DepositParams {
         uint256 amount;
         address recipient;
@@ -95,6 +88,15 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
     modifier isRepoAdmin(uint256 repoId, uint256 accountId) {
         require(msg.sender == repos[repoId].admin[accountId], Errors.NOT_REPO_ADMIN);
+        _;
+    }
+
+    modifier isAuthorizedDepositor(uint256 repoId, uint256 accountId) {
+        require(
+            msg.sender == repos[repoId].admin[accountId] || 
+            repos[repoId].authorizedDepositors[accountId][msg.sender], 
+            Errors.NOT_REPO_ADMIN
+        );
         _;
     }
 
@@ -207,58 +209,77 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                     FUND                                   */
     /* -------------------------------------------------------------------------- */
-    function fund(FundParams calldata p) 
+    function fund(
+        uint256 repoId,
+        uint256 accountId,
+        ERC20   token,
+        uint256 amount
+    ) 
         external 
-        accountExists(p.repoId, p.accountId)
+        accountExists(repoId, accountId)
     {
-        require(_whitelistedTokens.contains(address(p.token)), Errors.INVALID_TOKEN);
-        require(p.amount > 0,                                  Errors.INVALID_AMOUNT);
+        require(_whitelistedTokens.contains(address(token)), Errors.INVALID_TOKEN);
+        require(amount > 0,                                  Errors.INVALID_AMOUNT);
 
-        uint256 fee    = (protocolFeeBps == 0) ? 0 : (p.amount * protocolFeeBps + 9_999) / 10_000;
-        uint256 netAmt = p.amount - fee;
+        uint256 fee    = (protocolFeeBps == 0) ? 0 : (amount * protocolFeeBps + 9_999) / 10_000;
+        uint256 netAmt = amount - fee;
 
-        p.token.safeTransferFrom(msg.sender, address(this), p.amount);
-        if (fee > 0) p.token.safeTransfer(feeRecipient, fee);
+        token.safeTransferFrom(msg.sender, address(this), amount);
+        if (fee > 0) token.safeTransfer(feeRecipient, fee);
 
-        repos[p.repoId].balance[p.accountId][address(p.token)] += netAmt;
+        repos[repoId].balance[accountId][address(token)] += netAmt;
 
-        emit Funded(p.repoId, address(p.token), msg.sender, netAmt, fee);
+        emit Funded(repoId, address(token), msg.sender, netAmt, fee);
     }
 
     /* -------------------------------------------------------------------------- */
     /*                                  DEPOSIT                                   */
     /* -------------------------------------------------------------------------- */
-    function deposit(uint256 repoId, uint256 accountId, DepositParams calldata d) 
+    function deposit(
+        uint256 repoId,
+        uint256 accountId,
+        DepositParams calldata d
+    ) 
         external 
-        accountExists(repoId, accountId) 
+        accountExists        (repoId, accountId) 
+        isAuthorizedDepositor(repoId, accountId) 
         returns (uint256)
     {
         return _deposit(repoId, accountId, d);
     }
 
-    function batchDeposit(uint256 repoId, uint256 accountId, DepositParams[] calldata ds) 
+    function batchDeposit(
+        uint256 repoId,
+        uint256 accountId,
+        DepositParams[] calldata ds
+    ) 
         external 
-        accountExists(repoId, accountId) 
+        accountExists        (repoId, accountId) 
+        isAuthorizedDepositor(repoId, accountId) 
         returns (uint256[] memory depositIds)
     {
         depositIds = new uint256[](ds.length);
-        for (uint256 i; i < ds.length; ++i) depositIds[i] = _deposit(repoId, accountId, ds[i]);
+        for (uint256 i; i < ds.length; ++i) {
+            depositIds[i] = _deposit(repoId, accountId, ds[i]);
+        } 
     }
 
-    function _deposit(uint256 repoId, uint256 accountId, DepositParams calldata d) internal returns (uint256) {
-        require(
-            msg.sender == repos[repoId].admin[accountId] || 
-            repos[repoId].authorizedDepositors[accountId][msg.sender], 
-            Errors.NOT_REPO_ADMIN
-        );
+    function _deposit(
+        uint256 repoId,
+        uint256 accountId,
+        DepositParams calldata d
+    ) 
+        internal 
+        returns (uint256) 
+    {
         require(d.recipient != address(0),                             Errors.INVALID_ADDRESS);
         require(_whitelistedTokens.contains(address(d.token)),         Errors.INVALID_TOKEN);
         require(d.amount > 0,                                          Errors.INVALID_AMOUNT);
         require(d.claimPeriod > 0 && d.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
 
-        uint256 bal = repos[repoId].balance[accountId][address(d.token)];
-        require(bal >= d.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
-        repos[repoId].balance[accountId][address(d.token)] = bal - d.amount;
+        uint256 balance = repos[repoId].balance[accountId][address(d.token)];
+        require(balance >= d.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
+        repos[repoId].balance[accountId][address(d.token)] = balance - d.amount;
 
         uint256 claimDeadline = block.timestamp + d.claimPeriod;
 
@@ -538,7 +559,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         return admins;
     }
 
-    function isAuthorizedDepositor(uint256 repoId, uint256 accountId, address depositor) external view accountExists(repoId, accountId) returns (bool) {
+    function getIsAuthorizedDepositor(uint256 repoId, uint256 accountId, address depositor) external view accountExists(repoId, accountId) returns (bool) {
         return repos[repoId].authorizedDepositors[accountId][depositor];
     }
 
