@@ -20,7 +20,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     uint16 public constant MAX_FEE_BPS = 1_000; // 10 %
 
     bytes32 public constant CLAIM_TYPEHASH =
-        keccak256("Claim(uint256 repoId,address recipient,bool status,uint256 nonce,uint256 deadline)");
+        keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
     bytes32 public constant ADD_REPO_TYPEHASH =
         keccak256("AddRepo(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
     bytes32 public constant ADD_ACCOUNT_TYPEHASH =
@@ -259,7 +259,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 deadline,
         uint8   v, bytes32 r, bytes32 s
     ) external {
-        _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
+        _setCanClaim(msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
         _claim(repoId, accountId, depositId, msg.sender);
     }
@@ -272,7 +272,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 deadline,
         uint8   v, bytes32 r, bytes32 s
     ) external {
-        _setCanClaim(repoId, msg.sender, status, deadline, v, r, s);
+        _setCanClaim(msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
         for (uint256 i; i < depositIds.length; ++i) _claim(repoId, accountId, depositIds[i], msg.sender);
     }
@@ -423,7 +423,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                         INTERNAL: canClaim EIP‑712                         */
     /* -------------------------------------------------------------------------- */
     function _setCanClaim(
-        uint256 repoId,
         address recipient,
         bool    status,
         uint256 deadline,
@@ -438,7 +437,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
                 DOMAIN_SEPARATOR(),
                 keccak256(abi.encode(
                     CLAIM_TYPEHASH,
-                    repoId,
                     recipient,
                     status,
                     recipientNonce[recipient],
