@@ -415,23 +415,41 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                              ONLY OWNER                                    */
     /* -------------------------------------------------------------------------- */
-    function addWhitelistedToken(address token) external onlyOwner {
+    function addWhitelistedToken(address token) 
+        external 
+        onlyOwner 
+    {
         require(_whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
         emit TokenWhitelisted(token);
     }
-    function removeWhitelistedToken(address token) external onlyOwner {
+
+    function removeWhitelistedToken(address token) 
+        external 
+        onlyOwner 
+    {
         require(_whitelistedTokens.remove(token), Errors.TOKEN_NOT_WHITELISTED);
         emit TokenRemovedFromWhitelist(token);
     }
 
-    function setProtocolFee(uint16 newFeeBps) external onlyOwner {
+    function setProtocolFee(uint16 newFeeBps) 
+        external 
+        onlyOwner 
+    {
         require(newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
         protocolFeeBps = newFeeBps;
     }
-    function setFeeRecipient(address newRec) external onlyOwner {
+
+    function setFeeRecipient(address newRec) 
+        external 
+        onlyOwner 
+    {
         feeRecipient = newRec;
     }
-    function setSigner(address newSigner) external onlyOwner {
+
+    function setSigner(address newSigner) 
+        external 
+        onlyOwner 
+    {
         signer = newSigner;
     }
 
@@ -441,7 +459,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) 
         external 
         accountExists(repoId, accountId)
-        isRepoAdmin(repoId, accountId) 
+        isRepoAdmin  (repoId, accountId) 
     {
         require(newAdmin != address(0), Errors.INVALID_ADDRESS);
 
@@ -449,8 +467,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
         repos[repoId].admin[accountId] = newAdmin;
         emit RepoAdminChanged(repoId, old, newAdmin);
     }
-
-
 
     /* -------------------------------------------------------------------------- */
     /*                               AUTHORIZE DEPOSITOR                          */
