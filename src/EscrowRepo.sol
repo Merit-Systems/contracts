@@ -131,7 +131,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint8   v,
         bytes32 r,
         bytes32 s
-    ) external {
+    ) 
+      external 
+      returns (uint256)
+    {
         require(!repos[repoId].exists,       Errors.REPO_EXISTS);
         require(admin != address(0),         Errors.INVALID_ADDRESS);
         require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
@@ -155,7 +158,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         repos[repoId].exists = true;
         
         emit RepoAdded(repoId, admin);
-        _addAccount(repoId, admin); // Create the first account for this repo
+        return _addAccount(repoId, admin); // Create the first account for this repo
     }
 
     function addAccount(
@@ -167,7 +170,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         bytes32 s
     ) 
         external 
-        returns (uint256 accountId) 
+        returns (uint256) 
     {
         require(repos[repoId].exists,        Errors.REPO_UNKNOWN);
         require(admin != address(0),         Errors.INVALID_ADDRESS);
@@ -190,14 +193,15 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
         ownerNonce++;
         
-        accountId = _addAccount(repoId, admin); 
+        return _addAccount(repoId, admin); 
     }
 
-    function _addAccount(uint256 repoId, address admin) internal returns (uint256 accountId) {
-        accountId = repos[repoId].accountCount;
+    function _addAccount(uint256 repoId, address admin) internal returns (uint256) {
+        uint256 accountId = repos[repoId].accountCount;
         repos[repoId].admin[accountId] = admin;
         repos[repoId].accountCount++;
         emit AccountAdded(repoId, accountId, admin);
+        return accountId;
     }
 
     /* -------------------------------------------------------------------------- */
