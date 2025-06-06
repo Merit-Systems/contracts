@@ -472,7 +472,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                   GETTERS                                  */
     /* -------------------------------------------------------------------------- */
-    function isRepoExists(uint256 repoId) external view returns (bool) {
+    function repoExists(uint256 repoId) external view returns (bool) {
         return repos[repoId].exists;
     }
 
