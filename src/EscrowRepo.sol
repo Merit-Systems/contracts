@@ -19,12 +19,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     uint16 public constant MAX_FEE_BPS = 1_000; // 10 %
 
-    bytes32 public constant CLAIM_TYPEHASH =
-        keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
     bytes32 public constant ADD_REPO_TYPEHASH =
         keccak256("AddRepo(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
     bytes32 public constant ADD_ACCOUNT_TYPEHASH =
         keccak256("AddAccount(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
+    bytes32 public constant CLAIM_TYPEHASH =
+        keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
 
     /* -------------------------------------------------------------------------- */
     /*                                     TYPES                                  */
