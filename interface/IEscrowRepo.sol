@@ -10,7 +10,7 @@ interface IEscrowRepo {
         uint256 fee
     );
 
-    event Deposited(
+    event Distributed(
         uint256 indexed repoId,
         uint256 indexed claimId,
         address indexed recipient,
@@ -38,6 +38,6 @@ interface IEscrowRepo {
     event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
     event TokenWhitelisted(address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
-    event DepositorAuthorized(uint256 indexed repoId, uint256 indexed accountId, address indexed depositor);
-    event DepositorDeauthorized(uint256 indexed repoId, uint256 indexed accountId, address indexed depositor);
+    event DistributorAuthorized(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
+    event DistributorDeauthorized(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
 } 

@@ -28,23 +28,23 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                                     TYPES                                  */
     /* -------------------------------------------------------------------------- */
     struct Repo {
-        mapping(uint256 => mapping(address => uint256)) balance;              // accountId → token → balance
-        mapping(uint256 => Deposit[])                   deposits;             // accountId → deposits
-        mapping(uint256 => address)                     admin;                // accountId → admin
-        mapping(uint256 => mapping(address => bool))    authorizedDepositors; // accountId → depositor → authorized
+        mapping(uint256 => mapping(address => uint256)) balance;                  // accountId → token → balance
+        mapping(uint256 => Distribution[])               distributions;           // accountId → distributions
+        mapping(uint256 => address)                     admin;                    // accountId → admin
+        mapping(uint256 => mapping(address => bool))    authorizedDistributors;  // accountId → distributor → authorized
     }
 
-    enum Status { Deposited, Claimed, Reclaimed }
+    enum Status { Distributed, Claimed, Reclaimed }
 
-    struct Deposit {
+    struct Distribution {
         uint256 amount;
         ERC20   token;
         address recipient;
         uint256 claimDeadline; // unix seconds
-        Status  status;        // Deposited → Claimed / Reclaimed
+        Status  status;        // Distributed → Claimed / Reclaimed
     }
 
-    struct DepositParams {
+    struct DistributionParams {
         uint256 amount;
         address recipient;
         uint32  claimPeriod; // seconds
@@ -86,10 +86,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
         _;
     }
 
-    modifier isAuthorizedDepositor(uint256 repoId, uint256 accountId) {
+    modifier isAuthorizedDistributor(uint256 repoId, uint256 accountId) {
         require(
             msg.sender == repos[repoId].admin[accountId] || 
-            repos[repoId].authorizedDepositors[accountId][msg.sender], 
+            repos[repoId].authorizedDistributors[accountId][msg.sender], 
             Errors.NOT_REPO_ADMIN
         );
         _;
@@ -179,41 +179,41 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                  DEPOSIT                                   */
+    /*                                DISTRIBUTE                                  */
     /* -------------------------------------------------------------------------- */
-    function deposit(
+    function distribute(
         uint256 repoId,
         uint256 accountId,
-        DepositParams calldata params
+        DistributionParams calldata params
     ) 
         external 
-        hasAdmin             (repoId, accountId) 
-        isAuthorizedDepositor(repoId, accountId) 
+        hasAdmin                 (repoId, accountId) 
+        isAuthorizedDistributor  (repoId, accountId) 
         returns (uint256)
     {
-        return _deposit(repoId, accountId, params);
+        return _distribute(repoId, accountId, params);
     }
 
-    function batchDeposit(
+    function batchDistribute(
         uint256 repoId,
         uint256 accountId,
-        DepositParams[] calldata params
+        DistributionParams[] calldata params
     ) 
         external 
-        hasAdmin             (repoId, accountId) 
-        isAuthorizedDepositor(repoId, accountId) 
-        returns (uint256[] memory depositIds)
+        hasAdmin                 (repoId, accountId) 
+        isAuthorizedDistributor  (repoId, accountId) 
+        returns (uint256[] memory distributionIds)
     {
-        depositIds = new uint256[](params.length);
+        distributionIds = new uint256[](params.length);
         for (uint256 i; i < params.length; ++i) {
-            depositIds[i] = _deposit(repoId, accountId, params[i]);
+            distributionIds[i] = _distribute(repoId, accountId, params[i]);
         } 
     }
 
-    function _deposit(
+    function _distribute(
         uint256 repoId,
         uint256 accountId,
-        DepositParams calldata params
+        DistributionParams calldata params
     ) 
         internal 
         returns (uint256) 
@@ -229,20 +229,20 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
         uint256 claimDeadline = block.timestamp + params.claimPeriod;
 
-        uint256 depositId = repos[repoId].deposits[accountId].length;
-        repos[repoId].deposits[accountId].push(
-            Deposit({
+        uint256 distributionId = repos[repoId].distributions[accountId].length;
+        repos[repoId].distributions[accountId].push(
+            Distribution({
                 amount:        params.amount,
                 token:         params.token,
                 recipient:     params.recipient,
                 claimDeadline: claimDeadline,
-                status:        Status.Deposited
+                status:        Status.Distributed
             })
         );
 
-        emit Deposited(repoId, depositId, params.recipient, address(params.token), params.amount, claimDeadline);
+        emit Distributed(repoId, distributionId, params.recipient, address(params.token), params.amount, claimDeadline);
 
-        return depositId;
+        return distributionId;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -251,7 +251,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     function claim(
         uint256 repoId,
         uint256 accountId,
-        uint256 depositId,
+        uint256 distributionId,
         bool    status,
         uint256 deadline,
         uint8   v,
@@ -260,13 +260,13 @@ contract EscrowRepo is Owned, IEscrowRepo {
     ) external hasAdmin(repoId, accountId) {
         _setCanClaim(msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
-        _claim(repoId, accountId, depositId, msg.sender);
+        _claim(repoId, accountId, distributionId, msg.sender);
     }
 
     function batchClaim(
         uint256 repoId,
         uint256 accountId,
-        uint256[] calldata depositIds,
+        uint256[] calldata distributionIds,
         bool    status,
         uint256 deadline,
         uint8   v,
@@ -275,20 +275,20 @@ contract EscrowRepo is Owned, IEscrowRepo {
     ) external hasAdmin(repoId, accountId) {
         _setCanClaim(msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
-        for (uint256 i; i < depositIds.length; ++i) _claim(repoId, accountId, depositIds[i], msg.sender);
+        for (uint256 i; i < distributionIds.length; ++i) _claim(repoId, accountId, distributionIds[i], msg.sender);
     }
 
-    function _claim(uint256 repoId, uint256 accountId, uint256 depositId, address recipient) internal {
-        require(depositId < repos[repoId].deposits[accountId].length, Errors.INVALID_CLAIM_ID);
-        Deposit storage d = repos[repoId].deposits[accountId][depositId];
+    function _claim(uint256 repoId, uint256 accountId, uint256 distributionId, address recipient) internal {
+        require(distributionId < repos[repoId].distributions[accountId].length, Errors.INVALID_CLAIM_ID);
+        Distribution storage d = repos[repoId].distributions[accountId][distributionId];
 
-        require(d.status    == Status.Deposited, Errors.ALREADY_CLAIMED);
-        require(d.recipient == recipient,        Errors.INVALID_ADDRESS);
-        require(block.timestamp <= d.claimDeadline,   Errors.CLAIM_DEADLINE_PASSED);
+        require(d.status    == Status.Distributed, Errors.ALREADY_CLAIMED);
+        require(d.recipient == recipient,          Errors.INVALID_ADDRESS);
+        require(block.timestamp <= d.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
 
         d.status = Status.Claimed;
         d.token.safeTransfer(recipient, d.amount);
-        emit Claimed(repoId, depositId, recipient, d.amount);
+        emit Claimed(repoId, distributionId, recipient, d.amount);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -306,7 +306,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     {
         require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
         require(amount > 0, Errors.INVALID_AMOUNT);
-        require(repos[repoId].deposits[accountId].length == 0, Errors.REPO_HAS_DEPOSITS);
+        require(repos[repoId].distributions[accountId].length == 0, Errors.REPO_HAS_DISTRIBUTIONS);
         
         uint256 balance = repos[repoId].balance[accountId][token];
         require(balance >= amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
@@ -318,44 +318,44 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                RECLAIM DEPOSIT                            */
+    /*                            RECLAIM DISTRIBUTION                            */
     /* -------------------------------------------------------------------------- */
-    function reclaimDeposit(
+    function reclaimDistribution(
         uint256 repoId,
         uint256 accountId,
-        uint256 depositId
+        uint256 distributionId
     ) 
         external 
     {
-        _reclaimDeposit(repoId, accountId, depositId);
+        _reclaimDistribution(repoId, accountId, distributionId);
     }
 
-    function batchReclaimDeposit(
+    function batchReclaimDistribution(
         uint256            repoId,
         uint256            accountId,
-        uint256[] calldata depositIds
+        uint256[] calldata distributionIds
     ) 
         external 
     {
-        for (uint256 i; i < depositIds.length; ++i) _reclaimDeposit(repoId, accountId, depositIds[i]);
+        for (uint256 i; i < distributionIds.length; ++i) _reclaimDistribution(repoId, accountId, distributionIds[i]);
     }
 
-    function _reclaimDeposit(
+    function _reclaimDistribution(
         uint256 repoId,
         uint256 accountId,
-        uint256 depositId
+        uint256 distributionId
     ) 
         internal 
     {
-        Deposit storage d = repos[repoId].deposits[accountId][depositId];
+        Distribution storage d = repos[repoId].distributions[accountId][distributionId];
 
-        require(depositId < repos[repoId].deposits[accountId].length, Errors.INVALID_DEPOSIT_ID);
-        require(d.status == Status.Deposited,                         Errors.ALREADY_CLAIMED);
-        require(block.timestamp > d.claimDeadline,                    Errors.STILL_CLAIMABLE);
+        require(distributionId < repos[repoId].distributions[accountId].length, Errors.INVALID_DISTRIBUTION_ID);
+        require(d.status == Status.Distributed,                                 Errors.ALREADY_CLAIMED);
+        require(block.timestamp > d.claimDeadline,                              Errors.STILL_CLAIMABLE);
 
         d.status = Status.Reclaimed;
         repos[repoId].balance[accountId][address(d.token)] += d.amount;
-        emit Reclaimed(repoId, depositId, msg.sender, d.amount);
+        emit Reclaimed(repoId, distributionId, msg.sender, d.amount);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -415,52 +415,52 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               AUTHORIZE DEPOSITOR                          */
+    /*                            AUTHORIZE DISTRIBUTOR                           */
     /* -------------------------------------------------------------------------- */
-    function authorizeDepositor(uint256 repoId, uint256 accountId, address depositor) 
+    function authorizeDistributor(uint256 repoId, uint256 accountId, address distributor) 
         external 
         hasAdmin   (repoId, accountId)
         isRepoAdmin(repoId, accountId) 
     {
-        _authorizeDepositor(repoId, accountId, depositor);
+        _authorizeDistributor(repoId, accountId, distributor);
     }
 
-    function batchAuthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) 
+    function batchAuthorizeDistributors(uint256 repoId, uint256 accountId, address[] calldata distributors) 
         external 
         hasAdmin   (repoId, accountId)
         isRepoAdmin(repoId, accountId) 
     {
-        for (uint256 i = 0; i < depositors.length; i++) {
-            _authorizeDepositor(repoId, accountId, depositors[i]);
+        for (uint256 i = 0; i < distributors.length; i++) {
+            _authorizeDistributor(repoId, accountId, distributors[i]);
         }
     }
 
-    function _authorizeDepositor(uint256 repoId, uint256 accountId, address depositor) internal {
-        require(depositor != address(0), Errors.INVALID_ADDRESS);
-        if (!repos[repoId].authorizedDepositors[accountId][depositor]) {
-            repos[repoId].authorizedDepositors[accountId][depositor] = true;
-            emit DepositorAuthorized(repoId, accountId, depositor);
+    function _authorizeDistributor(uint256 repoId, uint256 accountId, address distributor) internal {
+        require(distributor != address(0), Errors.INVALID_ADDRESS);
+        if (!repos[repoId].authorizedDistributors[accountId][distributor]) {
+            repos[repoId].authorizedDistributors[accountId][distributor] = true;
+            emit DistributorAuthorized(repoId, accountId, distributor);
         }
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               DEAUTHORIZE DEPOSITOR                        */
+    /*                           DEAUTHORIZE DISTRIBUTOR                          */
     /* -------------------------------------------------------------------------- */
-    function deauthorizeDepositor(uint256 repoId, uint256 accountId, address depositor) external hasAdmin(repoId, accountId) isRepoAdmin(repoId, accountId) {
-        _deauthorizeDepositor(repoId, accountId, depositor);
+    function deauthorizeDistributor(uint256 repoId, uint256 accountId, address distributor) external hasAdmin(repoId, accountId) isRepoAdmin(repoId, accountId) {
+        _deauthorizeDistributor(repoId, accountId, distributor);
     }
 
 
-    function batchDeauthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) external hasAdmin(repoId, accountId) isRepoAdmin(repoId, accountId) {
-        for (uint256 i = 0; i < depositors.length; i++) {
-            _deauthorizeDepositor(repoId, accountId, depositors[i]);
+    function batchDeauthorizeDistributors(uint256 repoId, uint256 accountId, address[] calldata distributors) external hasAdmin(repoId, accountId) isRepoAdmin(repoId, accountId) {
+        for (uint256 i = 0; i < distributors.length; i++) {
+            _deauthorizeDistributor(repoId, accountId, distributors[i]);
         }
     }
 
-    function _deauthorizeDepositor(uint256 repoId, uint256 accountId, address depositor) internal {
-        if (repos[repoId].authorizedDepositors[accountId][depositor]) {
-            repos[repoId].authorizedDepositors[accountId][depositor] = false;
-            emit DepositorDeauthorized(repoId, accountId, depositor);
+    function _deauthorizeDistributor(uint256 repoId, uint256 accountId, address distributor) internal {
+        if (repos[repoId].authorizedDistributors[accountId][distributor]) {
+            repos[repoId].authorizedDistributors[accountId][distributor] = false;
+            emit DistributorDeauthorized(repoId, accountId, distributor);
         }
     }
 
@@ -525,20 +525,20 @@ contract EscrowRepo is Owned, IEscrowRepo {
         return repos[repoId].admin[accountId];
     }
 
-    function getIsAuthorizedDepositor(uint256 repoId, uint256 accountId, address depositor) 
+    function getIsAuthorizedDistributor(uint256 repoId, uint256 accountId, address distributor) 
         external 
         view 
         returns (bool) 
     {
-        return repos[repoId].authorizedDepositors[accountId][depositor];
+        return repos[repoId].authorizedDistributors[accountId][distributor];
     }
 
-    function canDeposit(uint256 repoId, uint256 accountId, address caller) 
+    function canDistribute(uint256 repoId, uint256 accountId, address caller) 
         external 
         view 
         returns (bool) 
     {
-        return caller == repos[repoId].admin[accountId] || repos[repoId].authorizedDepositors[accountId][caller];
+        return caller == repos[repoId].admin[accountId] || repos[repoId].authorizedDistributors[accountId][caller];
     }
 
     function getAccountBalance(uint256 repoId, uint256 accountId, address token) 
@@ -549,21 +549,21 @@ contract EscrowRepo is Owned, IEscrowRepo {
         return repos[repoId].balance[accountId][token];
     }
 
-    function getAccountDepositsCount(uint256 repoId, uint256 accountId) 
+    function getAccountDistributionsCount(uint256 repoId, uint256 accountId) 
         external 
         view 
         returns (uint256) 
     {
-        return repos[repoId].deposits[accountId].length;
+        return repos[repoId].distributions[accountId].length;
     }
 
-    function getAccountDeposit(uint256 repoId, uint256 accountId, uint256 depositId) 
+    function getAccountDistribution(uint256 repoId, uint256 accountId, uint256 distributionId) 
         external 
         view 
-        returns (Deposit memory) 
+        returns (Distribution memory) 
     {
-        require(depositId < repos[repoId].deposits[accountId].length, Errors.INVALID_CLAIM_ID);
-        return repos[repoId].deposits[accountId][depositId];
+        require(distributionId < repos[repoId].distributions[accountId].length, Errors.INVALID_CLAIM_ID);
+        return repos[repoId].distributions[accountId][distributionId];
     }
 
     function getAllWhitelistedTokens() 
