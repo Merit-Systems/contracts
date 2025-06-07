@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Owned}           from "solmate/auth/Owned.sol";
-import {ERC20}           from "solmate/tokens/ERC20.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
-import {EnumerableSet}   from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {ECDSA}           from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {Owned}             from "solmate/auth/Owned.sol";
+import {ERC20}             from "solmate/tokens/ERC20.sol";
+import {SafeTransferLib}   from "solmate/utils/SafeTransferLib.sol";
+import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {EnumerableSet}     from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import {IEscrowRepo}     from "../interface/IEscrowRepo.sol";
-import {Errors}          from "../libraries/EscrowRepoErrors.sol";
+import {IEscrowRepo}       from "../interface/IEscrowRepo.sol";
+import {Errors}            from "../libraries/EscrowRepoErrors.sol";
 
 contract EscrowRepo is Owned, IEscrowRepo {
-    using SafeTransferLib for ERC20;
-    using EnumerableSet   for EnumerableSet.AddressSet;
+    using SafeTransferLib   for ERC20;
+    using EnumerableSet     for EnumerableSet.AddressSet;
+    using FixedPointMathLib for uint256;
 
     /* -------------------------------------------------------------------------- */
     /*                                   CONSTANTS                                */
@@ -167,15 +169,11 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(_whitelistedTokens.contains(address(token)), Errors.INVALID_TOKEN);
         require(amount > 0,                                  Errors.INVALID_AMOUNT);
 
-        uint256 fee    = (protocolFeeBps == 0) ? 0 : (amount * protocolFeeBps + 9_999) / 10_000;
-        uint256 netAmt = amount - fee;
-
         token.safeTransferFrom(msg.sender, address(this), amount);
-        if (fee > 0) token.safeTransfer(feeRecipient, fee);
 
-        repos[repoId].balance[accountId][address(token)] += netAmt;
+        repos[repoId].balance[accountId][address(token)] += amount;
 
-        emit Funded(repoId, address(token), msg.sender, netAmt, fee);
+        emit Funded(repoId, address(token), msg.sender, amount, 0);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -286,9 +284,20 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(d.recipient == recipient,          Errors.INVALID_ADDRESS);
         require(block.timestamp <= d.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
 
+        uint256 fee;
+        uint256 netAmount = d.amount;
+        if (protocolFeeBps > 0) {
+            fee = d.amount.mulDivUp(protocolFeeBps, 10_000);
+            netAmount = d.amount - fee;
+            require(netAmount > 0, Errors.INVALID_AMOUNT);
+        }
+
         d.status = Status.Claimed;
-        d.token.safeTransfer(recipient, d.amount);
-        emit Claimed(repoId, distributionId, recipient, d.amount);
+        
+        if (fee > 0) d.token.safeTransfer(feeRecipient, fee);
+        d.token.safeTransfer(recipient, netAmount);
+        
+        emit Claimed(repoId, distributionId, recipient, netAmount, fee);
     }
 
     /* -------------------------------------------------------------------------- */

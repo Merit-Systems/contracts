@@ -23,7 +23,8 @@ interface IEscrowRepo {
         uint256 indexed repoId,
         uint256 indexed claimId,
         address indexed recipient,
-        uint256 amount
+        uint256 amount,
+        uint256 fee
     );
 
     event Reclaimed(
