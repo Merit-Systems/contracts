@@ -24,7 +24,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     bytes32 public constant SET_ADMIN_TYPEHASH =
         keccak256("SetAdmin(uint256 repoId,uint256 accountId,address admin,uint256 nonce,uint256 deadline)");
     bytes32 public constant CLAIM_TYPEHASH =
-        keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
+        keccak256("Claim(uint256 repoId,uint256 accountId,uint256[] distributionIds,address recipient,uint256 nonce,uint256 deadline)");
 
     /* -------------------------------------------------------------------------- */
     /*                                     TYPES                                  */
@@ -58,7 +58,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     mapping(uint256 => mapping(uint256 => Account)) public accounts;  // repoId → accountId → Account
 
-    mapping(address => bool)     public canClaim;       // recipient → canClaim
     mapping(address => uint256)  public recipientNonce; // recipient → nonce
     uint256                      public ownerNonce;    
 
@@ -250,14 +249,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 repoId,
         uint256 accountId,
         uint256 distributionId,
-        bool    status,
         uint256 deadline,
         uint8   v,
         bytes32 r,
         bytes32 s
     ) external hasAdmin(repoId, accountId) {
-        _setCanClaim(msg.sender, status, deadline, v, r, s);
-        require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
+        uint256[] memory distributionIds = new uint256[](1);
+        distributionIds[0] = distributionId;
+        _verifyClaimSignature(repoId, accountId, distributionIds, msg.sender, deadline, v, r, s);
         _claim(repoId, accountId, distributionId, msg.sender);
     }
 
@@ -265,15 +264,19 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 repoId,
         uint256 accountId,
         uint256[] calldata distributionIds,
-        bool    status,
         uint256 deadline,
         uint8   v,
         bytes32 r,
         bytes32 s
     ) external hasAdmin(repoId, accountId) {
-        _setCanClaim(msg.sender, status, deadline, v, r, s);
-        require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
-        for (uint256 i; i < distributionIds.length; ++i) _claim(repoId, accountId, distributionIds[i], msg.sender);
+        uint256[] memory distributionIdsMemory = new uint256[](distributionIds.length);
+        for (uint256 i; i < distributionIds.length; ++i) {
+            distributionIdsMemory[i] = distributionIds[i];
+        }
+        _verifyClaimSignature(repoId, accountId, distributionIdsMemory, msg.sender, deadline, v, r, s);
+        for (uint256 i; i < distributionIds.length; ++i) {
+            _claim(repoId, accountId, distributionIds[i], msg.sender);
+        }
     }
 
     function _claim(uint256 repoId, uint256 accountId, uint256 distributionId, address recipient) internal {
@@ -470,16 +473,18 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                         INTERNAL: canClaim EIP‑712                         */
+    /*                         INTERNAL: Claim EIP‑712                           */
     /* -------------------------------------------------------------------------- */
-    function _setCanClaim(
+    function _verifyClaimSignature(
+        uint256 repoId,
+        uint256 accountId,
+        uint256[] memory distributionIds,
         address recipient,
-        bool    status,
         uint256 deadline,
         uint8   v, bytes32 r, bytes32 s
     ) internal {
-        if (canClaim[recipient] == status) return;
         require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
+        require(distributionIds.length > 0, Errors.INVALID_AMOUNT);
 
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -487,8 +492,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
                 DOMAIN_SEPARATOR(),
                 keccak256(abi.encode(
                     CLAIM_TYPEHASH,
+                    repoId,
+                    accountId,
+                    keccak256(abi.encodePacked(distributionIds)),
                     recipient,
-                    status,
                     recipientNonce[recipient],
                     deadline
                 ))
@@ -497,8 +504,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(ECDSA.recover(digest, v, r, s) == signer, Errors.INVALID_SIGNATURE);
 
         recipientNonce[recipient]++;
-        canClaim[recipient] = status;
-        emit CanClaimSet(recipient, status);
     }
 
     /* -------------------------------------------------------------------------- */

@@ -34,8 +34,7 @@ interface IEscrowRepo {
         uint256 amount
     );
 
-    event CanClaimSet(address indexed recipient, bool status);
-    event AdminSet(uint256 indexed repoId, uint256 indexed accountId, address indexed oldAdmin, address indexed newAdmin);
+    event AdminSet(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
     event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
     event TokenWhitelisted(address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
