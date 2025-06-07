@@ -29,11 +29,11 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                     TYPES                                  */
     /* -------------------------------------------------------------------------- */
-    struct Repo {
-        mapping(uint256 => mapping(address => uint256)) balance;                  // accountId → token → balance
-        mapping(uint256 => Distribution[])               distributions;           // accountId → distributions
-        mapping(uint256 => address)                     admin;                    // accountId → admin
-        mapping(uint256 => mapping(address => bool))    authorizedDistributors;  // accountId → distributor → authorized
+    struct Account {
+        mapping(address => uint256) balance;                 // token → balance
+        Distribution[]              distributions;           // distributions
+        address                     admin;                   // admin
+        mapping(address => bool)    authorizedDistributors;  // distributor → authorized
     }
 
     enum Status { Distributed, Claimed, Reclaimed }
@@ -56,7 +56,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                STATE VARIABLES                             */
     /* -------------------------------------------------------------------------- */
-    mapping(uint256 => Repo)     public repos;          // repoId → Repo
+    mapping(uint256 => mapping(uint256 => Account)) public accounts;  // repoId → accountId → Account
 
     mapping(address => bool)     public canClaim;       // recipient → canClaim
     mapping(address => uint256)  public recipientNonce; // recipient → nonce
@@ -79,19 +79,19 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                                 MODIFIERS                                  */
     /* -------------------------------------------------------------------------- */
     modifier hasAdmin(uint256 repoId, uint256 accountId) {
-        require(repos[repoId].admin[accountId] != address(0), Errors.NO_ADMIN_SET);
+        require(accounts[repoId][accountId].admin != address(0), Errors.NO_ADMIN_SET);
         _;
     }
 
     modifier isRepoAdmin(uint256 repoId, uint256 accountId) {
-        require(msg.sender == repos[repoId].admin[accountId], Errors.NOT_REPO_ADMIN);
+        require(msg.sender == accounts[repoId][accountId].admin, Errors.NOT_REPO_ADMIN);
         _;
     }
 
     modifier isAuthorizedDistributor(uint256 repoId, uint256 accountId) {
         require(
-            msg.sender == repos[repoId].admin[accountId] || 
-            repos[repoId].authorizedDistributors[accountId][msg.sender], 
+            msg.sender == accounts[repoId][accountId].admin || 
+            accounts[repoId][accountId].authorizedDistributors[msg.sender], 
             Errors.NOT_REPO_ADMIN
         );
         _;
@@ -152,8 +152,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(ECDSA.recover(digest, v, r, s) == owner, Errors.INVALID_SIGNATURE);
 
         ownerNonce++;
-        address oldAdmin = repos[repoId].admin[accountId];
-        repos[repoId].admin[accountId] = admin;
+        address oldAdmin = accounts[repoId][accountId].admin;
+        accounts[repoId][accountId].admin = admin;
         emit AdminSet(repoId, accountId, oldAdmin, admin);
     }
 
@@ -171,7 +171,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
         token.safeTransferFrom(msg.sender, address(this), amount);
 
-        repos[repoId].balance[accountId][address(token)] += amount;
+        accounts[repoId][accountId].balance[address(token)] += amount;
 
         emit Funded(repoId, address(token), msg.sender, amount, 0);
     }
@@ -221,14 +221,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(params.amount > 0,                                          Errors.INVALID_AMOUNT);
         require(params.claimPeriod > 0 && params.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
 
-        uint256 balance = repos[repoId].balance[accountId][address(params.token)];
+        uint256 balance = accounts[repoId][accountId].balance[address(params.token)];
         require(balance >= params.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
-        repos[repoId].balance[accountId][address(params.token)] = balance - params.amount;
+        accounts[repoId][accountId].balance[address(params.token)] = balance - params.amount;
 
         uint256 claimDeadline = block.timestamp + params.claimPeriod;
 
-        uint256 distributionId = repos[repoId].distributions[accountId].length;
-        repos[repoId].distributions[accountId].push(
+        uint256 distributionId = accounts[repoId][accountId].distributions.length;
+        accounts[repoId][accountId].distributions.push(
             Distribution({
                 amount:        params.amount,
                 token:         params.token,
@@ -277,8 +277,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     function _claim(uint256 repoId, uint256 accountId, uint256 distributionId, address recipient) internal {
-        require(distributionId < repos[repoId].distributions[accountId].length, Errors.INVALID_CLAIM_ID);
-        Distribution storage d = repos[repoId].distributions[accountId][distributionId];
+        require(distributionId < accounts[repoId][accountId].distributions.length, Errors.INVALID_CLAIM_ID);
+        Distribution storage d = accounts[repoId][accountId].distributions[distributionId];
 
         require(d.status    == Status.Distributed,  Errors.ALREADY_CLAIMED);
         require(d.recipient == recipient,           Errors.INVALID_ADDRESS);
@@ -314,12 +314,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
     {
         require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
         require(amount > 0, Errors.INVALID_AMOUNT);
-        require(repos[repoId].distributions[accountId].length == 0, Errors.REPO_HAS_DISTRIBUTIONS);
+        require(accounts[repoId][accountId].distributions.length == 0, Errors.REPO_HAS_DISTRIBUTIONS);
         
-        uint256 balance = repos[repoId].balance[accountId][token];
+        uint256 balance = accounts[repoId][accountId].balance[token];
         require(balance >= amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
         
-        repos[repoId].balance[accountId][token] = balance - amount;
+        accounts[repoId][accountId].balance[token] = balance - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
         
         emit Reclaimed(repoId, type(uint256).max, msg.sender, amount);
@@ -355,14 +355,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
     ) 
         internal 
     {
-        Distribution storage d = repos[repoId].distributions[accountId][distributionId];
+        Distribution storage d = accounts[repoId][accountId].distributions[distributionId];
 
-        require(distributionId < repos[repoId].distributions[accountId].length, Errors.INVALID_DISTRIBUTION_ID);
-        require(d.status == Status.Distributed,                                 Errors.ALREADY_CLAIMED);
-        require(block.timestamp > d.claimDeadline,                              Errors.STILL_CLAIMABLE);
+        require(distributionId < accounts[repoId][accountId].distributions.length, Errors.INVALID_DISTRIBUTION_ID);
+        require(d.status == Status.Distributed,                                  Errors.ALREADY_CLAIMED);
+        require(block.timestamp > d.claimDeadline,                               Errors.STILL_CLAIMABLE);
 
         d.status = Status.Reclaimed;
-        repos[repoId].balance[accountId][address(d.token)] += d.amount;
+        accounts[repoId][accountId].balance[address(d.token)] += d.amount;
         emit Reclaimed(repoId, distributionId, msg.sender, d.amount);
     }
 
@@ -416,8 +416,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     {
         require(newAdmin != address(0), Errors.INVALID_ADDRESS);
 
-        address old = repos[repoId].admin[accountId];
-        repos[repoId].admin[accountId] = newAdmin;
+        address old = accounts[repoId][accountId].admin;
+        accounts[repoId][accountId].admin = newAdmin;
         emit RepoAdminChanged(repoId, old, newAdmin);
     }
 
@@ -442,8 +442,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
     function _authorizeDistributor(uint256 repoId, uint256 accountId, address distributor) internal {
         require(distributor != address(0), Errors.INVALID_ADDRESS);
-        if (!repos[repoId].authorizedDistributors[accountId][distributor]) {
-            repos[repoId].authorizedDistributors[accountId][distributor] = true;
+        if (!accounts[repoId][accountId].authorizedDistributors[distributor]) {
+            accounts[repoId][accountId].authorizedDistributors[distributor] = true;
             emit DistributorAuthorized(repoId, accountId, distributor);
         }
     }
@@ -463,8 +463,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     function _deauthorizeDistributor(uint256 repoId, uint256 accountId, address distributor) internal {
-        if (repos[repoId].authorizedDistributors[accountId][distributor]) {
-            repos[repoId].authorizedDistributors[accountId][distributor] = false;
+        if (accounts[repoId][accountId].authorizedDistributors[distributor]) {
+            accounts[repoId][accountId].authorizedDistributors[distributor] = false;
             emit DistributorDeauthorized(repoId, accountId, distributor);
         }
     }
@@ -527,7 +527,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         view 
         returns (address) 
     {
-        return repos[repoId].admin[accountId];
+        return accounts[repoId][accountId].admin;
     }
 
     function getIsAuthorizedDistributor(uint256 repoId, uint256 accountId, address distributor) 
@@ -535,7 +535,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         view 
         returns (bool) 
     {
-        return repos[repoId].authorizedDistributors[accountId][distributor];
+        return accounts[repoId][accountId].authorizedDistributors[distributor];
     }
 
     function canDistribute(uint256 repoId, uint256 accountId, address caller) 
@@ -543,7 +543,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         view 
         returns (bool) 
     {
-        return caller == repos[repoId].admin[accountId] || repos[repoId].authorizedDistributors[accountId][caller];
+        return caller == accounts[repoId][accountId].admin || accounts[repoId][accountId].authorizedDistributors[caller];
     }
 
     function getAccountBalance(uint256 repoId, uint256 accountId, address token) 
@@ -551,7 +551,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         view 
         returns (uint256) 
     {
-        return repos[repoId].balance[accountId][token];
+        return accounts[repoId][accountId].balance[token];
     }
 
     function getAccountDistributionsCount(uint256 repoId, uint256 accountId) 
@@ -559,7 +559,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         view 
         returns (uint256) 
     {
-        return repos[repoId].distributions[accountId].length;
+        return accounts[repoId][accountId].distributions.length;
     }
 
     function getAccountDistribution(uint256 repoId, uint256 accountId, uint256 distributionId) 
@@ -567,8 +567,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         view 
         returns (Distribution memory) 
     {
-        require(distributionId < repos[repoId].distributions[accountId].length, Errors.INVALID_CLAIM_ID);
-        return repos[repoId].distributions[accountId][distributionId];
+        require(distributionId < accounts[repoId][accountId].distributions.length, Errors.INVALID_CLAIM_ID);
+        return accounts[repoId][accountId].distributions[distributionId];
     }
 
     function getAllWhitelistedTokens() 
