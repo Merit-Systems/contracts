@@ -36,7 +36,11 @@ contract EscrowRepo is Owned, IEscrowRepo {
         mapping(address => bool)    authorizedDistributors;  // distributor → authorized
     }
 
-    enum Status { Distributed, Claimed, Reclaimed }
+    enum Status { 
+        Distributed,
+        Claimed,
+        Reclaimed
+    }
 
     struct Distribution {
         uint256 amount;
