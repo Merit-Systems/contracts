@@ -280,9 +280,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(distributionId < repos[repoId].distributions[accountId].length, Errors.INVALID_CLAIM_ID);
         Distribution storage d = repos[repoId].distributions[accountId][distributionId];
 
-        require(d.status    == Status.Distributed, Errors.ALREADY_CLAIMED);
-        require(d.recipient == recipient,          Errors.INVALID_ADDRESS);
-        require(block.timestamp <= d.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
+        require(d.status    == Status.Distributed,  Errors.ALREADY_CLAIMED);
+        require(d.recipient == recipient,           Errors.INVALID_ADDRESS);
+        require(block.timestamp <= d.claimDeadline, Errors.CLAIM_DEADLINE_PASSED);
 
         uint256 fee;
         uint256 netAmount = d.amount;
@@ -310,7 +310,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 amount
     ) 
         external 
-        hasAdmin   (repoId, accountId)
         isRepoAdmin(repoId, accountId) 
     {
         require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
@@ -413,7 +412,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) 
         external 
-        hasAdmin   (repoId, accountId)
         isRepoAdmin(repoId, accountId) 
     {
         require(newAdmin != address(0), Errors.INVALID_ADDRESS);
@@ -428,7 +426,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     function authorizeDistributor(uint256 repoId, uint256 accountId, address distributor) 
         external 
-        hasAdmin   (repoId, accountId)
         isRepoAdmin(repoId, accountId) 
     {
         _authorizeDistributor(repoId, accountId, distributor);
@@ -436,7 +433,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
     function batchAuthorizeDistributors(uint256 repoId, uint256 accountId, address[] calldata distributors) 
         external 
-        hasAdmin   (repoId, accountId)
         isRepoAdmin(repoId, accountId) 
     {
         for (uint256 i = 0; i < distributors.length; i++) {
@@ -455,12 +451,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                           DEAUTHORIZE DISTRIBUTOR                          */
     /* -------------------------------------------------------------------------- */
-    function deauthorizeDistributor(uint256 repoId, uint256 accountId, address distributor) external hasAdmin(repoId, accountId) isRepoAdmin(repoId, accountId) {
+    function deauthorizeDistributor(uint256 repoId, uint256 accountId, address distributor) external isRepoAdmin(repoId, accountId) {
         _deauthorizeDistributor(repoId, accountId, distributor);
     }
 
 
-    function batchDeauthorizeDistributors(uint256 repoId, uint256 accountId, address[] calldata distributors) external hasAdmin(repoId, accountId) isRepoAdmin(repoId, accountId) {
+    function batchDeauthorizeDistributors(uint256 repoId, uint256 accountId, address[] calldata distributors) external isRepoAdmin(repoId, accountId) {
         for (uint256 i = 0; i < distributors.length; i++) {
             _deauthorizeDistributor(repoId, accountId, distributors[i]);
         }
