@@ -8,11 +8,11 @@ Repository "bank accounts".
 #### Roles
 
 - **Owner (Merit Systems)** – sets fee, whitelist, signer; signs EIP-712 messages for new repos/accounts.
-- **Repo Admin** – controls a `(repoId, accountId)`; deposits claims, can reclaim, authorizes depositors.
+- **Root** – controls a `(repoId, instanceId)`; deposits claims, can reclaim, authorizes depositors.
 - **Funder** – anyone calling `fund()`.
 - **Recipient** – pulls their claim after being authorised via EIP-712 signature.
 - **Signer** – off-chain backend that issues EIP-712 signatures to enable claiming.
-- **Authorized Depositor** – addresses authorized by repo admin to call `deposit()` functions.
+- **Distributors** – addresses authorized by repo admin to call `deposit()` functions.
 
 ---
 

@@ -14,9 +14,7 @@ library Errors {
     string internal constant NO_CLAIM_PERMISSION          = "No Claim Permission";
     string internal constant TOKEN_ALREADY_WHITELISTED    = "Token Already Whitelisted";
     string internal constant TOKEN_NOT_WHITELISTED        = "Token Not Whitelisted";
-    string internal constant REPO_EXISTS                  = "Repo Exists";
-    string internal constant REPO_UNKNOWN                 = "Repo Unknown";
-    string internal constant ACCOUNT_UNKNOWN              = "Account Unknown";
+    string internal constant NO_ADMIN_SET                 = "No Admin Set";
     string internal constant NOT_REPO_ADMIN               = "Not Repo Admin";
     string internal constant ARRAY_LENGTH_MISMATCH        = "Array Length Mismatch";
     string internal constant RECIPIENT_ALREADY_SET        = "Recipient Already Set";
@@ -29,5 +27,4 @@ library Errors {
     string internal constant REPO_HAS_DEPOSITS            = "Repo Has Deposits";
     string internal constant DEPOSITOR_ALREADY_AUTHORIZED = "Depositor Already Authorized";
     string internal constant DEPOSITOR_NOT_AUTHORIZED     = "Depositor Not Authorized";
-    string internal constant NO_ACCOUNTS_EXIST            = "No Accounts Exist";
 } 

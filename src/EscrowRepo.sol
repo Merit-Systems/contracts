@@ -19,10 +19,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     uint16 public constant MAX_FEE_BPS = 1_000; // 10 %
 
-    bytes32 public constant ADD_REPO_TYPEHASH =
-        keccak256("AddRepo(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
-    bytes32 public constant ADD_ACCOUNT_TYPEHASH =
-        keccak256("AddAccount(uint256 repoId,address admin,uint256 nonce,uint256 deadline)");
+    bytes32 public constant SET_ADMIN_TYPEHASH =
+        keccak256("SetAdmin(uint256 repoId,uint256 accountId,address admin,uint256 nonce,uint256 deadline)");
     bytes32 public constant CLAIM_TYPEHASH =
         keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
 
@@ -30,8 +28,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                                     TYPES                                  */
     /* -------------------------------------------------------------------------- */
     struct Repo {
-        bool                                            exists;
-        uint256                                         accountCount;
         mapping(uint256 => mapping(address => uint256)) balance;              // accountId → token → balance
         mapping(uint256 => Deposit[])                   deposits;             // accountId → deposits
         mapping(uint256 => address)                     admin;                // accountId → admin
@@ -80,9 +76,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                 MODIFIERS                                  */
     /* -------------------------------------------------------------------------- */
-    modifier accountExists(uint256 repoId, uint256 accountId) {
-        require(repos[repoId].exists,                   Errors.REPO_UNKNOWN);
-        require(accountId < repos[repoId].accountCount, Errors.ACCOUNT_UNKNOWN);
+    modifier hasAdmin(uint256 repoId, uint256 accountId) {
+        require(repos[repoId].admin[accountId] != address(0), Errors.NO_ADMIN_SET);
         _;
     }
 
@@ -124,21 +119,18 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                              ADMIN REGISTRY                                */
+    /*                                 SET ADMIN                                  */
     /* -------------------------------------------------------------------------- */
-    function addRepo(
+    function setAdmin(
         uint256 repoId,
+        uint256 accountId,
         address admin,
         uint256 deadline,
         uint8   v,
         bytes32 r,
         bytes32 s
-    ) 
-      external 
-      returns (uint256)
-    {
-        require(!repos[repoId].exists,       Errors.REPO_EXISTS);
-        require(admin != address(0),         Errors.INVALID_ADDRESS);
+    ) external {
+        require(admin != address(0), Errors.INVALID_ADDRESS);
         require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
 
         bytes32 digest = keccak256(
@@ -146,8 +138,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
                 "\x19\x01",
                 DOMAIN_SEPARATOR(),
                 keccak256(abi.encode(
-                    ADD_REPO_TYPEHASH,
+                    SET_ADMIN_TYPEHASH,
                     repoId,
+                    accountId,
                     admin,
                     ownerNonce,
                     deadline
@@ -157,53 +150,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(ECDSA.recover(digest, v, r, s) == owner, Errors.INVALID_SIGNATURE);
 
         ownerNonce++;
-        repos[repoId].exists = true;
-        
-        emit RepoAdded(repoId, admin);
-        return _addAccount(repoId, admin); // Create the first account for this repo
-    }
-
-    function addAccount(
-        uint256 repoId,
-        address admin,
-        uint256 deadline,
-        uint8   v,
-        bytes32 r,
-        bytes32 s
-    ) 
-        external 
-        returns (uint256) 
-    {
-        require(repos[repoId].exists,        Errors.REPO_UNKNOWN);
-        require(admin != address(0),         Errors.INVALID_ADDRESS);
-        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
-
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(
-                    ADD_ACCOUNT_TYPEHASH,
-                    repoId,
-                    admin,
-                    ownerNonce,
-                    deadline
-                ))
-            )
-        );
-        require(ECDSA.recover(digest, v, r, s) == owner, Errors.INVALID_SIGNATURE);
-
-        ownerNonce++;
-        
-        return _addAccount(repoId, admin); 
-    }
-
-    function _addAccount(uint256 repoId, address admin) internal returns (uint256) {
-        uint256 accountId = repos[repoId].accountCount;
+        address oldAdmin = repos[repoId].admin[accountId];
         repos[repoId].admin[accountId] = admin;
-        repos[repoId].accountCount++;
-        emit AccountAdded(repoId, accountId, admin);
-        return accountId;
+        emit AdminSet(repoId, accountId, oldAdmin, admin);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -214,10 +163,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 accountId,
         ERC20   token,
         uint256 amount
-    ) 
-        external 
-        accountExists(repoId, accountId)
-    {
+    ) external {
         require(_whitelistedTokens.contains(address(token)), Errors.INVALID_TOKEN);
         require(amount > 0,                                  Errors.INVALID_AMOUNT);
 
@@ -241,7 +187,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         DepositParams calldata params
     ) 
         external 
-        accountExists        (repoId, accountId) 
+        hasAdmin             (repoId, accountId) 
         isAuthorizedDepositor(repoId, accountId) 
         returns (uint256)
     {
@@ -254,7 +200,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         DepositParams[] calldata params
     ) 
         external 
-        accountExists        (repoId, accountId) 
+        hasAdmin             (repoId, accountId) 
         isAuthorizedDepositor(repoId, accountId) 
         returns (uint256[] memory depositIds)
     {
@@ -311,7 +257,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint8   v,
         bytes32 r,
         bytes32 s
-    ) external accountExists(repoId, accountId) {
+    ) external hasAdmin(repoId, accountId) {
         _setCanClaim(msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
         _claim(repoId, accountId, depositId, msg.sender);
@@ -326,7 +272,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint8   v,
         bytes32 r,
         bytes32 s
-    ) external accountExists(repoId, accountId) {
+    ) external hasAdmin(repoId, accountId) {
         _setCanClaim(msg.sender, status, deadline, v, r, s);
         require(canClaim[msg.sender], Errors.NO_CLAIM_PERMISSION);
         for (uint256 i; i < depositIds.length; ++i) _claim(repoId, accountId, depositIds[i], msg.sender);
@@ -355,8 +301,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 amount
     ) 
         external 
-        accountExists(repoId, accountId)
-        isRepoAdmin  (repoId, accountId) 
+        hasAdmin   (repoId, accountId)
+        isRepoAdmin(repoId, accountId) 
     {
         require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
         require(amount > 0, Errors.INVALID_AMOUNT);
@@ -458,8 +404,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) 
         external 
-        accountExists(repoId, accountId)
-        isRepoAdmin  (repoId, accountId) 
+        hasAdmin   (repoId, accountId)
+        isRepoAdmin(repoId, accountId) 
     {
         require(newAdmin != address(0), Errors.INVALID_ADDRESS);
 
@@ -473,7 +419,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     function authorizeDepositor(uint256 repoId, uint256 accountId, address depositor) 
         external 
-        accountExists(repoId, accountId)
+        hasAdmin   (repoId, accountId)
         isRepoAdmin(repoId, accountId) 
     {
         _authorizeDepositor(repoId, accountId, depositor);
@@ -481,7 +427,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
     function batchAuthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) 
         external 
-        accountExists(repoId, accountId)
+        hasAdmin   (repoId, accountId)
         isRepoAdmin(repoId, accountId) 
     {
         for (uint256 i = 0; i < depositors.length; i++) {
@@ -500,12 +446,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                               DEAUTHORIZE DEPOSITOR                        */
     /* -------------------------------------------------------------------------- */
-    function deauthorizeDepositor(uint256 repoId, uint256 accountId, address depositor) external isRepoAdmin(repoId, accountId) {
+    function deauthorizeDepositor(uint256 repoId, uint256 accountId, address depositor) external hasAdmin(repoId, accountId) isRepoAdmin(repoId, accountId) {
         _deauthorizeDepositor(repoId, accountId, depositor);
     }
 
 
-    function batchDeauthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) external isRepoAdmin(repoId, accountId) {
+    function batchDeauthorizeDepositors(uint256 repoId, uint256 accountId, address[] calldata depositors) external hasAdmin(repoId, accountId) isRepoAdmin(repoId, accountId) {
         for (uint256 i = 0; i < depositors.length; i++) {
             _deauthorizeDepositor(repoId, accountId, depositors[i]);
         }
@@ -571,51 +517,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                   GETTERS                                  */
     /* -------------------------------------------------------------------------- */
-    function repoExists(uint256 repoId) 
-        external 
-        view 
-        returns (bool) 
-    {
-        return repos[repoId].exists;
-    }
-
-    function getRepoAccountCount(uint256 repoId) 
-        external 
-        view 
-        returns (uint256) 
-    {
-        return repos[repoId].accountCount;
-    }
-
-    function getRepoLatestAccountId(uint256 repoId) 
-        external 
-        view 
-        returns (uint256) 
-    {
-        require(repos[repoId].exists, Errors.REPO_UNKNOWN);
-        require(repos[repoId].accountCount > 0, Errors.NO_ACCOUNTS_EXIST);
-        return repos[repoId].accountCount - 1;
-    }
-
     function getAccountAdmin(uint256 repoId, uint256 accountId) 
         external 
         view 
         returns (address) 
     {
         return repos[repoId].admin[accountId];
-    }
-
-    function getAllAccountAdmins(uint256 repoId) 
-        external 
-        view 
-        returns (address[] memory)
-    {
-        uint256 count = repos[repoId].accountCount;
-        address[] memory admins = new address[](count);
-        for (uint256 i = 0; i < count; i++) {
-            admins[i] = repos[repoId].admin[i];
-        }
-        return admins;
     }
 
     function getIsAuthorizedDepositor(uint256 repoId, uint256 accountId, address depositor) 
