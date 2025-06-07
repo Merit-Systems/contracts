@@ -9,7 +9,7 @@ import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDS
 import {EnumerableSet}     from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import {IEscrow, DepositParams, Status} from "../interface/IEscrow.sol";
-import {Errors}                         from "../libraries/Errors.sol";
+import {Errors}                         from "../libraries/EscrowErrors.sol";
 
 contract Escrow is Owned, IEscrow {
     using SafeTransferLib   for ERC20;

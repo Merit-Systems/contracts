@@ -11,7 +11,7 @@ import {Escrow}        from "../src/Escrow.sol";
 import {DepositParams} from "../interface/IEscrow.sol";
 import {Params}        from "../libraries/Params.sol";
 import {Deploy}        from "../script/Deploy.s.sol";
-import {Errors}        from "../libraries/Errors.sol";
+import {Errors}        from "../libraries/EscrowErrors.sol";
 
 contract Base_Test is Test {
     using FixedPointMathLib for uint256;
