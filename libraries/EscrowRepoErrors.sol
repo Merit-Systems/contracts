@@ -6,7 +6,7 @@ library Errors {
     string internal constant INVALID_AMOUNT               = "Invalid Amount";
     string internal constant INVALID_TOKEN                = "Invalid Token";
     string internal constant INVALID_CLAIM_PERIOD         = "Invalid Claim Period";
-    string internal constant INVALID_DEPOSIT_ID           = "Invalid Deposit ID";
+    string internal constant INVALID_DISTRIBUTION_ID      = "Invalid Distribution ID";
     string internal constant ALREADY_CLAIMED              = "Already Claimed";
     string internal constant STILL_CLAIMABLE              = "Still Claimable";
     string internal constant SIGNATURE_EXPIRED            = "Signature Expired";
@@ -18,13 +18,12 @@ library Errors {
     string internal constant NOT_REPO_ADMIN               = "Not Repo Admin";
     string internal constant ARRAY_LENGTH_MISMATCH        = "Array Length Mismatch";
     string internal constant RECIPIENT_ALREADY_SET        = "Recipient Already Set";
-    string internal constant REPO_ALREADY_EXISTS          = "Repo Already Exists";
     string internal constant RECIPIENT_NOT_SET            = "Recipient Not Set";
     string internal constant INVALID_FEE_BPS              = "Invalid Fee BPS";
     string internal constant INSUFFICIENT_ACCOUNT_BALANCE = "Insufficient Account Balance";
     string internal constant INVALID_CLAIM_ID             = "Invalid Claim ID";
     string internal constant CLAIM_DEADLINE_PASSED        = "Claim Deadline Passed";
-    string internal constant REPO_HAS_DEPOSITS            = "Repo Has Deposits";
-    string internal constant DEPOSITOR_ALREADY_AUTHORIZED = "Depositor Already Authorized";
-    string internal constant DEPOSITOR_NOT_AUTHORIZED     = "Depositor Not Authorized";
+    string internal constant REPO_HAS_DISTRIBUTIONS       = "Repo Has Distributions";
+    string internal constant DISTRIBUTOR_ALREADY_AUTHORIZED = "Distributor Already Authorized";
+    string internal constant DISTRIBUTOR_NOT_AUTHORIZED     = "Distributor Not Authorized";
 } 
