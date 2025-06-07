@@ -263,17 +263,13 @@ contract EscrowRepo is Owned, IEscrowRepo {
     function batchClaim(
         uint256 repoId,
         uint256 accountId,
-        uint256[] calldata distributionIds,
+        uint256[] memory distributionIds,
         uint256 deadline,
         uint8   v,
         bytes32 r,
         bytes32 s
     ) external hasAdmin(repoId, accountId) {
-        uint256[] memory distributionIdsMemory = new uint256[](distributionIds.length);
-        for (uint256 i; i < distributionIds.length; ++i) {
-            distributionIdsMemory[i] = distributionIds[i];
-        }
-        _verifyClaimSignature(repoId, accountId, distributionIdsMemory, msg.sender, deadline, v, r, s);
+        _verifyClaimSignature(repoId, accountId, distributionIds, msg.sender, deadline, v, r, s);
         for (uint256 i; i < distributionIds.length; ++i) {
             _claim(repoId, accountId, distributionIds[i], msg.sender);
         }
