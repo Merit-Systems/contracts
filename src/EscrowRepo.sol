@@ -330,8 +330,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
             uint256 distributionId = distributionIds[i];
             Distribution storage d = account.distributions[distributionId];
             
-            require(d.exists,                         Errors.INVALID_DISTRIBUTION_ID);
-            require(d.status == Status.Distributed,  Errors.ALREADY_CLAIMED);
+            require(d.exists,                          Errors.INVALID_DISTRIBUTION_ID);
+            require(d.status == Status.Distributed,    Errors.ALREADY_CLAIMED);
             require(block.timestamp > d.claimDeadline, Errors.STILL_CLAIMABLE);
 
             d.status = Status.Reclaimed;
