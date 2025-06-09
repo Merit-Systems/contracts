@@ -268,19 +268,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
             require(block.timestamp        <= distribution.claimDeadline, Errors.CLAIM_DEADLINE_PASSED);
 
             distribution.status = Status.Claimed;
+             
+            uint256 fee       = distribution.amount.mulDivUp(protocolFeeBps, 10_000);
+            uint256 netAmount = distribution.amount - fee;
+            require(netAmount > 0, Errors.INVALID_AMOUNT);
             
-            if (protocolFeeBps > 0) {
-                uint256 fee = distribution.amount.mulDivUp(protocolFeeBps, 10_000);
-                uint256 netAmount = distribution.amount - fee;
-                require(netAmount > 0, Errors.INVALID_AMOUNT);
-                
-                distribution.token.safeTransfer(feeRecipient, fee);
-                distribution.token.safeTransfer(msg.sender, netAmount);
-                emit Claimed(repoId, distributionId, msg.sender, netAmount, fee);
-            } else {
-                distribution.token.safeTransfer(msg.sender, distribution.amount);
-                emit Claimed(repoId, distributionId, msg.sender, distribution.amount, 0);
-            }
+            if (fee > 0) distribution.token.safeTransfer(feeRecipient, fee);
+            distribution.token.safeTransfer(msg.sender, netAmount);
+            emit Claimed(repoId, distributionId, msg.sender, netAmount, fee);
         }
     }
 
