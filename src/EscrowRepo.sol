@@ -30,10 +30,11 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                                     TYPES                                  */
     /* -------------------------------------------------------------------------- */
     struct Account {
-        mapping(address => uint256) balance;                 // token → balance
-        Distribution[]              distributions;           // distributions
-        address                     admin;                   // admin
-        mapping(address => bool)    authorizedDistributors;  // distributor → authorized
+        mapping(address => uint256)      balance;                 // token → balance
+        mapping(uint256 => Distribution) distributions;           // distributionId → distribution
+        bool                             hasDistributions;        // whether any distributions have occurred
+        address                          admin;                   // admin
+        mapping(address => bool)         authorizedDistributors;  // distributor → authorized?
     }
 
     enum Status { 
@@ -48,6 +49,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         address recipient;
         uint256 claimDeadline; // unix seconds
         Status  status;        // Distributed → Claimed / Reclaimed
+        bool    exists;        // whether this distribution exists
     }
 
     struct DistributionParams {
@@ -73,6 +75,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     address public signer;
 
     uint256 public distributionBatchCount;
+    uint256 public distributionCount;
 
     /* -------------------------------------------------------------------------- */
     /*                               EIP‑712 DOMAIN                               */
@@ -210,17 +213,17 @@ contract EscrowRepo is Owned, IEscrowRepo {
             account.balance[address(param.token)] = balance - param.amount;
 
             uint256 claimDeadline  = block.timestamp + param.claimPeriod;
-            uint256 distributionId = account.distributions.length;
+            uint256 distributionId = distributionCount++;
 
-            account.distributions.push(
-                Distribution({
-                    amount:        param.amount,
-                    token:         param.token,
-                    recipient:     param.recipient,
-                    claimDeadline: claimDeadline,
-                    status:        Status.Distributed
-                })
-            );
+            account.distributions[distributionId] = Distribution({
+                amount:        param.amount,
+                token:         param.token,
+                recipient:     param.recipient,
+                claimDeadline: claimDeadline,
+                status:        Status.Distributed,
+                exists:        true
+            });
+            account.hasDistributions = true;
 
             distributionIds[i] = distributionId;
             emit Distributed(distributionBatchId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
@@ -268,6 +271,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             uint256 distributionId = distributionIds[i];
             Distribution storage distribution = account.distributions[distributionId];
 
+            require(distribution.exists,                                  Errors.INVALID_DISTRIBUTION_ID);
             require(distribution.status    == Status.Distributed,         Errors.ALREADY_CLAIMED);
             require(distribution.recipient == msg.sender,                 Errors.INVALID_RECIPIENT);
             require(block.timestamp        <= distribution.claimDeadline, Errors.CLAIM_DEADLINE_PASSED);
@@ -296,9 +300,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
         external 
         isRepoAdmin(repoId, accountId) 
     {
-        require(_whitelistedTokens.contains(token), Errors.INVALID_TOKEN);
-        require(amount > 0, Errors.INVALID_AMOUNT);
-        require(accounts[repoId][accountId].distributions.length == 0, Errors.REPO_HAS_DISTRIBUTIONS);
+        require(_whitelistedTokens.contains(token),            Errors.INVALID_TOKEN);
+        require(amount > 0,                                    Errors.INVALID_AMOUNT);
+        require(!accounts[repoId][accountId].hasDistributions, Errors.REPO_HAS_DISTRIBUTIONS);
         
         uint256 balance = accounts[repoId][accountId].balance[token];
         require(balance >= amount, Errors.INSUFFICIENT_BALANCE);
@@ -340,8 +344,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         internal 
     {
         Distribution storage d = accounts[repoId][accountId].distributions[distributionId];
+        require(d.exists, Errors.INVALID_DISTRIBUTION_ID);
 
-        require(distributionId < accounts[repoId][accountId].distributions.length, Errors.INVALID_DISTRIBUTION_ID);
         require(d.status == Status.Distributed,                                  Errors.ALREADY_CLAIMED);
         require(block.timestamp > d.claimDeadline,                               Errors.STILL_CLAIMABLE);
 
@@ -508,21 +512,24 @@ contract EscrowRepo is Owned, IEscrowRepo {
         return accounts[repoId][accountId].balance[token];
     }
 
-    function getAccountDistributionsCount(uint256 repoId, uint256 accountId) 
+    function getAccountHasDistributions(uint256 repoId, uint256 accountId) 
         external 
         view 
-        returns (uint256) 
+        returns (bool) 
     {
-        return accounts[repoId][accountId].distributions.length;
+        return accounts[repoId][accountId].hasDistributions;
     }
+
+
 
     function getAccountDistribution(uint256 repoId, uint256 accountId, uint256 distributionId) 
         external 
         view 
         returns (Distribution memory) 
     {
-        require(distributionId < accounts[repoId][accountId].distributions.length, Errors.INVALID_CLAIM_ID);
-        return accounts[repoId][accountId].distributions[distributionId];
+        Distribution memory distribution = accounts[repoId][accountId].distributions[distributionId];
+        require(distribution.exists, Errors.INVALID_DISTRIBUTION_ID);
+        return distribution;
     }
 
     function getAllWhitelistedTokens() 
