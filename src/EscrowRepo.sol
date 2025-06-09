@@ -226,57 +226,62 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                                   CLAIM                                    */
     /* -------------------------------------------------------------------------- */
     function claim(
-        uint256 repoId,
-        uint256 accountId,
-        uint256 distributionId,
-        uint256 deadline,
-        uint8   v,
-        bytes32 r,
-        bytes32 s
-    ) external hasAdmin(repoId, accountId) {
-        uint256[] memory distributionIds = new uint256[](1);
-        distributionIds[0] = distributionId;
-        _verifyClaimSignature(repoId, accountId, distributionIds, msg.sender, deadline, v, r, s);
-        _claim(repoId, accountId, distributionId, msg.sender);
-    }
-
-    function batchClaim(
-        uint256 repoId,
-        uint256 accountId,
+        uint256          repoId,
+        uint256          accountId,
         uint256[] memory distributionIds,
-        uint256 deadline,
-        uint8   v,
-        bytes32 r,
-        bytes32 s
+        uint256          deadline,
+        uint8            v,
+        bytes32          r,
+        bytes32          s
     ) external hasAdmin(repoId, accountId) {
-        _verifyClaimSignature(repoId, accountId, distributionIds, msg.sender, deadline, v, r, s);
+        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
+        require(distributionIds.length > 0,  Errors.INVALID_AMOUNT);
+
+        require(ECDSA.recover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    DOMAIN_SEPARATOR(),
+                    keccak256(abi.encode(
+                        CLAIM_TYPEHASH,
+                        repoId,
+                        accountId,
+                        keccak256(abi.encodePacked(distributionIds)),
+                        msg.sender,
+                        recipientNonce[msg.sender],
+                        deadline
+                    ))
+                )
+            ), v, r, s) == signer, Errors.INVALID_SIGNATURE);
+
+        recipientNonce[msg.sender]++;
+
+        Account storage account = accounts[repoId][accountId];
+
         for (uint256 i; i < distributionIds.length; ++i) {
-            _claim(repoId, accountId, distributionIds[i], msg.sender);
+            uint256 distributionId = distributionIds[i];
+            require(distributionId < account.distributions.length, Errors.INVALID_DISTRIBUTION_ID);
+            
+            Distribution storage distribution = account.distributions[distributionId];
+            require(distribution.status        == Status.Distributed, Errors.ALREADY_CLAIMED);
+            require(distribution.recipient     == msg.sender,         Errors.INVALID_RECIPIENT);
+            require(block.timestamp <= distribution.claimDeadline,    Errors.CLAIM_DEADLINE_PASSED);
+
+            distribution.status = Status.Claimed;
+            
+            if (protocolFeeBps > 0) {
+                uint256 fee = distribution.amount.mulDivUp(protocolFeeBps, 10_000);
+                uint256 netAmount = distribution.amount - fee;
+                require(netAmount > 0, Errors.INVALID_AMOUNT);
+                
+                distribution.token.safeTransfer(feeRecipient, fee);
+                distribution.token.safeTransfer(msg.sender, netAmount);
+                emit Claimed(repoId, distributionId, msg.sender, netAmount, fee);
+            } else {
+                distribution.token.safeTransfer(msg.sender, distribution.amount);
+                emit Claimed(repoId, distributionId, msg.sender, distribution.amount, 0);
+            }
         }
-    }
-
-    function _claim(uint256 repoId, uint256 accountId, uint256 distributionId, address recipient) internal {
-        require(distributionId < accounts[repoId][accountId].distributions.length, Errors.INVALID_CLAIM_ID);
-        Distribution storage d = accounts[repoId][accountId].distributions[distributionId];
-
-        require(d.status    == Status.Distributed,  Errors.ALREADY_CLAIMED);
-        require(d.recipient == recipient,           Errors.INVALID_ADDRESS);
-        require(block.timestamp <= d.claimDeadline, Errors.CLAIM_DEADLINE_PASSED);
-
-        uint256 fee;
-        uint256 netAmount = d.amount;
-        if (protocolFeeBps > 0) {
-            fee = d.amount.mulDivUp(protocolFeeBps, 10_000);
-            netAmount = d.amount - fee;
-            require(netAmount > 0, Errors.INVALID_AMOUNT);
-        }
-
-        d.status = Status.Claimed;
-        
-        if (fee > 0) d.token.safeTransfer(feeRecipient, fee);
-        d.token.safeTransfer(recipient, netAmount);
-        
-        emit Claimed(repoId, distributionId, recipient, netAmount, fee);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -448,39 +453,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         }
     }
 
-    /* -------------------------------------------------------------------------- */
-    /*                         INTERNAL: Claim EIP‑712                           */
-    /* -------------------------------------------------------------------------- */
-    function _verifyClaimSignature(
-        uint256 repoId,
-        uint256 accountId,
-        uint256[] memory distributionIds,
-        address recipient,
-        uint256 deadline,
-        uint8   v, bytes32 r, bytes32 s
-    ) internal {
-        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
-        require(distributionIds.length > 0, Errors.INVALID_AMOUNT);
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(
-                    CLAIM_TYPEHASH,
-                    repoId,
-                    accountId,
-                    keccak256(abi.encodePacked(distributionIds)),
-                    recipient,
-                    recipientNonce[recipient],
-                    deadline
-                ))
-            )
-        );
-        require(ECDSA.recover(digest, v, r, s) == signer, Errors.INVALID_SIGNATURE);
-
-        recipientNonce[recipient]++;
-    }
 
     /* -------------------------------------------------------------------------- */
     /*                           DOMAIN‑SEPARATOR LOGIC                           */

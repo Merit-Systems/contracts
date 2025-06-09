@@ -26,4 +26,5 @@ library Errors {
     string internal constant REPO_HAS_DISTRIBUTIONS       = "Repo Has Distributions";
     string internal constant DISTRIBUTOR_ALREADY_AUTHORIZED = "Distributor Already Authorized";
     string internal constant DISTRIBUTOR_NOT_AUTHORIZED     = "Distributor Not Authorized";
+    string internal constant INVALID_RECIPIENT              = "Invalid Recipient";
 } 
