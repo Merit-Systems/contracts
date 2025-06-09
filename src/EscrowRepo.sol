@@ -72,6 +72,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
     address public signer;
 
+    uint256 public distributionBatchCount;
+
     /* -------------------------------------------------------------------------- */
     /*                               EIP‑712 DOMAIN                               */
     /* -------------------------------------------------------------------------- */
@@ -183,14 +185,16 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                                DISTRIBUTE                                  */
     /* -------------------------------------------------------------------------- */
     function distribute(
-        uint256 repoId,
-        uint256 accountId,
-        DistributionParams[] calldata params
+        uint256                       repoId,
+        uint256                       accountId,
+        DistributionParams[] calldata params,
+        bytes                memory   data
     ) 
         external 
         isAuthorizedDistributor(repoId, accountId) 
         returns (uint256[] memory distributionIds)
     {
+        uint256 distributionBatchId = distributionBatchCount++;
         distributionIds = new uint256[](params.length);
         for (uint256 i; i < params.length; ++i) {
             DistributionParams calldata param = params[i];
@@ -218,8 +222,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
             );
 
             distributionIds[i] = distributionId;
-            emit Distributed(repoId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
+            emit Distributed(distributionBatchId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
         } 
+        emit DistributedBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */

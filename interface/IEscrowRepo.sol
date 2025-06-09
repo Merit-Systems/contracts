@@ -19,6 +19,14 @@ interface IEscrowRepo {
         uint256 claimDeadline
     );
 
+    event DistributedBatch(
+        uint256 indexed distributionBatchId,
+        uint256 indexed repoId,
+        uint256 indexed accountId,
+        uint256[] distributionIds,
+        bytes data
+    );
+
     event Claimed(
         uint256 indexed repoId,
         uint256 indexed claimId,
