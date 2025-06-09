@@ -27,4 +27,7 @@ library Errors {
     string internal constant DISTRIBUTOR_ALREADY_AUTHORIZED = "Distributor Already Authorized";
     string internal constant DISTRIBUTOR_NOT_AUTHORIZED     = "Distributor Not Authorized";
     string internal constant INVALID_RECIPIENT              = "Invalid Recipient";
+    string internal constant NOT_REPO_DISTRIBUTION          = "Not Repo Distribution";
+    string internal constant NOT_DIRECT_DISTRIBUTION        = "Not Direct Distribution";
+    string internal constant NOT_ORIGINAL_PAYER             = "Not Original Payer";
 } 

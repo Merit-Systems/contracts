@@ -28,8 +28,7 @@ interface IEscrowRepo {
     );
 
     event Claimed(
-        uint256 indexed repoId,
-        uint256 indexed claimId,
+        uint256 indexed distributionId,
         address indexed recipient,
         uint256 amount,
         uint256 fee
@@ -46,6 +45,21 @@ interface IEscrowRepo {
         uint256 indexed repoId,
         uint256 indexed distributionId,
         address indexed admin,
+        uint256 amount
+    );
+
+    event DistributedSolo(
+        uint256 indexed distributionId,
+        address indexed payer,
+        address indexed recipient,
+        address token,
+        uint256 amount,
+        uint256 claimDeadline
+    );
+
+    event ReclaimedSolo(
+        uint256 indexed distributionId,
+        address indexed payer,
         uint256 amount
     );
 

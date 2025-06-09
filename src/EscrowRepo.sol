@@ -24,14 +24,18 @@ contract EscrowRepo is Owned, IEscrowRepo {
     bytes32 public constant SET_ADMIN_TYPEHASH =
         keccak256("SetAdmin(uint256 repoId,uint256 accountId,address admin,uint256 nonce,uint256 deadline)");
     bytes32 public constant CLAIM_TYPEHASH =
-        keccak256("Claim(uint256 repoId,uint256 accountId,uint256[] distributionIds,address recipient,uint256 nonce,uint256 deadline)");
+        keccak256("Claim(uint256[] distributionIds,address recipient,uint256 nonce,uint256 deadline)");
 
     /* -------------------------------------------------------------------------- */
     /*                                     TYPES                                  */
     /* -------------------------------------------------------------------------- */
+    enum DistributionType {
+        Repo,
+        Solo
+    }
+
     struct Account {
         mapping(address => uint256)      balance;                 // token → balance
-        mapping(uint256 => Distribution) distributions;           // distributionId → distribution
         bool                             hasDistributions;        // whether any distributions have occurred
         address                          admin;                   // admin
         mapping(address => bool)         authorizedDistributors;  // distributor → authorized?
@@ -50,6 +54,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 claimDeadline; // unix seconds
         Status  status;        // Distributed → Claimed / Reclaimed
         bool    exists;        // whether this distribution exists
+        DistributionType distributionType; // NEW: Repo or Solo
+        address payer;         // NEW: who paid for this distribution (only used for Solo)
     }
 
     struct DistributionParams {
@@ -59,10 +65,18 @@ contract EscrowRepo is Owned, IEscrowRepo {
         ERC20   token;
     }
 
+    struct RepoAccount {
+        uint256 repoId;
+        uint256 accountId;
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                STATE VARIABLES                             */
     /* -------------------------------------------------------------------------- */
     mapping(uint256 => mapping(uint256 => Account)) public accounts;  // repoId → accountId → Account
+
+    mapping(uint256 => Distribution) public distributions;            // distributionId → Distribution
+    mapping(uint256 => RepoAccount)  public distributionToRepo;       // distributionId → RepoAccount (for repo distributions)
 
     mapping(address => uint256)  public recipientNonce; // recipient → nonce
     uint256                      public ownerNonce;    
@@ -129,9 +143,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                 SET ADMIN                                  */
+    /*                              INIT REPO ADMIN                               */
     /* -------------------------------------------------------------------------- */
-    function setAdmin(
+    function initRepoAdmin(
         uint256 repoId,
         uint256 accountId,
         address admin,
@@ -166,9 +180,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                     FUND                                   */
+    /*                                   FUND REPO                                */
     /* -------------------------------------------------------------------------- */
-    function fund(
+    function fundRepo(
         uint256 repoId,
         uint256 accountId,
         ERC20   token,
@@ -185,9 +199,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                DISTRIBUTE                                  */
+    /*                              DISTRIBUTE REPO                               */
     /* -------------------------------------------------------------------------- */
-    function distribute(
+    function distributeRepo(
         uint256                       repoId,
         uint256                       accountId,
         DistributionParams[] calldata params,
@@ -216,14 +230,22 @@ contract EscrowRepo is Owned, IEscrowRepo {
             uint256 claimDeadline  = block.timestamp + param.claimPeriod;
             uint256 distributionId = distributionCount++;
 
-            account.distributions[distributionId] = Distribution({
-                amount:        param.amount,
-                token:         param.token,
-                recipient:     param.recipient,
-                claimDeadline: claimDeadline,
-                status:        Status.Distributed,
-                exists:        true
+            distributions[distributionId] = Distribution({
+                amount:            param.amount,
+                token:             param.token,
+                recipient:         param.recipient,
+                claimDeadline:     claimDeadline,
+                status:            Status.Distributed,
+                exists:            true,
+                distributionType:  DistributionType.Repo,
+                payer:             address(0)
             });
+
+            // Store reverse mapping for repo distributions
+            RepoAccount memory repoAccount;
+            repoAccount.repoId = repoId;
+            repoAccount.accountId = accountId;
+            distributionToRepo[distributionId] = repoAccount;
             account.hasDistributions = true;
 
             distributionIds[i] = distributionId;
@@ -233,17 +255,54 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                              DISTRIBUTE SOLO                               */
+    /* -------------------------------------------------------------------------- */
+    function distributeSolo(DistributionParams[] calldata params) 
+        external 
+        returns (uint256[] memory distributionIds)
+    {
+        distributionIds = new uint256[](params.length);
+        
+        for (uint256 i; i < params.length; ++i) {
+            DistributionParams calldata param = params[i];
+            
+            require(param.recipient  != address(0),                    Errors.INVALID_ADDRESS);
+            require(param.amount      > 0,                             Errors.INVALID_AMOUNT);
+            require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
+            require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
+
+            // Transfer tokens directly from caller
+            param.token.safeTransferFrom(msg.sender, address(this), param.amount);
+
+            uint256 claimDeadline  = block.timestamp + param.claimPeriod;
+            uint256 distributionId = distributionCount++;
+
+            distributions[distributionId] = Distribution({
+                amount:            param.amount,
+                token:             param.token,
+                recipient:         param.recipient,
+                claimDeadline:     claimDeadline,
+                status:            Status.Distributed,
+                exists:            true,
+                distributionType:  DistributionType.Solo,
+                payer:             msg.sender
+            });
+
+            distributionIds[i] = distributionId;
+            emit DistributedSolo(distributionId, msg.sender, param.recipient, address(param.token), param.amount, claimDeadline);
+        } 
+    }
+
+    /* -------------------------------------------------------------------------- */
     /*                                   CLAIM                                    */
     /* -------------------------------------------------------------------------- */
     function claim(
-        uint256          repoId,
-        uint256          accountId,
         uint256[] memory distributionIds,
         uint256          deadline,
         uint8            v,
         bytes32          r,
         bytes32          s
-    ) external hasAdmin(repoId, accountId) {
+    ) external {
         require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
         require(distributionIds.length > 0,  Errors.INVALID_AMOUNT);
 
@@ -254,8 +313,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
                     DOMAIN_SEPARATOR(),
                     keccak256(abi.encode(
                         CLAIM_TYPEHASH,
-                        repoId,
-                        accountId,
                         keccak256(abi.encodePacked(distributionIds)),
                         msg.sender,
                         recipientNonce[msg.sender],
@@ -266,11 +323,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
         recipientNonce[msg.sender]++;
 
-        Account storage account = accounts[repoId][accountId];
-
         for (uint256 i; i < distributionIds.length; ++i) {
             uint256 distributionId = distributionIds[i];
-            Distribution storage distribution = account.distributions[distributionId];
+            Distribution storage distribution = distributions[distributionId];
 
             require(distribution.exists,                                  Errors.INVALID_DISTRIBUTION_ID);
             require(distribution.status    == Status.Distributed,         Errors.ALREADY_CLAIMED);
@@ -285,7 +340,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
             
             if (fee > 0) distribution.token.safeTransfer(feeRecipient, fee);
             distribution.token.safeTransfer(msg.sender, netAmount);
-            emit Claimed(repoId, distributionId, msg.sender, netAmount, fee);
+            
+            emit Claimed(distributionId, msg.sender, netAmount, fee);
         }
     }
 
@@ -315,28 +371,46 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                            RECLAIM DISTRIBUTION                            */
+    /*                               RECLAIM REPO                                 */
     /* -------------------------------------------------------------------------- */
-    function reclaimDistribution(
-        uint256            repoId,
-        uint256            accountId,
-        uint256[] calldata distributionIds
-    ) 
-        external 
-    {
-        Account storage account = accounts[repoId][accountId];
-
+    function reclaimRepo(uint256[] calldata distributionIds) external {
         for (uint256 i; i < distributionIds.length; ++i) {
             uint256 distributionId = distributionIds[i];
-            Distribution storage d = account.distributions[distributionId];
+            Distribution storage d = distributions[distributionId];
             
-            require(d.exists,                          Errors.INVALID_DISTRIBUTION_ID);
-            require(d.status == Status.Distributed,    Errors.ALREADY_CLAIMED);
-            require(block.timestamp > d.claimDeadline, Errors.STILL_CLAIMABLE);
+            require(d.exists,                                       Errors.INVALID_DISTRIBUTION_ID);
+            require(d.distributionType == DistributionType.Repo,    Errors.NOT_REPO_DISTRIBUTION);
+            require(d.status == Status.Distributed,                 Errors.ALREADY_CLAIMED);
+            require(block.timestamp > d.claimDeadline,              Errors.STILL_CLAIMABLE);
 
             d.status = Status.Reclaimed;
-            account.balance[address(d.token)] += d.amount;
-            emit ReclaimedDistribution(repoId, distributionId, msg.sender, d.amount);
+            
+            // Use reverse mapping to find which account to credit
+            RepoAccount memory repoAccount = distributionToRepo[distributionId];
+            accounts[repoAccount.repoId][repoAccount.accountId].balance[address(d.token)] += d.amount;
+            
+            emit ReclaimedDistribution(repoAccount.repoId, distributionId, msg.sender, d.amount);
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               RECLAIM SOLO                                 */
+    /* -------------------------------------------------------------------------- */
+    function reclaimSolo(uint256[] calldata distributionIds) external {
+        for (uint256 i; i < distributionIds.length; ++i) {
+            uint256 distributionId = distributionIds[i];
+            Distribution storage d = distributions[distributionId];
+            
+            require(d.exists,                                      Errors.INVALID_DISTRIBUTION_ID);
+            require(d.distributionType == DistributionType.Solo,   Errors.NOT_DIRECT_DISTRIBUTION);
+            require(d.status == Status.Distributed,               Errors.ALREADY_CLAIMED);
+            require(d.payer == msg.sender,                         Errors.NOT_ORIGINAL_PAYER);
+            require(block.timestamp > d.claimDeadline,             Errors.STILL_CLAIMABLE);
+            
+            d.status = Status.Reclaimed;
+            d.token.safeTransfer(msg.sender, d.amount);
+            
+            emit ReclaimedSolo(distributionId, msg.sender, d.amount);
         }
     }
 
@@ -508,14 +582,33 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
 
 
-    function getAccountDistribution(uint256 repoId, uint256 accountId, uint256 distributionId) 
+    function getDistribution(uint256 distributionId) 
         external 
         view 
         returns (Distribution memory) 
     {
-        Distribution memory distribution = accounts[repoId][accountId].distributions[distributionId];
+        Distribution memory distribution = distributions[distributionId];
         require(distribution.exists, Errors.INVALID_DISTRIBUTION_ID);
         return distribution;
+    }
+
+    function getDistributionRepo(uint256 distributionId) 
+        external 
+        view 
+        returns (RepoAccount memory) 
+    {
+        require(distributions[distributionId].exists, Errors.INVALID_DISTRIBUTION_ID);
+        require(distributions[distributionId].distributionType == DistributionType.Repo, Errors.NOT_REPO_DISTRIBUTION);
+        return distributionToRepo[distributionId];
+    }
+
+    function isSoloDistribution(uint256 distributionId) 
+        external 
+        view 
+        returns (bool) 
+    {
+        return distributions[distributionId].exists && 
+               distributions[distributionId].distributionType == DistributionType.Solo;
     }
 
     function getAllWhitelistedTokens() 
