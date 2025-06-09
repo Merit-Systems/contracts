@@ -188,8 +188,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         DistributionParams calldata params
     ) 
         external 
-        hasAdmin                 (repoId, accountId) 
-        isAuthorizedDistributor  (repoId, accountId) 
+        isAuthorizedDistributor(repoId, accountId) 
         returns (uint256)
     {
         return _distribute(repoId, accountId, params);
@@ -201,8 +200,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         DistributionParams[] calldata params
     ) 
         external 
-        hasAdmin                 (repoId, accountId) 
-        isAuthorizedDistributor  (repoId, accountId) 
+        isAuthorizedDistributor(repoId, accountId) 
         returns (uint256[] memory distributionIds)
     {
         distributionIds = new uint256[](params.length);
