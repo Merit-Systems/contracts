@@ -472,54 +472,34 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                            AUTHORIZE DISTRIBUTOR                           */
+    /*                         DISTRIBUTOR AUTHORIZATION                          */
     /* -------------------------------------------------------------------------- */
-    function authorizeDistributor(uint256 repoId, uint256 accountId, address distributor) 
-        external 
-        isRepoAdmin(repoId, accountId) 
-    {
-        _authorizeDistributor(repoId, accountId, distributor);
-    }
-
-    function batchAuthorizeDistributors(uint256 repoId, uint256 accountId, address[] calldata distributors) 
+    function authorizeDistributor(uint256 repoId, uint256 accountId, address[] calldata distributors) 
         external 
         isRepoAdmin(repoId, accountId) 
     {
         for (uint256 i = 0; i < distributors.length; i++) {
-            _authorizeDistributor(repoId, accountId, distributors[i]);
+            address distributor = distributors[i];
+            require(distributor != address(0), Errors.INVALID_ADDRESS);
+            if (!accounts[repoId][accountId].authorizedDistributors[distributor]) {
+                accounts[repoId][accountId].authorizedDistributors[distributor] = true;
+                emit DistributorAuthorized(repoId, accountId, distributor);
+            }
         }
     }
 
-    function _authorizeDistributor(uint256 repoId, uint256 accountId, address distributor) internal {
-        require(distributor != address(0), Errors.INVALID_ADDRESS);
-        if (!accounts[repoId][accountId].authorizedDistributors[distributor]) {
-            accounts[repoId][accountId].authorizedDistributors[distributor] = true;
-            emit DistributorAuthorized(repoId, accountId, distributor);
-        }
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                           DEAUTHORIZE DISTRIBUTOR                          */
-    /* -------------------------------------------------------------------------- */
-    function deauthorizeDistributor(uint256 repoId, uint256 accountId, address distributor) external isRepoAdmin(repoId, accountId) {
-        _deauthorizeDistributor(repoId, accountId, distributor);
-    }
-
-
-    function batchDeauthorizeDistributors(uint256 repoId, uint256 accountId, address[] calldata distributors) external isRepoAdmin(repoId, accountId) {
+    function deauthorizeDistributor(uint256 repoId, uint256 accountId, address[] calldata distributors) 
+        external 
+        isRepoAdmin(repoId, accountId) 
+    {
         for (uint256 i = 0; i < distributors.length; i++) {
-            _deauthorizeDistributor(repoId, accountId, distributors[i]);
+            address distributor = distributors[i];
+            if (accounts[repoId][accountId].authorizedDistributors[distributor]) {
+                accounts[repoId][accountId].authorizedDistributors[distributor] = false;
+                emit DistributorDeauthorized(repoId, accountId, distributor);
+            }
         }
     }
-
-    function _deauthorizeDistributor(uint256 repoId, uint256 accountId, address distributor) internal {
-        if (accounts[repoId][accountId].authorizedDistributors[distributor]) {
-            accounts[repoId][accountId].authorizedDistributors[distributor] = false;
-            emit DistributorDeauthorized(repoId, accountId, distributor);
-        }
-    }
-
-
 
     /* -------------------------------------------------------------------------- */
     /*                           DOMAIN‑SEPARATOR LOGIC                           */
@@ -581,8 +561,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     {
         return accounts[repoId][accountId].hasDistributions;
     }
-
-
 
     function getDistribution(uint256 distributionId) 
         external 
