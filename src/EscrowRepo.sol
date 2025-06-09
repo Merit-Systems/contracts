@@ -189,9 +189,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
     ) 
         external 
         isAuthorizedDistributor(repoId, accountId) 
-        returns (uint256[] memory)
+        returns (uint256[] memory distributionIds)
     {
-        uint256[] memory distributionIds = new uint256[](params.length);
+        distributionIds = new uint256[](params.length);
         for (uint256 i; i < params.length; ++i) {
             DistributionParams calldata param = params[i];
             
@@ -201,7 +201,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
 
             uint256 balance = accounts[repoId][accountId].balance[address(param.token)];
-            require(balance >= param.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
+            require(balance >= param.amount, Errors.INSUFFICIENT_BALANCE);
             accounts[repoId][accountId].balance[address(param.token)] = balance - param.amount;
 
             uint256 claimDeadline = block.timestamp + param.claimPeriod;
@@ -220,7 +220,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
             distributionIds[i] = distributionId;
             emit Distributed(repoId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
         } 
-        return distributionIds;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -297,7 +296,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(accounts[repoId][accountId].distributions.length == 0, Errors.REPO_HAS_DISTRIBUTIONS);
         
         uint256 balance = accounts[repoId][accountId].balance[token];
-        require(balance >= amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
+        require(balance >= amount, Errors.INSUFFICIENT_BALANCE);
         
         accounts[repoId][accountId].balance[token] = balance - amount;
         ERC20(token).safeTransfer(msg.sender, amount);

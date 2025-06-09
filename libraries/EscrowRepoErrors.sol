@@ -20,7 +20,7 @@ library Errors {
     string internal constant RECIPIENT_ALREADY_SET        = "Recipient Already Set";
     string internal constant RECIPIENT_NOT_SET            = "Recipient Not Set";
     string internal constant INVALID_FEE_BPS              = "Invalid Fee BPS";
-    string internal constant INSUFFICIENT_ACCOUNT_BALANCE = "Insufficient Account Balance";
+    string internal constant INSUFFICIENT_BALANCE         = "Insufficient Balance";
     string internal constant INVALID_CLAIM_ID             = "Invalid Claim ID";
     string internal constant CLAIM_DEADLINE_PASSED        = "Claim Deadline Passed";
     string internal constant REPO_HAS_DISTRIBUTIONS       = "Repo Has Distributions";
