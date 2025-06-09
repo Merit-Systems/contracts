@@ -185,63 +185,43 @@ contract EscrowRepo is Owned, IEscrowRepo {
     function distribute(
         uint256 repoId,
         uint256 accountId,
-        DistributionParams calldata params
-    ) 
-        external 
-        isAuthorizedDistributor(repoId, accountId) 
-        returns (uint256)
-    {
-        return _distribute(repoId, accountId, params);
-    }
-
-    function batchDistribute(
-        uint256 repoId,
-        uint256 accountId,
         DistributionParams[] calldata params
     ) 
         external 
         isAuthorizedDistributor(repoId, accountId) 
-        returns (uint256[] memory distributionIds)
+        returns (uint256[] memory)
     {
-        distributionIds = new uint256[](params.length);
+        uint256[] memory distributionIds = new uint256[](params.length);
         for (uint256 i; i < params.length; ++i) {
-            distributionIds[i] = _distribute(repoId, accountId, params[i]);
+            DistributionParams calldata param = params[i];
+            
+            require(param.recipient != address(0),                     Errors.INVALID_ADDRESS);
+            require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
+            require(param.amount      > 0,                             Errors.INVALID_AMOUNT);
+            require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
+
+            uint256 balance = accounts[repoId][accountId].balance[address(param.token)];
+            require(balance >= param.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
+            accounts[repoId][accountId].balance[address(param.token)] = balance - param.amount;
+
+            uint256 claimDeadline = block.timestamp + param.claimPeriod;
+
+            uint256 distributionId = accounts[repoId][accountId].distributions.length;
+            accounts[repoId][accountId].distributions.push(
+                Distribution({
+                    amount:        param.amount,
+                    token:         param.token,
+                    recipient:     param.recipient,
+                    claimDeadline: claimDeadline,
+                    status:        Status.Distributed
+                })
+            );
+
+            emit Distributed(repoId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
+            
+            distributionIds[i] = distributionId;
         } 
-    }
-
-    function _distribute(
-        uint256 repoId,
-        uint256 accountId,
-        DistributionParams calldata params
-    ) 
-        internal 
-        returns (uint256) 
-    {
-        require(params.recipient != address(0),                             Errors.INVALID_ADDRESS);
-        require(_whitelistedTokens.contains(address(params.token)),         Errors.INVALID_TOKEN);
-        require(params.amount > 0,                                          Errors.INVALID_AMOUNT);
-        require(params.claimPeriod > 0 && params.claimPeriod < type(uint32).max, Errors.INVALID_CLAIM_PERIOD);
-
-        uint256 balance = accounts[repoId][accountId].balance[address(params.token)];
-        require(balance >= params.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
-        accounts[repoId][accountId].balance[address(params.token)] = balance - params.amount;
-
-        uint256 claimDeadline = block.timestamp + params.claimPeriod;
-
-        uint256 distributionId = accounts[repoId][accountId].distributions.length;
-        accounts[repoId][accountId].distributions.push(
-            Distribution({
-                amount:        params.amount,
-                token:         params.token,
-                recipient:     params.recipient,
-                claimDeadline: claimDeadline,
-                status:        Status.Distributed
-            })
-        );
-
-        emit Distributed(repoId, distributionId, params.recipient, address(params.token), params.amount, claimDeadline);
-
-        return distributionId;
+        return distributionIds;
     }
 
     /* -------------------------------------------------------------------------- */
