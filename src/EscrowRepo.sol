@@ -195,6 +195,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         returns (uint256[] memory distributionIds)
     {
         uint256 distributionBatchId = distributionBatchCount++;
+        Account storage account = accounts[repoId][accountId];
         distributionIds = new uint256[](params.length);
         for (uint256 i; i < params.length; ++i) {
             DistributionParams calldata param = params[i];
@@ -204,14 +205,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
             require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
             require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
 
-            uint256 balance = accounts[repoId][accountId].balance[address(param.token)];
+            uint256 balance = account.balance[address(param.token)];
             require(balance >= param.amount, Errors.INSUFFICIENT_BALANCE);
-            accounts[repoId][accountId].balance[address(param.token)] = balance - param.amount;
+            account.balance[address(param.token)] = balance - param.amount;
 
-            uint256 claimDeadline = block.timestamp + param.claimPeriod;
+            uint256 claimDeadline  = block.timestamp + param.claimPeriod;
+            uint256 distributionId = account.distributions.length;
 
-            uint256 distributionId = accounts[repoId][accountId].distributions.length;
-            accounts[repoId][accountId].distributions.push(
+            account.distributions.push(
                 Distribution({
                     amount:        param.amount,
                     token:         param.token,
