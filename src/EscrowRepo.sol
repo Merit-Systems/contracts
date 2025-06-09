@@ -195,10 +195,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
         for (uint256 i; i < params.length; ++i) {
             DistributionParams calldata param = params[i];
             
-            require(param.recipient != address(0),                     Errors.INVALID_ADDRESS);
-            require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
+            require(param.recipient  != address(0),                    Errors.INVALID_ADDRESS);
             require(param.amount      > 0,                             Errors.INVALID_AMOUNT);
             require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
+            require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
 
             uint256 balance = accounts[repoId][accountId].balance[address(param.token)];
             require(balance >= param.amount, Errors.INSUFFICIENT_ACCOUNT_BALANCE);
@@ -217,9 +217,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
                 })
             );
 
-            emit Distributed(repoId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
-            
             distributionIds[i] = distributionId;
+            emit Distributed(repoId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
         } 
         return distributionIds;
     }
