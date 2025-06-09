@@ -249,9 +249,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
             account.hasDistributions = true;
 
             distributionIds[i] = distributionId;
-            emit Distributed(distributionBatchId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
+            emit DistributedRepo(distributionBatchId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
         } 
-        emit DistributedBatch(distributionBatchId, repoId, accountId, distributionIds, data);
+        emit DistributedRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -262,6 +262,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         returns (uint256[] memory distributionIds)
     {
         distributionIds = new uint256[](params.length);
+        uint256 distributionBatchId = distributionBatchCount++;
         
         for (uint256 i; i < params.length; ++i) {
             DistributionParams calldata param = params[i];
@@ -291,6 +292,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             distributionIds[i] = distributionId;
             emit DistributedSolo(distributionId, msg.sender, param.recipient, address(param.token), param.amount, claimDeadline);
         } 
+        emit DistributedSoloBatch(distributionBatchId, distributionIds);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -389,7 +391,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             RepoAccount memory repoAccount = distributionToRepo[distributionId];
             accounts[repoAccount.repoId][repoAccount.accountId].balance[address(d.token)] += d.amount;
             
-            emit ReclaimedDistribution(repoAccount.repoId, distributionId, msg.sender, d.amount);
+            emit ReclaimedRepo(repoAccount.repoId, distributionId, msg.sender, d.amount);
         }
     }
 

@@ -10,7 +10,7 @@ interface IEscrowRepo {
         uint256 fee
     );
 
-    event Distributed(
+    event DistributedRepo(
         uint256 indexed repoId,
         uint256 indexed claimId,
         address indexed recipient,
@@ -19,7 +19,7 @@ interface IEscrowRepo {
         uint256 claimDeadline
     );
 
-    event DistributedBatch(
+    event DistributedRepoBatch(
         uint256 indexed distributionBatchId,
         uint256 indexed repoId,
         uint256 indexed accountId,
@@ -41,7 +41,7 @@ interface IEscrowRepo {
         uint256 amount
     );
 
-    event ReclaimedDistribution(
+    event ReclaimedRepo(
         uint256 indexed repoId,
         uint256 indexed distributionId,
         address indexed admin,
@@ -61,6 +61,11 @@ interface IEscrowRepo {
         uint256 indexed distributionId,
         address indexed payer,
         uint256 amount
+    );
+
+    event DistributedSoloBatch(
+        uint256 indexed distributionBatchId,
+        uint256[] distributionIds
     );
 
     event AdminSet(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
