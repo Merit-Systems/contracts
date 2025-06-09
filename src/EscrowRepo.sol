@@ -318,41 +318,26 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /*                            RECLAIM DISTRIBUTION                            */
     /* -------------------------------------------------------------------------- */
     function reclaimDistribution(
-        uint256 repoId,
-        uint256 accountId,
-        uint256 distributionId
-    ) 
-        external 
-    {
-        _reclaimDistribution(repoId, accountId, distributionId);
-    }
-
-    function batchReclaimDistribution(
         uint256            repoId,
         uint256            accountId,
         uint256[] calldata distributionIds
     ) 
         external 
     {
-        for (uint256 i; i < distributionIds.length; ++i) _reclaimDistribution(repoId, accountId, distributionIds[i]);
-    }
+        Account storage account = accounts[repoId][accountId];
 
-    function _reclaimDistribution(
-        uint256 repoId,
-        uint256 accountId,
-        uint256 distributionId
-    ) 
-        internal 
-    {
-        Distribution storage d = accounts[repoId][accountId].distributions[distributionId];
-        require(d.exists, Errors.INVALID_DISTRIBUTION_ID);
+        for (uint256 i; i < distributionIds.length; ++i) {
+            uint256 distributionId = distributionIds[i];
+            Distribution storage d = account.distributions[distributionId];
+            
+            require(d.exists,                         Errors.INVALID_DISTRIBUTION_ID);
+            require(d.status == Status.Distributed,  Errors.ALREADY_CLAIMED);
+            require(block.timestamp > d.claimDeadline, Errors.STILL_CLAIMABLE);
 
-        require(d.status == Status.Distributed,                                  Errors.ALREADY_CLAIMED);
-        require(block.timestamp > d.claimDeadline,                               Errors.STILL_CLAIMABLE);
-
-        d.status = Status.Reclaimed;
-        accounts[repoId][accountId].balance[address(d.token)] += d.amount;
-        emit ReclaimedDistribution(repoId, distributionId, msg.sender, d.amount);
+            d.status = Status.Reclaimed;
+            account.balance[address(d.token)] += d.amount;
+            emit ReclaimedDistribution(repoId, distributionId, msg.sender, d.amount);
+        }
     }
 
     /* -------------------------------------------------------------------------- */
