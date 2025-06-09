@@ -197,9 +197,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
         isAuthorizedDistributor(repoId, accountId) 
         returns (uint256[] memory distributionIds)
     {
+        distributionIds             = new uint256[](params.length);
         uint256 distributionBatchId = distributionBatchCount++;
-        Account storage account = accounts[repoId][accountId];
-        distributionIds = new uint256[](params.length);
+        Account storage account     = accounts[repoId][accountId];
+
         for (uint256 i; i < params.length; ++i) {
             DistributionParams calldata param = params[i];
             
