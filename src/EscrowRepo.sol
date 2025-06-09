@@ -310,7 +310,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         accounts[repoId][accountId].balance[token] = balance - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
         
-        emit Reclaimed(repoId, type(uint256).max, msg.sender, amount);
+        emit ReclaimedFund(repoId, type(uint256).max, msg.sender, amount);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -351,7 +351,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
         d.status = Status.Reclaimed;
         accounts[repoId][accountId].balance[address(d.token)] += d.amount;
-        emit Reclaimed(repoId, distributionId, msg.sender, d.amount);
+        emit ReclaimedDistribution(repoId, distributionId, msg.sender, d.amount);
     }
 
     /* -------------------------------------------------------------------------- */
