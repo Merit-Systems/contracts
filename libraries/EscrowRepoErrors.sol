@@ -20,10 +20,16 @@ library Errors {
     string internal constant RECIPIENT_ALREADY_SET        = "Recipient Already Set";
     string internal constant RECIPIENT_NOT_SET            = "Recipient Not Set";
     string internal constant INVALID_FEE_BPS              = "Invalid Fee BPS";
-    string internal constant INSUFFICIENT_ACCOUNT_BALANCE = "Insufficient Account Balance";
+    string internal constant INSUFFICIENT_BALANCE         = "Insufficient Balance";
     string internal constant INVALID_CLAIM_ID             = "Invalid Claim ID";
     string internal constant CLAIM_DEADLINE_PASSED        = "Claim Deadline Passed";
     string internal constant REPO_HAS_DISTRIBUTIONS       = "Repo Has Distributions";
     string internal constant DISTRIBUTOR_ALREADY_AUTHORIZED = "Distributor Already Authorized";
     string internal constant DISTRIBUTOR_NOT_AUTHORIZED     = "Distributor Not Authorized";
+    string internal constant INVALID_RECIPIENT              = "Invalid Recipient";
+    string internal constant NOT_REPO_DISTRIBUTION          = "Not Repo Distribution";
+    string internal constant NOT_DIRECT_DISTRIBUTION        = "Not Direct Distribution";
+    string internal constant NOT_ORIGINAL_PAYER             = "Not Original Payer";
+    string internal constant NOT_AUTHORIZED_DISTRIBUTOR     = "Not Authorized Distributor";
+    string internal constant REPO_ALREADY_INITIALIZED       = "Repo Already Initialized";
 } 
