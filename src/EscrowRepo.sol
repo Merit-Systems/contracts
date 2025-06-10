@@ -35,10 +35,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     struct Account {
-        mapping(address => uint256) balance;                 // token → balance
-        bool                        hasDistributions;        // whether any distributions have occurred
-        address                     admin;                   // admin
-        mapping(address => bool)    authorizedDistributors;  // distributor → authorized?
+        mapping(address => uint256) balance;          // token → balance
+        bool                        hasDistributions; // whether any distributions have occurred
+        address                     admin;            // admin
+        mapping(address => bool)    distributors;     // distributor → authorized?
     }
 
     enum Status { 
@@ -199,7 +199,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         Account storage account = accounts[repoId][accountId];
 
         bool isAdmin       = msg.sender == account.admin;
-        bool isDistributor = account.authorizedDistributors[msg.sender];
+        bool isDistributor = account.distributors[msg.sender];
         require(isAdmin || isDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
         
         distributionIds             = new uint256[](_distributions.length);
@@ -471,8 +471,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
         for (uint256 i; i < distributors.length; ++i) {
             address distributor = distributors[i];
             require(distributor != address(0), Errors.INVALID_ADDRESS);
-            if (!accounts[repoId][accountId].authorizedDistributors[distributor]) {
-                accounts[repoId][accountId].authorizedDistributors[distributor] = true;
+            if (!accounts[repoId][accountId].distributors[distributor]) {
+                accounts[repoId][accountId].distributors[distributor] = true;
                 emit DistributorAuthorized(repoId, accountId, distributor);
             }
         }
@@ -484,8 +484,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     {
         for (uint256 i; i < distributors.length; ++i) {
             address distributor = distributors[i];
-            if (accounts[repoId][accountId].authorizedDistributors[distributor]) {
-                accounts[repoId][accountId].authorizedDistributors[distributor] = false;
+            if (accounts[repoId][accountId].distributors[distributor]) {
+                accounts[repoId][accountId].distributors[distributor] = false;
                 emit DistributorDeauthorized(repoId, accountId, distributor);
             }
         }
@@ -525,7 +525,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         view 
         returns (bool) 
     {
-        return accounts[repoId][accountId].authorizedDistributors[distributor];
+        return accounts[repoId][accountId].distributors[distributor];
     }
 
     function canDistribute(uint256 repoId, uint256 accountId, address caller) 
@@ -533,7 +533,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         view 
         returns (bool) 
     {
-        return caller == accounts[repoId][accountId].admin || accounts[repoId][accountId].authorizedDistributors[caller];
+        return caller == accounts[repoId][accountId].admin || accounts[repoId][accountId].distributors[caller];
     }
 
     function getAccountBalance(uint256 repoId, uint256 accountId, address token) 
