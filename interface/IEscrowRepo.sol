@@ -36,7 +36,6 @@ interface IEscrowRepo {
 
     event ReclaimedFund(
         uint256 indexed repoId,
-        uint256 indexed claimId,
         address indexed admin,
         uint256 amount
     );

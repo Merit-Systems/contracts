@@ -364,7 +364,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         accounts[repoId][accountId].balance[token] = balance - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
         
-        emit ReclaimedFund(repoId, type(uint256).max, msg.sender, amount);
+        emit ReclaimedFund(repoId, msg.sender, amount);
     }
 
     /* -------------------------------------------------------------------------- */
