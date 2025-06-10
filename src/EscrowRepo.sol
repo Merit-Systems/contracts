@@ -395,8 +395,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     function reclaimSolo(uint256[] calldata distributionIds) external {
         for (uint256 i; i < distributionIds.length; ++i) {
-            uint256 distributionId = distributionIds[i];
-            Distribution storage distribution = distributions[distributionId];
+            uint256              distributionId = distributionIds[i];
+            Distribution storage distribution   = distributions[distributionId];
             
             require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
             require(distribution.distributionType   == DistributionType.Solo,          Errors.NOT_DIRECT_DISTRIBUTION);
