@@ -240,7 +240,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
             account.hasDistributions = true;
 
             distributionIds[i] = distributionId;
-            emit DistributedRepo(distributionBatchId, distributionId, distribution.recipient, address(distribution.token), distribution.amount, claimDeadline);
+            emit DistributedRepo(
+                distributionBatchId,
+                distributionId,
+                distribution.recipient,
+                address(distribution.token),
+                distribution.amount,
+                claimDeadline
+            );
         } 
         emit DistributedRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
