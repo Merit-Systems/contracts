@@ -324,10 +324,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
             uint256 distributionId = distributionIds[i];
             Distribution storage distribution = distributions[distributionId];
 
-            require(distribution.exists,                                  Errors.INVALID_DISTRIBUTION_ID);
-            require(distribution.status    == DistributionStatus.Distributed,         Errors.ALREADY_CLAIMED);
-            require(distribution.recipient == msg.sender,                 Errors.INVALID_RECIPIENT);
-            require(block.timestamp        <= distribution.claimDeadline, Errors.CLAIM_DEADLINE_PASSED);
+            require(distribution.exists,                                      Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution.status    == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(distribution.recipient == msg.sender,                     Errors.INVALID_RECIPIENT);
+            require(block.timestamp        <= distribution.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
 
             distribution.status = DistributionStatus.Claimed;
              
@@ -375,10 +375,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
             uint256 distributionId = distributionIds[i];
             Distribution storage d = distributions[distributionId];
             
-            require(d.exists,                                       Errors.INVALID_DISTRIBUTION_ID);
-            require(d.distributionType == DistributionType.Repo,    Errors.NOT_REPO_DISTRIBUTION);
-            require(d.status == DistributionStatus.Distributed,                 Errors.ALREADY_CLAIMED);
-            require(block.timestamp > d.claimDeadline,              Errors.STILL_CLAIMABLE);
+            require(d.exists,                                    Errors.INVALID_DISTRIBUTION_ID);
+            require(d.distributionType == DistributionType.Repo, Errors.NOT_REPO_DISTRIBUTION);
+            require(d.status == DistributionStatus.Distributed,  Errors.ALREADY_CLAIMED);
+            require(block.timestamp > d.claimDeadline,           Errors.STILL_CLAIMABLE);
 
             d.status = DistributionStatus.Reclaimed;
             
@@ -399,7 +399,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             
             require(d.exists,                                    Errors.INVALID_DISTRIBUTION_ID);
             require(d.distributionType == DistributionType.Solo, Errors.NOT_DIRECT_DISTRIBUTION);
-            require(d.status == DistributionStatus.Distributed,              Errors.ALREADY_CLAIMED);
+            require(d.status == DistributionStatus.Distributed,  Errors.ALREADY_CLAIMED);
             require(d.payer == msg.sender,                       Errors.NOT_ORIGINAL_PAYER);
             require(block.timestamp > d.claimDeadline,           Errors.STILL_CLAIMABLE);
             
