@@ -383,7 +383,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
             d.status = Status.Reclaimed;
             
-            // Use reverse mapping to find which account to credit
             RepoAccount memory repoAccount = distributionToRepo[distributionId];
             accounts[repoAccount.repoId][repoAccount.accountId].balance[address(d.token)] += d.amount;
             
@@ -454,7 +453,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               SET REPO ADMIN                              */
+    /*                              ONLY REPO ADMIN                              */
     /* -------------------------------------------------------------------------- */
     function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) 
         external 
@@ -467,9 +466,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
         emit RepoAdminChanged(repoId, oldAdmin, newAdmin);
     }
 
-    /* -------------------------------------------------------------------------- */
-    /*                         DISTRIBUTOR AUTHORIZATION                          */
-    /* -------------------------------------------------------------------------- */
     function authorizeDistributor(uint256 repoId, uint256 accountId, address[] calldata distributors) 
         external 
         isRepoAdmin(repoId, accountId) 
