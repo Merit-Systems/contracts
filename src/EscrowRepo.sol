@@ -78,8 +78,8 @@ contract EscrowRepo is Owned, IEscrowRepo {
     mapping(uint256 => Distribution) public distributions;            // distributionId → Distribution
     mapping(uint256 => RepoAccount)  public distributionToRepo;       // distributionId → RepoAccount (for repo distributions)
 
-    mapping(address => uint256)  public recipientNonce; // recipient → nonce
-    uint256                      public ownerNonce;    
+    mapping(address => uint256) public recipientNonce;                // recipient → nonce
+    uint256                     public ownerNonce;    
 
     uint16  public protocolFeeBps;
     address public feeRecipient;
@@ -310,7 +310,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
                     DOMAIN_SEPARATOR(),
                     keccak256(abi.encode(
                         CLAIM_TYPEHASH,
-                        keccak256(abi.encodePacked(distributionIds)),
+                        keccak256(abi.encode(distributionIds)),
                         msg.sender,
                         recipientNonce[msg.sender],
                         deadline
