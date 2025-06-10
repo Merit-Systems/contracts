@@ -105,14 +105,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         _;
     }
 
-    modifier isAuthorizedDistributor(uint256 repoId, uint256 accountId) {
-        require(
-            msg.sender == accounts[repoId][accountId].admin || 
-            accounts[repoId][accountId].authorizedDistributors[msg.sender], 
-            Errors.NOT_AUTHORIZED_DISTRIBUTOR
-        );
-        _;
-    }
+
 
     /* -------------------------------------------------------------------------- */
     /*                                 CONSTRUCTOR                                */
@@ -203,12 +196,16 @@ contract EscrowRepo is Owned, IEscrowRepo {
         bytes                memory   data
     ) 
         external 
-        isAuthorizedDistributor(repoId, accountId) 
         returns (uint256[] memory distributionIds)
     {
+        Account storage account = accounts[repoId][accountId];
+
+        bool isAdmin                 = msg.sender == account.admin;
+        bool isAuthorizedDistributor = account.authorizedDistributors[msg.sender];
+        require(isAdmin || isAuthorizedDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        
         distributionIds             = new uint256[](params.length);
         uint256 distributionBatchId = distributionBatchCount++;
-        Account storage account     = accounts[repoId][accountId];
 
         for (uint256 i; i < params.length; ++i) {
             DistributionParams calldata param = params[i];
@@ -236,11 +233,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
                 payer:             address(0)
             });
 
-            // Store reverse mapping for repo distributions
-            RepoAccount memory repoAccount;
-            repoAccount.repoId = repoId;
-            repoAccount.accountId = accountId;
-            distributionToRepo[distributionId] = repoAccount;
+            distributionToRepo[distributionId] = RepoAccount({
+                repoId:    repoId,
+                accountId: accountId
+            });
             account.hasDistributions = true;
 
             distributionIds[i] = distributionId;
