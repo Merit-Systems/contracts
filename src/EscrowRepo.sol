@@ -262,6 +262,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         emit DistributedSoloBatch(distributionBatchId, distributionIds);
     }
 
+    ///
     function _createDistribution(
         DistributionParams calldata distribution,
         DistributionType            distributionType
@@ -475,7 +476,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             require(distributor != address(0), Errors.INVALID_ADDRESS);
             if (!account.distributors[distributor]) {
                 account.distributors[distributor] = true;
-                emit DistributorAdded(repoId, accountId, distributor);
+                emit AddedDistributor(repoId, accountId, distributor);
             }
         }
     }
@@ -489,7 +490,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             address distributor = distributors[i];
             if (account.distributors[distributor]) {
                 account.distributors[distributor] = false;
-                emit DistributorRemoved(repoId, accountId, distributor);
+                emit RemovedDistributor(repoId, accountId, distributor);
             }
         }
     }

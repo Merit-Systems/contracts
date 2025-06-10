@@ -71,6 +71,6 @@ interface IEscrowRepo {
     event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
     event TokenWhitelisted(address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
-    event DistributorAdded(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
-    event DistributorRemoved(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
+    event AddedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
+    event RemovedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
 } 
