@@ -37,14 +37,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     struct Distribution {
-        uint256          amount;
-        ERC20            token;
-        address          recipient;
-        uint256          claimDeadline;    // unix seconds
-        DistributionStatus           status;           // Distributed → Claimed / Reclaimed
-        bool             exists;           // whether this distribution exists
-        DistributionType distributionType; // Repo or Solo
-        address          payer;            // who paid for this distribution (only used for Solo)
+        uint256            amount;
+        ERC20              token;
+        address            recipient;
+        uint256            claimDeadline;      // unix seconds
+        bool               exists;             // whether this distribution exists
+        DistributionStatus distributionStatus; // Distributed → Claimed / Reclaimed
+        DistributionType   distributionType;   // Repo or Solo
+        address            payer;              // who paid for this distribution (only used for Solo)
     }
 
     enum DistributionType {
@@ -279,14 +279,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
         distributionId = distributionCount++;
 
         distributions[distributionId] = Distribution({
-            amount:            distribution.amount,
-            token:             distribution.token,
-            recipient:         distribution.recipient,
-            claimDeadline:     claimDeadline,
-            status:            DistributionStatus.Distributed,
-            exists:            true,
-            distributionType:  distributionType,
-            payer:             distributionType == DistributionType.Solo ? msg.sender : address(0)
+            amount:             distribution.amount,
+            token:              distribution.token,
+            recipient:          distribution.recipient,
+            claimDeadline:      claimDeadline,
+            distributionStatus: DistributionStatus.Distributed,
+            exists:             true,
+            distributionType:   distributionType,
+            payer:              distributionType == DistributionType.Solo ? msg.sender : address(0)
         });
     }
 
@@ -324,12 +324,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
             uint256 distributionId = distributionIds[i];
             Distribution storage distribution = distributions[distributionId];
 
-            require(distribution.exists,                                      Errors.INVALID_DISTRIBUTION_ID);
-            require(distribution.status    == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
-            require(distribution.recipient == msg.sender,                     Errors.INVALID_RECIPIENT);
-            require(block.timestamp        <= distribution.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
+            require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(distribution.recipient          == msg.sender,                     Errors.INVALID_RECIPIENT);
+            require(block.timestamp                 <= distribution.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
 
-            distribution.status = DistributionStatus.Claimed;
+            distribution.distributionStatus = DistributionStatus.Claimed;
              
             uint256 fee       = distribution.amount.mulDivUp(protocolFeeBps, 10_000);
             uint256 netAmount = distribution.amount - fee;
@@ -375,12 +375,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
             uint256 distributionId = distributionIds[i];
             Distribution storage d = distributions[distributionId];
             
-            require(d.exists,                                    Errors.INVALID_DISTRIBUTION_ID);
-            require(d.distributionType == DistributionType.Repo, Errors.NOT_REPO_DISTRIBUTION);
-            require(d.status == DistributionStatus.Distributed,  Errors.ALREADY_CLAIMED);
-            require(block.timestamp > d.claimDeadline,           Errors.STILL_CLAIMABLE);
+            require(d.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
+            require(d.distributionType   == DistributionType.Repo,          Errors.NOT_REPO_DISTRIBUTION);
+            require(d.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(block.timestamp      >  d.claimDeadline,                Errors.STILL_CLAIMABLE);
 
-            d.status = DistributionStatus.Reclaimed;
+            d.distributionStatus = DistributionStatus.Reclaimed;
             
             RepoAccount memory repoAccount = distributionToRepo[distributionId];
             accounts[repoAccount.repoId][repoAccount.accountId].balance[address(d.token)] += d.amount;
@@ -397,13 +397,13 @@ contract EscrowRepo is Owned, IEscrowRepo {
             uint256 distributionId = distributionIds[i];
             Distribution storage d = distributions[distributionId];
             
-            require(d.exists,                                    Errors.INVALID_DISTRIBUTION_ID);
-            require(d.distributionType == DistributionType.Solo, Errors.NOT_DIRECT_DISTRIBUTION);
-            require(d.status == DistributionStatus.Distributed,  Errors.ALREADY_CLAIMED);
-            require(d.payer == msg.sender,                       Errors.NOT_ORIGINAL_PAYER);
-            require(block.timestamp > d.claimDeadline,           Errors.STILL_CLAIMABLE);
+            require(d.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
+            require(d.distributionType   == DistributionType.Solo,          Errors.NOT_DIRECT_DISTRIBUTION);
+            require(d.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(d.payer              == msg.sender,                     Errors.NOT_ORIGINAL_PAYER);
+            require(block.timestamp      >  d.claimDeadline,                Errors.STILL_CLAIMABLE);
             
-            d.status = DistributionStatus.Reclaimed;
+            d.distributionStatus = DistributionStatus.Reclaimed;
             d.token.safeTransfer(msg.sender, d.amount);
             
             emit ReclaimedSolo(distributionId, msg.sender, d.amount);
