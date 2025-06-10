@@ -235,6 +235,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         emit DistributedRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
 
+    ///
     function distributeSolo(
         DistributionParams[] calldata _distributions
     ) 
@@ -246,13 +247,18 @@ contract EscrowRepo is Owned, IEscrowRepo {
         
         for (uint256 i; i < _distributions.length; ++i) {
             DistributionParams calldata distribution = _distributions[i];
-            
             distribution.token.safeTransferFrom(msg.sender, address(this), distribution.amount);
-
             uint256 distributionId = _createDistribution(distribution, DistributionType.Solo);
-            distributionIds[i] = distributionId;
+            distributionIds[i]     = distributionId;
 
-            emit DistributedSolo(distributionId, msg.sender, distribution.recipient, address(distribution.token), distribution.amount, block.timestamp + distribution.claimPeriod);
+            emit DistributedSolo(
+                distributionId,
+                msg.sender,
+                distribution.recipient,
+                address(distribution.token),
+                distribution.amount,
+                block.timestamp + distribution.claimPeriod
+            );
         } 
         emit DistributedSoloBatch(distributionBatchId, distributionIds);
     }
