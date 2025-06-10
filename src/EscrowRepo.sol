@@ -200,9 +200,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
     {
         Account storage account = accounts[repoId][accountId];
 
-        bool isAdmin                 = msg.sender == account.admin;
-        bool isAuthorizedDistributor = account.authorizedDistributors[msg.sender];
-        require(isAdmin || isAuthorizedDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        bool isAdmin       = msg.sender == account.admin;
+        bool isDistributor = account.authorizedDistributors[msg.sender];
+        require(isAdmin || isDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
         
         distributionIds             = new uint256[](_distributions.length);
         uint256 distributionBatchId = distributionBatchCount++;
@@ -263,7 +263,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
             require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
             require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
 
-            // Transfer tokens directly from caller
             distribution.token.safeTransferFrom(msg.sender, address(this), distribution.amount);
 
             uint256 claimDeadline  = block.timestamp + distribution.claimPeriod;
