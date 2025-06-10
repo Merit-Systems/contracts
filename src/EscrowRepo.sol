@@ -192,7 +192,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     function distributeRepo(
         uint256                       repoId,
         uint256                       accountId,
-        DistributionParams[] calldata params,
+        DistributionParams[] calldata _distributions,
         bytes                memory   data
     ) 
         external 
@@ -204,28 +204,28 @@ contract EscrowRepo is Owned, IEscrowRepo {
         bool isAuthorizedDistributor = account.authorizedDistributors[msg.sender];
         require(isAdmin || isAuthorizedDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
         
-        distributionIds             = new uint256[](params.length);
+        distributionIds             = new uint256[](_distributions.length);
         uint256 distributionBatchId = distributionBatchCount++;
 
-        for (uint256 i; i < params.length; ++i) {
-            DistributionParams calldata param = params[i];
+        for (uint256 i; i < _distributions.length; ++i) {
+            DistributionParams calldata distribution = _distributions[i];
             
-            require(param.recipient  != address(0),                    Errors.INVALID_ADDRESS);
-            require(param.amount      > 0,                             Errors.INVALID_AMOUNT);
-            require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
-            require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
+            require(distribution.recipient  != address(0),                    Errors.INVALID_ADDRESS);
+            require(distribution.amount      > 0,                             Errors.INVALID_AMOUNT);
+            require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
+            require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
 
-            uint256 balance = account.balance[address(param.token)];
-            require(balance >= param.amount, Errors.INSUFFICIENT_BALANCE);
-            account.balance[address(param.token)] = balance - param.amount;
+            uint256 balance = account.balance[address(distribution.token)];
+            require(balance >= distribution.amount, Errors.INSUFFICIENT_BALANCE);
+            account.balance[address(distribution.token)] = balance - distribution.amount;
 
-            uint256 claimDeadline  = block.timestamp + param.claimPeriod;
+            uint256 claimDeadline  = block.timestamp + distribution.claimPeriod;
             uint256 distributionId = distributionCount++;
 
             distributions[distributionId] = Distribution({
-                amount:            param.amount,
-                token:             param.token,
-                recipient:         param.recipient,
+                amount:            distribution.amount,
+                token:             distribution.token,
+                recipient:         distribution.recipient,
                 claimDeadline:     claimDeadline,
                 status:            Status.Distributed,
                 exists:            true,
@@ -240,7 +240,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             account.hasDistributions = true;
 
             distributionIds[i] = distributionId;
-            emit DistributedRepo(distributionBatchId, distributionId, param.recipient, address(param.token), param.amount, claimDeadline);
+            emit DistributedRepo(distributionBatchId, distributionId, distribution.recipient, address(distribution.token), distribution.amount, claimDeadline);
         } 
         emit DistributedRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
@@ -248,31 +248,31 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                              DISTRIBUTE SOLO                               */
     /* -------------------------------------------------------------------------- */
-    function distributeSolo(DistributionParams[] calldata params) 
+    function distributeSolo(DistributionParams[] calldata _distributions) 
         external 
         returns (uint256[] memory distributionIds)
     {
-        distributionIds = new uint256[](params.length);
+        distributionIds = new uint256[](_distributions.length);
         uint256 distributionBatchId = distributionBatchCount++;
         
-        for (uint256 i; i < params.length; ++i) {
-            DistributionParams calldata param = params[i];
+        for (uint256 i; i < _distributions.length; ++i) {
+            DistributionParams calldata distribution = _distributions[i];
             
-            require(param.recipient  != address(0),                    Errors.INVALID_ADDRESS);
-            require(param.amount      > 0,                             Errors.INVALID_AMOUNT);
-            require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
-            require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
+            require(distribution.recipient  != address(0),                    Errors.INVALID_ADDRESS);
+            require(distribution.amount      > 0,                             Errors.INVALID_AMOUNT);
+            require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
+            require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
 
             // Transfer tokens directly from caller
-            param.token.safeTransferFrom(msg.sender, address(this), param.amount);
+            distribution.token.safeTransferFrom(msg.sender, address(this), distribution.amount);
 
-            uint256 claimDeadline  = block.timestamp + param.claimPeriod;
+            uint256 claimDeadline  = block.timestamp + distribution.claimPeriod;
             uint256 distributionId = distributionCount++;
 
             distributions[distributionId] = Distribution({
-                amount:            param.amount,
-                token:             param.token,
-                recipient:         param.recipient,
+                amount:            distribution.amount,
+                token:             distribution.token,
+                recipient:         distribution.recipient,
                 claimDeadline:     claimDeadline,
                 status:            Status.Distributed,
                 exists:            true,
@@ -281,7 +281,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
             });
 
             distributionIds[i] = distributionId;
-            emit DistributedSolo(distributionId, msg.sender, param.recipient, address(param.token), param.amount, claimDeadline);
+            emit DistributedSolo(distributionId, msg.sender, distribution.recipient, address(distribution.token), distribution.amount, claimDeadline);
         } 
         emit DistributedSoloBatch(distributionBatchId, distributionIds);
     }
