@@ -35,10 +35,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     struct Account {
-        mapping(address => uint256)      balance;                 // token → balance
-        bool                             hasDistributions;        // whether any distributions have occurred
-        address                          admin;                   // admin
-        mapping(address => bool)         authorizedDistributors;  // distributor → authorized?
+        mapping(address => uint256) balance;                 // token → balance
+        bool                        hasDistributions;        // whether any distributions have occurred
+        address                     admin;                   // admin
+        mapping(address => bool)    authorizedDistributors;  // distributor → authorized?
     }
 
     enum Status { 
@@ -51,11 +51,11 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 amount;
         ERC20   token;
         address recipient;
-        uint256 claimDeadline; // unix seconds
-        Status  status;        // Distributed → Claimed / Reclaimed
-        bool    exists;        // whether this distribution exists
-        DistributionType distributionType; // NEW: Repo or Solo
-        address payer;         // NEW: who paid for this distribution (only used for Solo)
+        uint256 claimDeadline;             // unix seconds
+        Status  status;                    // Distributed → Claimed / Reclaimed
+        bool    exists;                    // whether this distribution exists
+        DistributionType distributionType; // Repo or Solo
+        address payer;                     // who paid for this distribution (only used for Solo)
     }
 
     struct DistributionParams {
