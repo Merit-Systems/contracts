@@ -187,7 +187,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                              DISTRIBUTE REPO                               */
+    /*                              DISTRIBUTE REPO / SOLO                        */
     /* -------------------------------------------------------------------------- */
     function distributeRepo(
         uint256                       repoId,
@@ -210,28 +210,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
         for (uint256 i; i < _distributions.length; ++i) {
             DistributionParams calldata distribution = _distributions[i];
             
-            require(distribution.recipient  != address(0),                    Errors.INVALID_ADDRESS);
-            require(distribution.amount      > 0,                             Errors.INVALID_AMOUNT);
-            require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
-            require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
-
             uint256 balance = account.balance[address(distribution.token)];
             require(balance >= distribution.amount, Errors.INSUFFICIENT_BALANCE);
             account.balance[address(distribution.token)] = balance - distribution.amount;
 
-            uint256 claimDeadline  = block.timestamp + distribution.claimPeriod;
-            uint256 distributionId = distributionCount++;
-
-            distributions[distributionId] = Distribution({
-                amount:            distribution.amount,
-                token:             distribution.token,
-                recipient:         distribution.recipient,
-                claimDeadline:     claimDeadline,
-                status:            Status.Distributed,
-                exists:            true,
-                distributionType:  DistributionType.Repo,
-                payer:             address(0)
-            });
+            uint256 distributionId = _createDistribution(distribution, DistributionType.Repo);
+            distributionIds[i] = distributionId;
 
             distributionToRepo[distributionId] = RepoAccount({
                 repoId:    repoId,
@@ -239,57 +223,66 @@ contract EscrowRepo is Owned, IEscrowRepo {
             });
             account.hasDistributions = true;
 
-            distributionIds[i] = distributionId;
             emit DistributedRepo(
                 distributionBatchId,
                 distributionId,
                 distribution.recipient,
                 address(distribution.token),
                 distribution.amount,
-                claimDeadline
+                block.timestamp + distribution.claimPeriod
             );
         } 
         emit DistributedRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
 
-    /* -------------------------------------------------------------------------- */
-    /*                              DISTRIBUTE SOLO                               */
-    /* -------------------------------------------------------------------------- */
-    function distributeSolo(DistributionParams[] calldata _distributions) 
+    function distributeSolo(
+        DistributionParams[] calldata _distributions
+    ) 
         external 
         returns (uint256[] memory distributionIds)
     {
-        distributionIds = new uint256[](_distributions.length);
+        distributionIds             = new uint256[](_distributions.length);
         uint256 distributionBatchId = distributionBatchCount++;
         
         for (uint256 i; i < _distributions.length; ++i) {
             DistributionParams calldata distribution = _distributions[i];
             
-            require(distribution.recipient  != address(0),                    Errors.INVALID_ADDRESS);
-            require(distribution.amount      > 0,                             Errors.INVALID_AMOUNT);
-            require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
-            require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
-
             distribution.token.safeTransferFrom(msg.sender, address(this), distribution.amount);
 
-            uint256 claimDeadline  = block.timestamp + distribution.claimPeriod;
-            uint256 distributionId = distributionCount++;
-
-            distributions[distributionId] = Distribution({
-                amount:            distribution.amount,
-                token:             distribution.token,
-                recipient:         distribution.recipient,
-                claimDeadline:     claimDeadline,
-                status:            Status.Distributed,
-                exists:            true,
-                distributionType:  DistributionType.Solo,
-                payer:             msg.sender
-            });
-
+            uint256 distributionId = _createDistribution(distribution, DistributionType.Solo);
             distributionIds[i] = distributionId;
-            emit DistributedSolo(distributionId, msg.sender, distribution.recipient, address(distribution.token), distribution.amount, claimDeadline);
+
+            emit DistributedSolo(distributionId, msg.sender, distribution.recipient, address(distribution.token), distribution.amount, block.timestamp + distribution.claimPeriod);
         } 
         emit DistributedSoloBatch(distributionBatchId, distributionIds);
+    }
+
+    function _createDistribution(
+        DistributionParams calldata distribution,
+        DistributionType            distributionType
+    ) 
+        internal 
+        returns (uint256 distributionId) 
+    {
+        require(distribution.recipient  != address(0),                    Errors.INVALID_ADDRESS);
+        require(distribution.amount      > 0,                             Errors.INVALID_AMOUNT);
+        require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
+        require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
+
+        uint256 claimDeadline = block.timestamp + distribution.claimPeriod;
+        
+        distributionId = distributionCount++;
+
+        distributions[distributionId] = Distribution({
+            amount:            distribution.amount,
+            token:             distribution.token,
+            recipient:         distribution.recipient,
+            claimDeadline:     claimDeadline,
+            status:            Status.Distributed,
+            exists:            true,
+            distributionType:  distributionType,
+            payer:             distributionType == DistributionType.Solo ? msg.sender : address(0)
+        });
     }
 
     /* -------------------------------------------------------------------------- */
