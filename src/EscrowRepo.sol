@@ -48,14 +48,14 @@ contract EscrowRepo is Owned, IEscrowRepo {
     }
 
     struct Distribution {
-        uint256 amount;
-        ERC20   token;
-        address recipient;
-        uint256 claimDeadline;             // unix seconds
-        Status  status;                    // Distributed → Claimed / Reclaimed
-        bool    exists;                    // whether this distribution exists
+        uint256          amount;
+        ERC20            token;
+        address          recipient;
+        uint256          claimDeadline;    // unix seconds
+        Status           status;           // Distributed → Claimed / Reclaimed
+        bool             exists;           // whether this distribution exists
         DistributionType distributionType; // Repo or Solo
-        address payer;                     // who paid for this distribution (only used for Solo)
+        address          payer;            // who paid for this distribution (only used for Solo)
     }
 
     struct DistributionParams {
@@ -140,8 +140,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
         bytes32 r,
         bytes32 s
     ) external {
-        require(admin != address(0),         Errors.INVALID_ADDRESS);
-        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
+        require(accounts[repoId][accountId].admin == address(0), Errors.REPO_ALREADY_INITIALIZED);
+        require(admin != address(0),                             Errors.INVALID_ADDRESS);
+        require(block.timestamp <= deadline,                     Errors.SIGNATURE_EXPIRED);
 
         bytes32 digest = keccak256(
             abi.encodePacked(
