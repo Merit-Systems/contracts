@@ -30,4 +30,5 @@ library Errors {
     string internal constant NOT_REPO_DISTRIBUTION          = "Not Repo Distribution";
     string internal constant NOT_DIRECT_DISTRIBUTION        = "Not Direct Distribution";
     string internal constant NOT_ORIGINAL_PAYER             = "Not Original Payer";
+    string internal constant NOT_AUTHORIZED_DISTRIBUTOR     = "Not Authorized Distributor";
 } 

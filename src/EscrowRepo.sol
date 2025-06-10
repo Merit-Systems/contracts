@@ -100,11 +100,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                 MODIFIERS                                  */
     /* -------------------------------------------------------------------------- */
-    modifier hasAdmin(uint256 repoId, uint256 accountId) {
-        require(accounts[repoId][accountId].admin != address(0), Errors.NO_ADMIN_SET);
-        _;
-    }
-
     modifier isRepoAdmin(uint256 repoId, uint256 accountId) {
         require(msg.sender == accounts[repoId][accountId].admin, Errors.NOT_REPO_ADMIN);
         _;
@@ -114,7 +109,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         require(
             msg.sender == accounts[repoId][accountId].admin || 
             accounts[repoId][accountId].authorizedDistributors[msg.sender], 
-            Errors.NOT_REPO_ADMIN
+            Errors.NOT_AUTHORIZED_DISTRIBUTOR
         );
         _;
     }
@@ -145,7 +140,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                              INIT REPO ADMIN                               */
     /* -------------------------------------------------------------------------- */
-    function initRepoAdmin(
+    function initRepo(
         uint256 repoId,
         uint256 accountId,
         address admin,
@@ -154,7 +149,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         bytes32 r,
         bytes32 s
     ) external {
-        require(admin != address(0), Errors.INVALID_ADDRESS);
+        require(admin != address(0),         Errors.INVALID_ADDRESS);
         require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
 
         bytes32 digest = keccak256(
@@ -403,11 +398,11 @@ contract EscrowRepo is Owned, IEscrowRepo {
             uint256 distributionId = distributionIds[i];
             Distribution storage d = distributions[distributionId];
             
-            require(d.exists,                                      Errors.INVALID_DISTRIBUTION_ID);
-            require(d.distributionType == DistributionType.Solo,   Errors.NOT_DIRECT_DISTRIBUTION);
-            require(d.status == Status.Distributed,               Errors.ALREADY_CLAIMED);
-            require(d.payer == msg.sender,                         Errors.NOT_ORIGINAL_PAYER);
-            require(block.timestamp > d.claimDeadline,             Errors.STILL_CLAIMABLE);
+            require(d.exists,                                    Errors.INVALID_DISTRIBUTION_ID);
+            require(d.distributionType == DistributionType.Solo, Errors.NOT_DIRECT_DISTRIBUTION);
+            require(d.status == Status.Distributed,              Errors.ALREADY_CLAIMED);
+            require(d.payer == msg.sender,                       Errors.NOT_ORIGINAL_PAYER);
+            require(block.timestamp > d.claimDeadline,           Errors.STILL_CLAIMABLE);
             
             d.status = Status.Reclaimed;
             d.token.safeTransfer(msg.sender, d.amount);
@@ -466,9 +461,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
     {
         require(newAdmin != address(0), Errors.INVALID_ADDRESS);
 
-        address old = accounts[repoId][accountId].admin;
+        address oldAdmin = accounts[repoId][accountId].admin;
         accounts[repoId][accountId].admin = newAdmin;
-        emit RepoAdminChanged(repoId, old, newAdmin);
+        emit RepoAdminChanged(repoId, oldAdmin, newAdmin);
     }
 
     /* -------------------------------------------------------------------------- */
