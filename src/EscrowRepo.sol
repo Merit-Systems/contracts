@@ -469,12 +469,13 @@ contract EscrowRepo is Owned, IEscrowRepo {
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
+        Account storage account = accounts[repoId][accountId];
         for (uint256 i; i < distributors.length; ++i) {
             address distributor = distributors[i];
             require(distributor != address(0), Errors.INVALID_ADDRESS);
-            if (!accounts[repoId][accountId].distributors[distributor]) {
-                accounts[repoId][accountId].distributors[distributor] = true;
-                emit DistributorAuthorized(repoId, accountId, distributor);
+            if (!account.distributors[distributor]) {
+                account.distributors[distributor] = true;
+                emit DistributorAdded(repoId, accountId, distributor);
             }
         }
     }
@@ -483,11 +484,12 @@ contract EscrowRepo is Owned, IEscrowRepo {
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
+        Account storage account = accounts[repoId][accountId];
         for (uint256 i; i < distributors.length; ++i) {
             address distributor = distributors[i];
-            if (accounts[repoId][accountId].distributors[distributor]) {
-                accounts[repoId][accountId].distributors[distributor] = false;
-                emit DistributorDeauthorized(repoId, accountId, distributor);
+            if (account.distributors[distributor]) {
+                account.distributors[distributor] = false;
+                emit DistributorRemoved(repoId, accountId, distributor);
             }
         }
     }
