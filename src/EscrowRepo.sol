@@ -100,12 +100,10 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                                 MODIFIERS                                  */
     /* -------------------------------------------------------------------------- */
-    modifier isRepoAdmin(uint256 repoId, uint256 accountId) {
+    modifier onlyRepoAdmin(uint256 repoId, uint256 accountId) {
         require(msg.sender == accounts[repoId][accountId].admin, Errors.NOT_REPO_ADMIN);
         _;
     }
-
-
 
     /* -------------------------------------------------------------------------- */
     /*                                 CONSTRUCTOR                                */
@@ -353,7 +351,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         uint256 amount
     ) 
         external 
-        isRepoAdmin(repoId, accountId) 
+        onlyRepoAdmin(repoId, accountId) 
     {
         require(_whitelistedTokens.contains(token),            Errors.INVALID_TOKEN);
         require(amount > 0,                                    Errors.INVALID_AMOUNT);
@@ -457,7 +455,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) 
         external 
-        isRepoAdmin(repoId, accountId) 
+        onlyRepoAdmin(repoId, accountId) 
     {
         require(newAdmin != address(0), Errors.INVALID_ADDRESS);
 
@@ -468,9 +466,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
     function authorizeDistributor(uint256 repoId, uint256 accountId, address[] calldata distributors) 
         external 
-        isRepoAdmin(repoId, accountId) 
+        onlyRepoAdmin(repoId, accountId) 
     {
-        for (uint256 i = 0; i < distributors.length; i++) {
+        for (uint256 i; i < distributors.length; ++i) {
             address distributor = distributors[i];
             require(distributor != address(0), Errors.INVALID_ADDRESS);
             if (!accounts[repoId][accountId].authorizedDistributors[distributor]) {
@@ -482,9 +480,9 @@ contract EscrowRepo is Owned, IEscrowRepo {
 
     function deauthorizeDistributor(uint256 repoId, uint256 accountId, address[] calldata distributors) 
         external 
-        isRepoAdmin(repoId, accountId) 
+        onlyRepoAdmin(repoId, accountId) 
     {
-        for (uint256 i = 0; i < distributors.length; i++) {
+        for (uint256 i; i < distributors.length; ++i) {
             address distributor = distributors[i];
             if (accounts[repoId][accountId].authorizedDistributors[distributor]) {
                 accounts[repoId][accountId].authorizedDistributors[distributor] = false;
