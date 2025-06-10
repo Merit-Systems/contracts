@@ -421,14 +421,6 @@ contract EscrowRepo is Owned, IEscrowRepo {
         emit TokenWhitelisted(token);
     }
 
-    function removeWhitelistedToken(address token) 
-        external 
-        onlyOwner 
-    {
-        require(_whitelistedTokens.remove(token), Errors.TOKEN_NOT_WHITELISTED);
-        emit TokenRemovedFromWhitelist(token);
-    }
-
     function setProtocolFee(uint16 newFeeBps) 
         external 
         onlyOwner 
