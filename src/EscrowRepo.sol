@@ -374,19 +374,19 @@ contract EscrowRepo is Owned, IEscrowRepo {
     function reclaimRepo(uint256[] calldata distributionIds) external {
         for (uint256 i; i < distributionIds.length; ++i) {
             uint256 distributionId = distributionIds[i];
-            Distribution storage d = distributions[distributionId];
+            Distribution storage distribution = distributions[distributionId];
             
-            require(d.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
-            require(d.distributionType   == DistributionType.Repo,          Errors.NOT_REPO_DISTRIBUTION);
-            require(d.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
-            require(block.timestamp      >  d.claimDeadline,                Errors.STILL_CLAIMABLE);
+            require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution.distributionType   == DistributionType.Repo,          Errors.NOT_REPO_DISTRIBUTION);
+            require(distribution.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(block.timestamp      >  distribution.claimDeadline,                Errors.STILL_CLAIMABLE);
 
-            d.distributionStatus = DistributionStatus.Reclaimed;
+            distribution.distributionStatus = DistributionStatus.Reclaimed;
             
             RepoAccount memory repoAccount = distributionToRepo[distributionId];
-            accounts[repoAccount.repoId][repoAccount.accountId].balance[address(d.token)] += d.amount;
+            accounts[repoAccount.repoId][repoAccount.accountId].balance[address(distribution.token)] += distribution.amount;
             
-            emit ReclaimedRepo(repoAccount.repoId, distributionId, msg.sender, d.amount);
+            emit ReclaimedRepo(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
         }
     }
 
@@ -396,18 +396,17 @@ contract EscrowRepo is Owned, IEscrowRepo {
     function reclaimSolo(uint256[] calldata distributionIds) external {
         for (uint256 i; i < distributionIds.length; ++i) {
             uint256 distributionId = distributionIds[i];
-            Distribution storage d = distributions[distributionId];
+            Distribution storage distribution = distributions[distributionId];
             
-            require(d.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
-            require(d.distributionType   == DistributionType.Solo,          Errors.NOT_DIRECT_DISTRIBUTION);
-            require(d.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
-            require(d.payer              == msg.sender,                     Errors.NOT_ORIGINAL_PAYER);
-            require(block.timestamp      >  d.claimDeadline,                Errors.STILL_CLAIMABLE);
+            require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution.distributionType   == DistributionType.Solo,          Errors.NOT_DIRECT_DISTRIBUTION);
+            require(distribution.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(block.timestamp                 >  distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
             
-            d.distributionStatus = DistributionStatus.Reclaimed;
-            d.token.safeTransfer(msg.sender, d.amount);
+            distribution.distributionStatus = DistributionStatus.Reclaimed;
+            distribution.token.safeTransfer(distribution.payer, distribution.amount);
             
-            emit ReclaimedSolo(distributionId, msg.sender, d.amount);
+            emit ReclaimedSolo(distributionId, distribution.payer, distribution.amount);
         }
     }
 
