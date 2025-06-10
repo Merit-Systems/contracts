@@ -454,7 +454,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
     /* -------------------------------------------------------------------------- */
     /*                              ONLY REPO ADMIN                              */
     /* -------------------------------------------------------------------------- */
-    function setRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) 
+    function transferRepoAdmin(uint256 repoId, uint256 accountId, address newAdmin) 
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
@@ -465,7 +465,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         emit RepoAdminChanged(repoId, oldAdmin, newAdmin);
     }
 
-    function authorizeDistributor(uint256 repoId, uint256 accountId, address[] calldata distributors) 
+    function addDistributor(uint256 repoId, uint256 accountId, address[] calldata distributors) 
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
@@ -479,7 +479,7 @@ contract EscrowRepo is Owned, IEscrowRepo {
         }
     }
 
-    function deauthorizeDistributor(uint256 repoId, uint256 accountId, address[] calldata distributors) 
+    function removeDistributor(uint256 repoId, uint256 accountId, address[] calldata distributors) 
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
