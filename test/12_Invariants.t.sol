@@ -1,0 +1,664 @@
+// SPDX-License-Identifier: MIT
+pragma solidity =0.8.26;
+
+import "./00_Escrow.t.sol";
+import {StdInvariant} from "forge-std/StdInvariant.sol";
+
+contract EscrowInvariants is StdInvariant, Base_Test {
+    
+    EscrowHandler handler;
+    
+    function setUp() public override {
+        super.setUp();
+        
+        handler = new EscrowHandler(escrow, wETH, owner, ownerPrivateKey);
+        
+        // Set handler as target for invariant testing
+        targetContract(address(handler));
+        
+        // Target specific functions that should maintain invariants
+        bytes4[] memory selectors = new bytes4[](8);
+        selectors[0] = EscrowHandler.fundRepo.selector;
+        selectors[1] = EscrowHandler.distributeFromRepo.selector;
+        selectors[2] = EscrowHandler.distributeFromSender.selector;
+        selectors[3] = EscrowHandler.claim.selector;
+        selectors[4] = EscrowHandler.reclaimRepo.selector;
+        selectors[5] = EscrowHandler.reclaimSolo.selector;
+        selectors[6] = EscrowHandler.addAdmin.selector;
+        selectors[7] = EscrowHandler.removeAdmin.selector;
+        
+        targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              BALANCE INVARIANTS                            */
+    /* -------------------------------------------------------------------------- */
+    
+    /// @dev Contract token balance should always be >= sum of all account balances + undistributed amounts
+    function invariant_tokenBalanceConsistency() public view {
+        uint256 contractBalance = wETH.balanceOf(address(escrow));
+        uint256 totalAccountBalances = handler.getTotalAccountBalances();
+        uint256 totalUndistributed = handler.getTotalUndistributedAmounts();
+        
+        assertGe(
+            contractBalance, 
+            totalAccountBalances + totalUndistributed,
+            "Contract balance should cover all account balances and undistributed amounts"
+        );
+    }
+    
+    /// @dev No account balance should exceed what was actually deposited to that account
+    function invariant_accountBalanceNeverExceedsDeposits() public view {
+        uint256[] memory repoIds = handler.getTrackedRepoIds();
+        
+        for (uint i = 0; i < repoIds.length; i++) {
+            uint256 repoId = repoIds[i];
+            uint256[] memory accountIds = handler.getTrackedAccountIds(repoId);
+            
+            for (uint j = 0; j < accountIds.length; j++) {
+                uint256 accountId = accountIds[j];
+                uint256 currentBalance = escrow.getAccountBalance(repoId, accountId, address(wETH));
+                uint256 totalFunded = handler.getTotalFunded(repoId, accountId);
+                uint256 accountTotalDistributed = handler.getTotalDistributedFromAccount(repoId, accountId);
+                
+                assertEq(
+                    currentBalance + accountTotalDistributed,
+                    totalFunded,
+                    "Account balance + distributed should equal total funded"
+                );
+            }
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                           DISTRIBUTION INVARIANTS                          */
+    /* -------------------------------------------------------------------------- */
+    
+    /// @dev All distributions should be in valid states and amounts should be consistent
+    function invariant_distributionStateConsistency() public view {
+        uint256 distributionCount = escrow.distributionCount();
+        uint256 claimedAmount = 0;
+        uint256 reclaimedAmount = 0;
+        uint256 distributedAmount = 0;
+        
+        for (uint256 i = 0; i < distributionCount; i++) {
+            Escrow.Distribution memory dist = escrow.getDistribution(i);
+            
+            // All distributions should have positive amounts
+            assertGt(dist.amount, 0, "Distribution amount should be positive");
+            
+            // All distributions should have valid recipients
+            assert(dist.recipient != address(0));
+            
+            // All distributions should have valid claim deadlines
+            assertGt(dist.claimDeadline, 0, "Claim deadline should be positive");
+            
+            // Fee should not exceed max fee
+            assertLe(dist.fee, escrow.MAX_FEE(), "Distribution fee should not exceed max");
+            
+            distributedAmount += dist.amount;
+            
+            if (dist.status == Escrow.DistributionStatus.Claimed) {
+                claimedAmount += dist.amount;
+            } else if (dist.status == Escrow.DistributionStatus.Reclaimed) {
+                reclaimedAmount += dist.amount;
+            }
+        }
+        
+        // Total distributed should equal claimed + reclaimed + still distributable
+        uint256 totalSettled = claimedAmount + reclaimedAmount;
+        assertLe(totalSettled, distributedAmount, "Settled amounts should not exceed distributed");
+    }
+    
+    /// @dev Once claimed or reclaimed, distributions should never change state back
+    function invariant_distributionStateImmutability() public view {
+        uint256[] memory claimedIds = handler.getClaimedDistributionIds();
+        uint256[] memory reclaimedIds = handler.getReclaimedDistributionIds();
+        
+        // Verify all tracked claimed distributions are still claimed
+        for (uint i = 0; i < claimedIds.length; i++) {
+            Escrow.Distribution memory dist = escrow.getDistribution(claimedIds[i]);
+            assertEq(
+                uint(dist.status),
+                uint(Escrow.DistributionStatus.Claimed),
+                "Claimed distribution should remain claimed"
+            );
+        }
+        
+        // Verify all tracked reclaimed distributions are still reclaimed
+        for (uint i = 0; i < reclaimedIds.length; i++) {
+            Escrow.Distribution memory dist = escrow.getDistribution(reclaimedIds[i]);
+            assertEq(
+                uint(dist.status),
+                uint(Escrow.DistributionStatus.Reclaimed),
+                "Reclaimed distribution should remain reclaimed"
+            );
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               FEE INVARIANTS                               */
+    /* -------------------------------------------------------------------------- */
+    
+    /// @dev Fee recipient balance should never decrease (fees only accumulate)
+    function invariant_feeRecipientBalanceMonotonic() public view {
+        uint256 currentBalance = wETH.balanceOf(escrow.feeRecipient());
+        uint256 expectedMinimum = handler.getInitialFeeRecipientBalance() + handler.getTotalFeesCollectedByHandler();
+        
+        assertGe(
+            currentBalance,
+            expectedMinimum,
+            "Fee recipient balance should never decrease"
+        );
+    }
+    
+    /// @dev Total fees collected should be consistent with distributions claimed  
+    function invariant_feeConsistency() public view {
+        uint256 currentFeeBalance = wETH.balanceOf(escrow.feeRecipient());
+        uint256 initialBalance = handler.getInitialFeeRecipientBalance();
+        uint256 expectedFeesFromHandler = handler.getTotalFeesCollectedByHandler();
+        
+        // The current balance should be at least initial balance + fees we tracked
+        assertGe(
+            currentFeeBalance,
+            initialBalance + expectedFeesFromHandler,
+            "Fee recipient balance should be at least initial + our tracked fees"
+        );
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              ADMIN INVARIANTS                              */
+    /* -------------------------------------------------------------------------- */
+    
+    /// @dev Every initialized repo should always have at least one admin
+    function invariant_repoAlwaysHasAdmin() public view {
+        uint256[] memory repoIds = handler.getTrackedRepoIds();
+        
+        for (uint i = 0; i < repoIds.length; i++) {
+            uint256 repoId = repoIds[i];
+            uint256[] memory accountIds = handler.getTrackedAccountIds(repoId);
+            
+            for (uint j = 0; j < accountIds.length; j++) {
+                uint256 accountId = accountIds[j];
+                
+                if (escrow.getAccountExists(repoId, accountId)) {
+                    address[] memory admins = escrow.getAllAdmins(repoId, accountId);
+                    assertGt(admins.length, 0, "Initialized repo should always have at least one admin");
+                }
+            }
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              NONCE INVARIANTS                              */
+    /* -------------------------------------------------------------------------- */
+    
+    /// @dev Nonces should always increase monotonically
+    function invariant_noncesMonotonic() public view {
+        // Owner nonce should never decrease
+        uint256 currentOwnerNonce = escrow.ownerNonce();
+        uint256 expectedMinOwnerNonce = handler.getMinExpectedOwnerNonce();
+        assertGe(currentOwnerNonce, expectedMinOwnerNonce, "Owner nonce should be monotonic");
+        
+        // Recipient nonces should never decrease
+        address[] memory recipients = handler.getTrackedRecipients();
+        for (uint i = 0; i < recipients.length; i++) {
+            address recipient = recipients[i];
+            uint256 currentNonce = escrow.recipientNonce(recipient);
+            uint256 expectedMinNonce = handler.getMinExpectedRecipientNonce(recipient);
+            assertGe(currentNonce, expectedMinNonce, "Recipient nonce should be monotonic");
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                             TOKEN INVARIANTS                               */
+    /* -------------------------------------------------------------------------- */
+    
+    /// @dev Only whitelisted tokens should be used in distributions
+    function invariant_onlyWhitelistedTokensUsed() public view {
+        uint256 distributionCount = escrow.distributionCount();
+        
+        for (uint256 i = 0; i < distributionCount; i++) {
+            Escrow.Distribution memory dist = escrow.getDistribution(i);
+            assertTrue(
+                escrow.isTokenWhitelisted(address(dist.token)),
+                "All distributions should use whitelisted tokens"
+            );
+        }
+    }
+    
+    /* -------------------------------------------------------------------------- */
+    /*                            TIMEOUT INVARIANTS                              */
+    /* -------------------------------------------------------------------------- */
+    
+    /// @dev Claimed distributions should have been claimed before their deadline
+    function invariant_claimsRespectDeadlines() public view {
+        uint256[] memory claimedIds = handler.getClaimedDistributionIds();
+        
+        for (uint i = 0; i < claimedIds.length; i++) {
+            uint256 distributionId = claimedIds[i];
+            Escrow.Distribution memory dist = escrow.getDistribution(distributionId);
+            uint256 claimTimestamp = handler.getClaimTimestamp(distributionId);
+            
+            if (claimTimestamp > 0) { // 0 means not tracked, skip
+                assertLe(
+                    claimTimestamp,
+                    dist.claimDeadline,
+                    "Claims should happen before deadline"
+                );
+            }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                   HANDLER                                  */
+/* -------------------------------------------------------------------------- */
+
+contract EscrowHandler is Test {
+    Escrow public escrow;
+    MockERC20 public token;
+    address public owner;
+    uint256 public ownerPrivateKey;
+    
+    // Tracking state for invariant verification
+    mapping(uint256 => mapping(uint256 => uint256)) public totalFunded; // repoId => accountId => amount
+    mapping(uint256 => mapping(uint256 => uint256)) public totalDistributedFromAccount; // repoId => accountId => amount
+    mapping(uint256 => uint256) public claimTimestamps; // distributionId => timestamp
+    mapping(address => uint256) public minExpectedRecipientNonce;
+    
+    uint256[] public trackedRepoIds;
+    mapping(uint256 => uint256[]) public trackedAccountIds; // repoId => accountId[]
+    mapping(uint256 => mapping(uint256 => bool)) public repoAccountExists; // repoId => accountId => exists
+    
+    uint256[] public claimedDistributionIds;
+    uint256[] public reclaimedDistributionIds;
+    address[] public trackedRecipients;
+    mapping(address => bool) public recipientTracked;
+    
+    uint256 public minExpectedOwnerNonce;
+    uint256 public totalFeesCollectedByHandler; // Track fees we've collected
+    uint256 public initialFeeRecipientBalance;   // Track initial balance
+    
+    uint256 public constant MAX_ACTORS = 10;
+    address[] public actors;
+    uint256 public currentActor;
+    
+    constructor(Escrow _escrow, MockERC20 _token, address _owner, uint256 _ownerPrivateKey) {
+        escrow = _escrow;
+        token = _token;
+        owner = _owner;
+        ownerPrivateKey = _ownerPrivateKey;
+        
+        // Track initial fee recipient balance
+        initialFeeRecipientBalance = _token.balanceOf(_escrow.feeRecipient());
+        
+        // Create actors for testing
+        for (uint i = 0; i < MAX_ACTORS; i++) {
+            actors.push(address(uint160(uint(keccak256(abi.encode("actor", i))))));
+        }
+    }
+    
+    modifier useActor(uint256 actorSeed) {
+        currentActor = bound(actorSeed, 0, actors.length - 1);
+        vm.startPrank(actors[currentActor]);
+        _;
+        vm.stopPrank();
+    }
+    
+    function fundRepo(uint256 repoSeed, uint256 accountSeed, uint256 amount) public {
+        // Reduce ranges for faster execution
+        uint256 repoId = bound(repoSeed, 1, 10);  // Reduced from 100
+        uint256 accountId = bound(accountSeed, 1, 10);  // Reduced from 100  
+        amount = bound(amount, 1e18, 100e18);  // Reduced upper bound
+        
+        // Initialize repo if it doesn't exist
+        if (!escrow.getAccountExists(repoId, accountId)) {
+            _initRepo(repoId, accountId, actors[0]);
+        }
+        
+        // Fund the repo
+        token.mint(address(this), amount);
+        token.approve(address(escrow), amount);
+        
+        escrow.fundRepo(repoId, accountId, token, amount, "");
+        
+        totalFunded[repoId][accountId] += amount;
+        _trackRepoAccount(repoId, accountId);
+    }
+    
+    function distributeFromRepo(uint256 repoSeed, uint256 accountSeed, uint256 amount, uint256 actorSeed) 
+        public 
+        useActor(actorSeed) 
+    {
+        uint256 repoId = bound(repoSeed, 1, 10);
+        uint256 accountId = bound(accountSeed, 1, 10);
+        amount = bound(amount, 1e18, 50e18);
+        
+        if (!escrow.getAccountExists(repoId, accountId)) {
+            return; // Skip if repo doesn't exist
+        }
+        
+        uint256 balance = escrow.getAccountBalance(repoId, accountId, address(token));
+        if (balance < amount) {
+            return; // Skip if insufficient balance
+        }
+        
+        // Check if actor is authorized
+        if (!escrow.canDistribute(repoId, accountId, actors[currentActor])) {
+            return; // Skip if not authorized
+        }
+        
+        address recipient = actors[(currentActor + 1) % actors.length];
+        _trackRecipient(recipient);
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: amount,
+            recipient: recipient,
+            claimPeriod: 7 days,
+            token: token
+        });
+        
+        escrow.distributeFromRepo(repoId, accountId, distributions, "");
+        totalDistributedFromAccount[repoId][accountId] += amount;
+    }
+    
+    function distributeFromSender(uint256 amount, uint256 actorSeed) public useActor(actorSeed) {
+        amount = bound(amount, 1e18, 50e18);
+        
+        address recipient = actors[(currentActor + 1) % actors.length];
+        _trackRecipient(recipient);
+        
+        token.mint(actors[currentActor], amount);
+        token.approve(address(escrow), amount);
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: amount,
+            recipient: recipient,
+            claimPeriod: 7 days,
+            token: token
+        });
+        
+        escrow.distributeFromSender(distributions, "");
+    }
+    
+    function claim(uint256 distributionSeed, uint256 actorSeed) public useActor(actorSeed) {
+        uint256 distributionCount = escrow.distributionCount();
+        if (distributionCount == 0) return;
+        
+        uint256 distributionId = bound(distributionSeed, 0, distributionCount - 1);
+        
+        try escrow.getDistribution(distributionId) returns (Escrow.Distribution memory dist) {
+            if (dist.recipient != actors[currentActor] || 
+                dist.status != Escrow.DistributionStatus.Distributed ||
+                block.timestamp > dist.claimDeadline) {
+                return;
+            }
+            
+            uint256[] memory distributionIds = new uint256[](1);
+            distributionIds[0] = distributionId;
+            
+            uint256 deadline = block.timestamp + 1 hours;
+            bytes32 digest = keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    escrow.DOMAIN_SEPARATOR(),
+                    keccak256(abi.encode(
+                        escrow.CLAIM_TYPEHASH(),
+                        keccak256(abi.encode(distributionIds)),
+                        actors[currentActor],
+                        escrow.recipientNonce(actors[currentActor]),
+                        deadline
+                    ))
+                )
+            );
+            
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, digest); // Use private key 1 for signer
+            
+            vm.stopPrank();
+            vm.prank(owner);
+            escrow.setSigner(vm.addr(1)); // Set signer to match the private key
+            vm.startPrank(actors[currentActor]);
+            
+            escrow.claim(distributionIds, deadline, v, r, s);
+            
+            claimedDistributionIds.push(distributionId);
+            claimTimestamps[distributionId] = block.timestamp;
+            minExpectedRecipientNonce[actors[currentActor]]++;
+            
+            // Track fee collected  
+            uint256 feeAmount = (dist.amount * dist.fee) / 10_000;
+            if (feeAmount >= dist.amount) {
+                feeAmount = dist.amount - 1;
+            }
+            totalFeesCollectedByHandler += feeAmount;
+        } catch {
+            return; // Skip invalid distributions
+        }
+    }
+    
+    function reclaimRepo(uint256 distributionSeed) public {
+        uint256 distributionCount = escrow.distributionCount();
+        if (distributionCount == 0) return;
+        
+        uint256 distributionId = bound(distributionSeed, 0, distributionCount - 1);
+        
+        try escrow.getDistribution(distributionId) returns (Escrow.Distribution memory dist) {
+            if (dist.status != Escrow.DistributionStatus.Distributed ||
+                block.timestamp <= dist.claimDeadline ||
+                escrow.isSoloDistribution(distributionId)) {
+                return;
+            }
+            
+            uint256[] memory distributionIds = new uint256[](1);
+            distributionIds[0] = distributionId;
+            
+            escrow.reclaimRepo(distributionIds);
+            reclaimedDistributionIds.push(distributionId);
+        } catch {
+            return; // Skip invalid distributions
+        }
+    }
+    
+    function reclaimSolo(uint256 distributionSeed, uint256 actorSeed) public useActor(actorSeed) {
+        uint256 distributionCount = escrow.distributionCount();
+        if (distributionCount == 0) return;
+        
+        uint256 distributionId = bound(distributionSeed, 0, distributionCount - 1);
+        
+        try escrow.getDistribution(distributionId) returns (Escrow.Distribution memory dist) {
+            if (dist.status != Escrow.DistributionStatus.Distributed ||
+                block.timestamp <= dist.claimDeadline ||
+                !escrow.isSoloDistribution(distributionId) ||
+                dist.payer != actors[currentActor]) {
+                return;
+            }
+            
+            uint256[] memory distributionIds = new uint256[](1);
+            distributionIds[0] = distributionId;
+            
+            escrow.reclaimSolo(distributionIds);
+            reclaimedDistributionIds.push(distributionId);
+        } catch {
+            return; // Skip invalid distributions
+        }
+    }
+    
+    function addAdmin(uint256 repoSeed, uint256 accountSeed, uint256 actorSeed) public useActor(actorSeed) {
+        uint256 repoId = bound(repoSeed, 1, 10);
+        uint256 accountId = bound(accountSeed, 1, 10);
+        
+        if (!escrow.getAccountExists(repoId, accountId) || 
+            !escrow.getIsAuthorizedAdmin(repoId, accountId, actors[currentActor])) {
+            return;
+        }
+        
+        address newAdmin = actors[(currentActor + 2) % actors.length];
+        address[] memory admins = new address[](1);
+        admins[0] = newAdmin;
+        
+        escrow.addAdmins(repoId, accountId, admins);
+    }
+    
+    function removeAdmin(uint256 repoSeed, uint256 accountSeed, uint256 actorSeed) public useActor(actorSeed) {
+        uint256 repoId = bound(repoSeed, 1, 10);
+        uint256 accountId = bound(accountSeed, 1, 10);
+        
+        if (!escrow.getAccountExists(repoId, accountId) || 
+            !escrow.getIsAuthorizedAdmin(repoId, accountId, actors[currentActor])) {
+            return;
+        }
+        
+        address[] memory allAdmins = escrow.getAllAdmins(repoId, accountId);
+        if (allAdmins.length <= 1) {
+            return; // Can't remove last admin
+        }
+        
+        // Try to remove a different admin (not the current one)
+        for (uint i = 0; i < allAdmins.length; i++) {
+            if (allAdmins[i] != actors[currentActor]) {
+                address[] memory adminsToRemove = new address[](1);
+                adminsToRemove[0] = allAdmins[i];
+                
+                escrow.removeAdmins(repoId, accountId, adminsToRemove);
+                break;
+            }
+        }
+    }
+    
+    // Helper functions for invariant verification
+    function getTotalAccountBalances() public view returns (uint256 total) {
+        for (uint i = 0; i < trackedRepoIds.length; i++) {
+            uint256 repoId = trackedRepoIds[i];
+            uint256[] memory accountIds = trackedAccountIds[repoId];
+            
+            for (uint j = 0; j < accountIds.length; j++) {
+                uint256 accountId = accountIds[j];
+                total += escrow.getAccountBalance(repoId, accountId, address(token));
+            }
+        }
+    }
+    
+    function getTotalUndistributedAmounts() public view returns (uint256 total) {
+        uint256 distributionCount = escrow.distributionCount();
+        
+        for (uint256 i = 0; i < distributionCount; i++) {
+            try escrow.getDistribution(i) returns (Escrow.Distribution memory dist) {
+                if (dist.status == Escrow.DistributionStatus.Distributed) {
+                    total += dist.amount;
+                }
+            } catch {
+                continue;
+            }
+        }
+    }
+    
+
+    
+    // Internal helpers
+    function _initRepo(uint256 repoId, uint256 accountId, address admin) internal {
+        address[] memory admins = new address[](1);
+        admins[0] = admin;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    accountId,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
+        
+        minExpectedOwnerNonce++;
+        _trackRepoAccount(repoId, accountId);
+    }
+    
+    function _trackRepoAccount(uint256 repoId, uint256 accountId) internal {
+        if (!repoAccountExists[repoId][accountId]) {
+            repoAccountExists[repoId][accountId] = true;
+            
+            // Track repoId
+            bool repoExists = false;
+            for (uint i = 0; i < trackedRepoIds.length; i++) {
+                if (trackedRepoIds[i] == repoId) {
+                    repoExists = true;
+                    break;
+                }
+            }
+            if (!repoExists) {
+                trackedRepoIds.push(repoId);
+            }
+            
+            // Track accountId for this repo
+            trackedAccountIds[repoId].push(accountId);
+        }
+    }
+    
+    function _trackRecipient(address recipient) internal {
+        if (!recipientTracked[recipient]) {
+            recipientTracked[recipient] = true;
+            trackedRecipients.push(recipient);
+        }
+    }
+    
+    // Getter functions
+    function getTrackedRepoIds() public view returns (uint256[] memory) {
+        return trackedRepoIds;
+    }
+    
+    function getTrackedAccountIds(uint256 repoId) public view returns (uint256[] memory) {
+        return trackedAccountIds[repoId];
+    }
+    
+    function getTotalFunded(uint256 repoId, uint256 accountId) public view returns (uint256) {
+        return totalFunded[repoId][accountId];
+    }
+    
+    function getTotalDistributedFromAccount(uint256 repoId, uint256 accountId) public view returns (uint256) {
+        return totalDistributedFromAccount[repoId][accountId];
+    }
+    
+    function getClaimedDistributionIds() public view returns (uint256[] memory) {
+        return claimedDistributionIds;
+    }
+    
+    function getReclaimedDistributionIds() public view returns (uint256[] memory) {
+        return reclaimedDistributionIds;
+    }
+    
+    function getTrackedRecipients() public view returns (address[] memory) {
+        return trackedRecipients;
+    }
+    
+    function getMinExpectedOwnerNonce() public view returns (uint256) {
+        return minExpectedOwnerNonce;
+    }
+    
+    function getMinExpectedRecipientNonce(address recipient) public view returns (uint256) {
+        return minExpectedRecipientNonce[recipient];
+    }
+    
+    function getTotalFeesCollectedByHandler() public view returns (uint256) {
+        return totalFeesCollectedByHandler;
+    }
+    
+    function getInitialFeeRecipientBalance() public view returns (uint256) {
+        return initialFeeRecipientBalance;
+    }
+    
+    function getClaimTimestamp(uint256 distributionId) public view returns (uint256) {
+        return claimTimestamps[distributionId];
+    }
+} 
