@@ -895,6 +895,23 @@ contract InitRepo_Test is Base_Test {
         escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
     }
 
+    function test_getAccountExists() public {
+        // Test non-existent account
+        assertFalse(escrow.getAccountExists(123, 456));
+        
+        // Initialize an account
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        _initializeRepo(123, 456, admins);
+        
+        // Test existing account
+        assertTrue(escrow.getAccountExists(123, 456));
+        
+        // Test different account that doesn't exist
+        assertFalse(escrow.getAccountExists(123, 457));
+        assertFalse(escrow.getAccountExists(124, 456));
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
