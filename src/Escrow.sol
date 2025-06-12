@@ -32,8 +32,9 @@ contract Escrow is Owned, IEscrow {
     struct Account {
         mapping(address => uint) balance;          // token → balance
         bool                     hasDistributions; // whether any distributions have occurred
-        address                  admin;            // admin
+        address                  admin;
         mapping(address => bool) distributors;     // distributor → authorized?
+        bool                     exists;  
     }
 
     struct Distribution {
@@ -144,9 +145,11 @@ contract Escrow is Owned, IEscrow {
         bytes32 r,
         bytes32 s
     ) external {
-        require(accounts[repoId][accountId].admin == address(0), Errors.REPO_ALREADY_INITIALIZED);
-        require(admin != address(0),                             Errors.INVALID_ADDRESS);
-        require(block.timestamp <= deadline,                     Errors.SIGNATURE_EXPIRED);
+        Account storage account = accounts[repoId][accountId];
+
+        require(!account.exists,             Errors.REPO_ALREADY_INITIALIZED);
+        require(admin != address(0),         Errors.INVALID_ADDRESS);
+        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
 
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -165,9 +168,9 @@ contract Escrow is Owned, IEscrow {
         require(ECDSA.recover(digest, v, r, s) == owner, Errors.INVALID_SIGNATURE);
 
         ownerNonce++;
-        address oldAdmin = accounts[repoId][accountId].admin;
-        accounts[repoId][accountId].admin = admin;
-        emit AdminSet(repoId, accountId, oldAdmin, admin);
+        account.exists = true;
+        account.admin  = admin;
+        emit AdminSet(repoId, accountId, address(0), admin);
     }
 
     /* -------------------------------------------------------------------------- */
