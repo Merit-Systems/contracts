@@ -282,7 +282,7 @@ contract DistributeSolo_Test is Base_Test {
         expectedDistributionIds[1] = escrow.distributionCount() + 1;
 
         vm.expectEmit(true, true, true, true);
-        emit DistributedSoloBatch(0, expectedDistributionIds);
+        emit DistributedSoloBatch(0, expectedDistributionIds, "");
 
         vm.prank(distributor);
         escrow.distributeSolo(distributions, "");
@@ -828,6 +828,7 @@ contract DistributeSolo_Test is Base_Test {
 
     event DistributedSoloBatch(
         uint256 indexed distributionBatchId,
-        uint256[] distributionIds
+        uint256[] distributionIds,
+        bytes data
     );
 } 
