@@ -39,7 +39,7 @@ contract Claim_Test is Base_Test {
                     escrow.SET_ADMIN_TYPEHASH(),
                     REPO_ID,
                     ACCOUNT_ID,
-                    repoAdmin,
+                    keccak256(abi.encode(_toArray(repoAdmin))),
                     escrow.ownerNonce(),
                     deadline
                 ))
@@ -47,7 +47,7 @@ contract Claim_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, repoAdmin, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, _toArray(repoAdmin), deadline, v, r, s);
 
         // Fund repo
         wETH.mint(address(this), DISTRIBUTION_AMOUNT * 10);
@@ -104,6 +104,12 @@ contract Claim_Test is Base_Test {
         );
         
         return vm.sign(signerPrivateKey, digest);
+    }
+
+    function _toArray(address addr) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](1);
+        arr[0] = addr;
+        return arr;
     }
 
     /* -------------------------------------------------------------------------- */

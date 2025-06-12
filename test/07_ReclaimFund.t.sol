@@ -35,7 +35,7 @@ contract ReclaimFund_Test is Base_Test {
                     escrow.SET_ADMIN_TYPEHASH(),
                     REPO_ID,
                     ACCOUNT_ID,
-                    repoAdmin,
+                    keccak256(abi.encode(_toArray(repoAdmin))),
                     escrow.ownerNonce(),
                     deadline
                 ))
@@ -43,7 +43,7 @@ contract ReclaimFund_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, repoAdmin, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, _toArray(repoAdmin), deadline, v, r, s);
     }
 
     function _fundRepo(uint256 amount) internal {
@@ -147,7 +147,7 @@ contract ReclaimFund_Test is Base_Test {
                     escrow.SET_ADMIN_TYPEHASH(),
                     repoId2,
                     accountId2,
-                    admin2,
+                    keccak256(abi.encode(_toArray(admin2))),
                     escrow.ownerNonce(),
                     deadline
                 ))
@@ -155,7 +155,7 @@ contract ReclaimFund_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId2, accountId2, admin2, deadline, v, r, s);
+        escrow.initRepo(repoId2, accountId2, _toArray(admin2), deadline, v, r, s);
         
         // Fund both repos
         _fundRepo(FUND_AMOUNT);
@@ -274,4 +274,10 @@ contract ReclaimFund_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     event ReclaimedFund(uint256 indexed repoId, address indexed admin, uint256 amount);
+
+    function _toArray(address addr) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](1);
+        arr[0] = addr;
+        return arr;
+    }
 } 

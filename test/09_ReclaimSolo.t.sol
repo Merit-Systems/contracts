@@ -48,7 +48,7 @@ contract ReclaimSolo_Test is Base_Test {
                     escrow.SET_ADMIN_TYPEHASH(),
                     REPO_ID,
                     ACCOUNT_ID,
-                    repoAdmin,
+                    keccak256(abi.encode(_toArray(repoAdmin))),
                     escrow.ownerNonce(),
                     deadline
                 ))
@@ -56,7 +56,7 @@ contract ReclaimSolo_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, repoAdmin, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, _toArray(repoAdmin), deadline, v, r, s);
     }
 
     function _fundRepo(uint256 amount) internal {
@@ -93,6 +93,12 @@ contract ReclaimSolo_Test is Base_Test {
         vm.prank(repoAdmin);
         uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
         return distributionIds[0];
+    }
+
+    function _toArray(address addr) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](1);
+        arr[0] = addr;
+        return arr;
     }
 
     /* -------------------------------------------------------------------------- */

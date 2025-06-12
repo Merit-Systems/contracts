@@ -22,7 +22,7 @@ contract Escrow is Owned, IEscrow {
     uint16 public constant MAX_FEE = 1_000; // 10 %
 
     bytes32 public constant SET_ADMIN_TYPEHASH =
-        keccak256("SetAdmin(uint repoId,uint accountId,address admin,uint nonce,uint deadline)");
+        keccak256("SetAdmin(uint repoId,uint accountId,address[] admins,uint nonce,uint deadline)");
     bytes32 public constant CLAIM_TYPEHASH =
         keccak256("Claim(uint[] distributionIds,address recipient,uint nonce,uint deadline)");
 
@@ -137,19 +137,20 @@ contract Escrow is Owned, IEscrow {
     /*                              INIT REPO ADMIN                               */
     /* -------------------------------------------------------------------------- */
     function initRepo(
-        uint    repoId,
-        uint    accountId,
-        address admin,
-        uint    deadline,
-        uint8   v,
-        bytes32 r,
-        bytes32 s
+        uint      repoId,
+        uint      accountId,
+        address[] calldata admins,
+        uint      deadline,
+        uint8     v,
+        bytes32   r,
+        bytes32   s
     ) external {
         Account storage account = accounts[repoId][accountId];
 
-        require(!account.exists,             Errors.REPO_ALREADY_INITIALIZED);
-        require(admin != address(0),         Errors.INVALID_ADDRESS);
-        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
+        require(!account.exists,               Errors.REPO_ALREADY_INITIALIZED);
+        require(admins.length   >  0,          Errors.INVALID_AMOUNT);
+        require(admins.length   <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        require(block.timestamp <= deadline,   Errors.SIGNATURE_EXPIRED);
 
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -159,7 +160,7 @@ contract Escrow is Owned, IEscrow {
                     SET_ADMIN_TYPEHASH,
                     repoId,
                     accountId,
-                    admin,
+                    keccak256(abi.encode(admins)),
                     ownerNonce,
                     deadline
                 ))
@@ -169,8 +170,12 @@ contract Escrow is Owned, IEscrow {
 
         ownerNonce++;
         account.exists = true;
-        account.admin  = admin;
-        emit AdminSet(repoId, accountId, address(0), admin);
+        
+        for (uint i; i < admins.length; ++i) {
+            require(admins[i] != address(0), Errors.INVALID_ADDRESS);
+            account.admins.add(admins[i]);
+            emit AdminSet(repoId, accountId, address(0), admins[i]);
+        }
     }
 
     /* -------------------------------------------------------------------------- */
@@ -209,7 +214,7 @@ contract Escrow is Owned, IEscrow {
         
         Account storage account = accounts[repoId][accountId];
 
-        bool isAdmin       = msg.sender == account.admin;
+        bool isAdmin       = account.admins.contains(msg.sender);
         bool isDistributor = account.distributors.contains(msg.sender);
         require(isAdmin || isDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
         
@@ -482,18 +487,44 @@ contract Escrow is Owned, IEscrow {
     /* -------------------------------------------------------------------------- */
     /*                              ONLY REPO ADMIN                              */
     /* -------------------------------------------------------------------------- */
-    function transferRepoAdmin(uint repoId, uint accountId, address newAdmin) 
+    function addAdmins(uint repoId, uint accountId, address[] calldata admins) 
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
-        require(newAdmin != address(0), Errors.INVALID_ADDRESS);
-
-        address oldAdmin = accounts[repoId][accountId].admin;
-        accounts[repoId][accountId].admin = newAdmin;
-        emit RepoAdminChanged(repoId, oldAdmin, newAdmin);
+        require(admins.length >  0,          Errors.INVALID_AMOUNT);
+        require(admins.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        
+        Account storage account = accounts[repoId][accountId];
+        for (uint i; i < admins.length; ++i) {
+            address admin = admins[i];
+            require(admin != address(0), Errors.INVALID_ADDRESS);
+            if (account.admins.add(admin)) {
+                emit AdminSet(repoId, accountId, address(0), admin);
+            }
+        }
     }
 
-    function addDistributor(uint repoId, uint accountId, address[] calldata distributors) 
+    function removeAdmins(uint repoId, uint accountId, address[] calldata admins) 
+        external 
+        onlyRepoAdmin(repoId, accountId) 
+    {
+        require(admins.length > 0,           Errors.INVALID_AMOUNT);
+        require(admins.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        
+        Account storage account = accounts[repoId][accountId];
+        
+        // Ensure we don't remove all admins
+        require(account.admins.length() > admins.length, Errors.CANNOT_REMOVE_ALL_ADMINS);
+        
+        for (uint i; i < admins.length; ++i) {
+            address admin = admins[i];
+            if (account.admins.remove(admin)) {
+                emit RepoAdminChanged(repoId, admin, address(0));
+            }
+        }
+    }
+
+    function addDistributors(uint repoId, uint accountId, address[] calldata distributors) 
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
@@ -510,7 +541,7 @@ contract Escrow is Owned, IEscrow {
         }
     }
 
-    function removeDistributor(uint repoId, uint accountId, address[] calldata distributors) 
+    function removeDistributors(uint repoId, uint accountId, address[] calldata distributors) 
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
@@ -546,12 +577,25 @@ contract Escrow is Owned, IEscrow {
     /* -------------------------------------------------------------------------- */
     /*                                   GETTERS                                  */
     /* -------------------------------------------------------------------------- */
-    function getAccountAdmin(uint repoId, uint accountId) 
+    function getAllAdmins(uint repoId, uint accountId) 
         external 
         view 
-        returns (address) 
+        returns (address[] memory admins) 
     {
-        return accounts[repoId][accountId].admin;
+        EnumerableSet.AddressSet storage adminSet = accounts[repoId][accountId].admins;
+        uint len = adminSet.length();
+        admins = new address[](len);
+        for (uint i; i < len; ++i) {
+            admins[i] = adminSet.at(i);
+        }
+    }
+
+    function getIsAuthorizedAdmin(uint repoId, uint accountId, address admin) 
+        external 
+        view 
+        returns (bool) 
+    {
+        return accounts[repoId][accountId].admins.contains(admin);
     }
 
     function getIsAuthorizedDistributor(uint repoId, uint accountId, address distributor) 
@@ -567,7 +611,7 @@ contract Escrow is Owned, IEscrow {
         view 
         returns (bool) 
     {
-        return caller == accounts[repoId][accountId].admin || accounts[repoId][accountId].distributors.contains(caller);
+        return accounts[repoId][accountId].admins.contains(caller) || accounts[repoId][accountId].distributors.contains(caller);
     }
 
     function getAllDistributors(uint repoId, uint accountId) 

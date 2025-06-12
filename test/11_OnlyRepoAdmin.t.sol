@@ -29,12 +29,17 @@ contract OnlyRepoAdmin_Test is Base_Test {
         distributor3 = makeAddr("distributor3");
         unauthorized = makeAddr("unauthorized");
         
-        // Initialize repos
-        _initializeRepo(REPO_ID, ACCOUNT_ID, repoAdmin);
-        _initializeRepo(REPO_ID_2, ACCOUNT_ID_2, repoAdmin);
+        // Initialize repos with single admin
+        address[] memory initialAdmins1 = new address[](1);
+        initialAdmins1[0] = repoAdmin;
+        _initializeRepo(REPO_ID, ACCOUNT_ID, initialAdmins1);
+        
+        address[] memory initialAdmins2 = new address[](1);
+        initialAdmins2[0] = repoAdmin;
+        _initializeRepo(REPO_ID_2, ACCOUNT_ID_2, initialAdmins2);
     }
 
-    function _initializeRepo(uint256 repoId, uint256 accountId, address admin) internal {
+    function _initializeRepo(uint256 repoId, uint256 accountId, address[] memory admins) internal {
         uint256 deadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -44,7 +49,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
                     escrow.SET_ADMIN_TYPEHASH(),
                     repoId,
                     accountId,
-                    admin,
+                    keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
                     deadline
                 ))
@@ -52,82 +57,16 @@ contract OnlyRepoAdmin_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId, accountId, admin, deadline, v, r, s);
+        escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
     }
+
+
 
     /* -------------------------------------------------------------------------- */
-    /*                           TRANSFER REPO ADMIN TESTS                        */
+    /*                           ADD DISTRIBUTORS TESTS                           */
     /* -------------------------------------------------------------------------- */
 
-    function test_transferRepoAdmin_success() public {
-        assertEq(escrow.getAccountAdmin(REPO_ID, ACCOUNT_ID), repoAdmin);
-
-        vm.expectEmit(true, true, true, true);
-        emit RepoAdminChanged(REPO_ID, repoAdmin, newAdmin);
-
-        vm.prank(repoAdmin);
-        escrow.transferRepoAdmin(REPO_ID, ACCOUNT_ID, newAdmin);
-
-        assertEq(escrow.getAccountAdmin(REPO_ID, ACCOUNT_ID), newAdmin);
-    }
-
-    function test_transferRepoAdmin_multipleRepos() public {
-        address admin2 = makeAddr("admin2");
-        address admin3 = makeAddr("admin3");
-
-        // Transfer different repos to different admins
-        vm.prank(repoAdmin);
-        escrow.transferRepoAdmin(REPO_ID, ACCOUNT_ID, admin2);
-
-        vm.prank(repoAdmin);
-        escrow.transferRepoAdmin(REPO_ID_2, ACCOUNT_ID_2, admin3);
-
-        assertEq(escrow.getAccountAdmin(REPO_ID, ACCOUNT_ID), admin2);
-        assertEq(escrow.getAccountAdmin(REPO_ID_2, ACCOUNT_ID_2), admin3);
-    }
-
-    function test_transferRepoAdmin_newAdminCanTransfer() public {
-        // Transfer to new admin
-        vm.prank(repoAdmin);
-        escrow.transferRepoAdmin(REPO_ID, ACCOUNT_ID, newAdmin);
-
-        address finalAdmin = makeAddr("finalAdmin");
-
-        // New admin can transfer again
-        vm.prank(newAdmin);
-        escrow.transferRepoAdmin(REPO_ID, ACCOUNT_ID, finalAdmin);
-
-        assertEq(escrow.getAccountAdmin(REPO_ID, ACCOUNT_ID), finalAdmin);
-    }
-
-    function test_transferRepoAdmin_revert_notRepoAdmin() public {
-        expectRevert(Errors.NOT_REPO_ADMIN);
-        vm.prank(unauthorized);
-        escrow.transferRepoAdmin(REPO_ID, ACCOUNT_ID, newAdmin);
-    }
-
-    function test_transferRepoAdmin_revert_oldAdminCantTransfer() public {
-        // Transfer to new admin
-        vm.prank(repoAdmin);
-        escrow.transferRepoAdmin(REPO_ID, ACCOUNT_ID, newAdmin);
-
-        // Old admin should no longer be able to transfer
-        expectRevert(Errors.NOT_REPO_ADMIN);
-        vm.prank(repoAdmin);
-        escrow.transferRepoAdmin(REPO_ID, ACCOUNT_ID, unauthorized);
-    }
-
-    function test_transferRepoAdmin_revert_invalidAddress() public {
-        expectRevert(Errors.INVALID_ADDRESS);
-        vm.prank(repoAdmin);
-        escrow.transferRepoAdmin(REPO_ID, ACCOUNT_ID, address(0));
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                             ADD DISTRIBUTOR TESTS                          */
-    /* -------------------------------------------------------------------------- */
-
-    function test_addDistributor_success() public {
+    function test_addDistributors_success() public {
         address[] memory distributors = new address[](1);
         distributors[0] = distributor1;
 
@@ -137,71 +76,71 @@ contract OnlyRepoAdmin_Test is Base_Test {
         emit AddedDistributor(REPO_ID, ACCOUNT_ID, distributor1);
 
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor1));
     }
 
-    function test_addDistributor_multiple() public {
+    function test_addDistributors_multiple() public {
         address[] memory distributors = new address[](3);
         distributors[0] = distributor1;
         distributors[1] = distributor2;
         distributors[2] = distributor3;
 
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
         assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor2));
         assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor3));
     }
 
-    function test_addDistributor_alreadyExists() public {
+    function test_addDistributors_alreadyExists() public {
         address[] memory distributors = new address[](1);
         distributors[0] = distributor1;
 
         // Add distributor first time
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         // Adding again should not emit event (idempotent)
         vm.recordLogs();
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
         
         // Should still be authorized
         assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
     }
 
-    function test_addDistributor_adminCanDistribute() public view {
+    function test_addDistributors_adminCanDistribute() public view {
         // Admin should always be able to distribute even without being in distributors list
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, repoAdmin));
     }
 
-    function test_addDistributor_separateRepos() public {
+    function test_addDistributors_separateRepos() public {
         address[] memory distributors = new address[](1);
         distributors[0] = distributor1;
 
         // Add to first repo
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         // Should only be authorized for first repo
         assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
         assertFalse(escrow.getIsAuthorizedDistributor(REPO_ID_2, ACCOUNT_ID_2, distributor1));
     }
 
-    function test_addDistributor_revert_notRepoAdmin() public {
+    function test_addDistributors_revert_notRepoAdmin() public {
         address[] memory distributors = new address[](1);
         distributors[0] = distributor1;
 
         expectRevert(Errors.NOT_REPO_ADMIN);
         vm.prank(unauthorized);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
     }
 
-    function test_addDistributor_revert_batchLimitExceeded() public {
+    function test_addDistributors_revert_batchLimitExceeded() public {
         uint256 batchLimit = escrow.batchLimit();
         address[] memory distributors = new address[](batchLimit + 1);
         
@@ -211,20 +150,20 @@ contract OnlyRepoAdmin_Test is Base_Test {
 
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
     }
 
-    function test_addDistributor_revert_invalidAddress() public {
+    function test_addDistributors_revert_invalidAddress() public {
         address[] memory distributors = new address[](2);
         distributors[0] = distributor1;
         distributors[1] = address(0); // Invalid
 
         expectRevert(Errors.INVALID_ADDRESS);
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
     }
 
-    function test_addDistributor_maxBatchLimit() public {
+    function test_addDistributors_maxBatchLimit() public {
         uint256 batchLimit = escrow.batchLimit();
         address[] memory distributors = new address[](batchLimit);
         
@@ -233,7 +172,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
         }
 
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         // All should be authorized
         for (uint i = 0; i < batchLimit; i++) {
@@ -242,16 +181,16 @@ contract OnlyRepoAdmin_Test is Base_Test {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                           REMOVE DISTRIBUTOR TESTS                         */
+    /*                          REMOVE DISTRIBUTORS TESTS                         */
     /* -------------------------------------------------------------------------- */
 
-    function test_removeDistributor_success() public {
+    function test_removeDistributors_success() public {
         // First add distributor
         address[] memory distributors = new address[](1);
         distributors[0] = distributor1;
 
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
         assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
 
         // Then remove
@@ -259,13 +198,13 @@ contract OnlyRepoAdmin_Test is Base_Test {
         emit RemovedDistributor(REPO_ID, ACCOUNT_ID, distributor1);
 
         vm.prank(repoAdmin);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         assertFalse(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
         assertFalse(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor1));
     }
 
-    function test_removeDistributor_multiple() public {
+    function test_removeDistributors_multiple() public {
         // Add multiple distributors
         address[] memory distributors = new address[](3);
         distributors[0] = distributor1;
@@ -273,7 +212,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
         distributors[2] = distributor3;
 
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         // Remove two of them
         address[] memory toRemove = new address[](2);
@@ -281,50 +220,50 @@ contract OnlyRepoAdmin_Test is Base_Test {
         toRemove[1] = distributor3;
 
         vm.prank(repoAdmin);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, toRemove);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, toRemove);
 
         assertFalse(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
         assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor2)); // Should remain
         assertFalse(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor3));
     }
 
-    function test_removeDistributor_notExists() public {
+    function test_removeDistributors_notExists() public {
         address[] memory distributors = new address[](1);
         distributors[0] = distributor1;
 
         // Removing non-existent distributor should not emit event (idempotent)
         vm.recordLogs();
         vm.prank(repoAdmin);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributors);
         
         assertFalse(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
     }
 
-    function test_removeDistributor_adminStillCanDistribute() public {
+    function test_removeDistributors_adminStillCanDistribute() public {
         // Even if admin is somehow in distributor list and removed, admin should still be able to distribute
         address[] memory distributors = new address[](1);
         distributors[0] = repoAdmin;
 
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         vm.prank(repoAdmin);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         // Admin should still be able to distribute
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, repoAdmin));
     }
 
-    function test_removeDistributor_revert_notRepoAdmin() public {
+    function test_removeDistributors_revert_notRepoAdmin() public {
         address[] memory distributors = new address[](1);
         distributors[0] = distributor1;
 
         expectRevert(Errors.NOT_REPO_ADMIN);
         vm.prank(unauthorized);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributors);
     }
 
-    function test_removeDistributor_revert_batchLimitExceeded() public {
+    function test_removeDistributors_revert_batchLimitExceeded() public {
         uint256 batchLimit = escrow.batchLimit();
         address[] memory distributors = new address[](batchLimit + 1);
         
@@ -334,7 +273,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
 
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
         vm.prank(repoAdmin);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributors);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -348,7 +287,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
         distributors[1] = distributor2;
 
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor1));
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor2));
@@ -358,14 +297,14 @@ contract OnlyRepoAdmin_Test is Base_Test {
         toRemove[0] = distributor1;
 
         vm.prank(repoAdmin);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, toRemove);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, toRemove);
 
         assertFalse(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor1));
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor2));
 
         // Add back
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, toRemove);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, toRemove);
 
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor1));
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor2));
@@ -377,20 +316,27 @@ contract OnlyRepoAdmin_Test is Base_Test {
         distributors[0] = distributor1;
 
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
-        // Transfer admin
+        // Add new admin and remove old admin
+        address[] memory adminsToAdd = new address[](1);
+        adminsToAdd[0] = newAdmin;
         vm.prank(repoAdmin);
-        escrow.transferRepoAdmin(REPO_ID, ACCOUNT_ID, newAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+
+        address[] memory adminsToRemove = new address[](1);
+        adminsToRemove[0] = repoAdmin;
+        vm.prank(newAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
 
         // Old admin should not be able to manage distributors
         expectRevert(Errors.NOT_REPO_ADMIN);
         vm.prank(repoAdmin);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         // New admin should be able to manage distributors
         vm.prank(newAdmin);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         assertFalse(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
 
@@ -409,10 +355,10 @@ contract OnlyRepoAdmin_Test is Base_Test {
 
         // Add different distributors to different repos
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors1);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors1);
 
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID_2, ACCOUNT_ID_2, distributors2);
+        escrow.addDistributors(REPO_ID_2, ACCOUNT_ID_2, distributors2);
 
         // Each distributor should only work for their repo
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor1));
@@ -436,7 +382,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
 
         // Add all distributors
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         // Verify all were added
         for (uint i = 0; i < numDistributors; i++) {
@@ -445,7 +391,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
 
         // Remove all distributors
         vm.prank(repoAdmin);
-        escrow.removeDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributors);
 
         // Verify all were removed
         for (uint i = 0; i < numDistributors; i++) {
@@ -457,7 +403,284 @@ contract OnlyRepoAdmin_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
+    event AdminSet(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
     event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
     event AddedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
     event RemovedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
+
+    /* -------------------------------------------------------------------------- */
+    /*                             ADD ADMINS TESTS                               */
+    /* -------------------------------------------------------------------------- */
+
+    function test_addAdmins_success() public {
+        address[] memory adminsToAdd = new address[](1);
+        adminsToAdd[0] = newAdmin;
+
+        assertFalse(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, newAdmin));
+
+        vm.expectEmit(true, true, true, true);
+        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), newAdmin);
+
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, newAdmin));
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, newAdmin));
+        
+        // Verify both admins are in the set
+        address[] memory allAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
+        assertEq(allAdmins.length, 2);
+    }
+
+    function test_addAdmins_multiple() public {
+        address admin1 = makeAddr("admin1");
+        address admin2 = makeAddr("admin2");
+        address admin3 = makeAddr("admin3");
+        
+        address[] memory adminsToAdd = new address[](3);
+        adminsToAdd[0] = admin1;
+        adminsToAdd[1] = admin2;
+        adminsToAdd[2] = admin3;
+
+        vm.expectEmit(true, true, true, true);
+        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin1);
+        vm.expectEmit(true, true, true, true);
+        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin2);
+        vm.expectEmit(true, true, true, true);
+        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin3);
+
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, admin1));
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, admin2));
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, admin3));
+        
+        // All should be able to distribute
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, admin1));
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, admin2));
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, admin3));
+        
+        // Verify all admins are in the set (original + 3 new = 4 total)
+        address[] memory allAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
+        assertEq(allAdmins.length, 4);
+    }
+
+    function test_addAdmins_duplicate() public {
+        address[] memory adminsToAdd = new address[](2);
+        adminsToAdd[0] = repoAdmin; // Already an admin
+        adminsToAdd[1] = newAdmin;
+
+        // Only newAdmin should emit event since repoAdmin is already an admin
+        vm.expectEmit(true, true, true, true);
+        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), newAdmin);
+
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin));
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, newAdmin));
+        
+        // Should still be 2 admins (no duplicates)
+        address[] memory allAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
+        assertEq(allAdmins.length, 2);
+    }
+
+    function test_addAdmins_newAdminCanAddMore() public {
+        // Add newAdmin
+        address[] memory adminsToAdd = new address[](1);
+        adminsToAdd[0] = newAdmin;
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+
+        // newAdmin should be able to add more admins
+        address admin3 = makeAddr("admin3");
+        address[] memory moreAdmins = new address[](1);
+        moreAdmins[0] = admin3;
+        
+        vm.prank(newAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, moreAdmins);
+
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, admin3));
+    }
+
+    function test_addAdmins_revert_emptyArray() public {
+        address[] memory adminsToAdd = new address[](0);
+
+        expectRevert(Errors.INVALID_AMOUNT);
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+    }
+
+    function test_addAdmins_revert_invalidAddress() public {
+        address[] memory adminsToAdd = new address[](2);
+        adminsToAdd[0] = newAdmin;
+        adminsToAdd[1] = address(0); // Invalid
+
+        expectRevert(Errors.INVALID_ADDRESS);
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+    }
+
+    function test_addAdmins_revert_notRepoAdmin() public {
+        address[] memory adminsToAdd = new address[](1);
+        adminsToAdd[0] = newAdmin;
+
+        expectRevert(Errors.NOT_REPO_ADMIN);
+        vm.prank(unauthorized);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+    }
+
+    function test_addAdmins_revert_batchLimitExceeded() public {
+        uint256 batchLimit = escrow.batchLimit();
+        address[] memory adminsToAdd = new address[](batchLimit + 1);
+        
+        for (uint i = 0; i < batchLimit + 1; i++) {
+            adminsToAdd[i] = makeAddr(string(abi.encodePacked("admin", i)));
+        }
+
+        expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                            REMOVE ADMINS TESTS                             */
+    /* -------------------------------------------------------------------------- */
+
+    function test_removeAdmins_success() public {
+        // First add another admin
+        address[] memory adminsToAdd = new address[](1);
+        adminsToAdd[0] = newAdmin;
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+
+        // Now remove the original admin
+        address[] memory adminsToRemove = new address[](1);
+        adminsToRemove[0] = repoAdmin;
+
+        vm.expectEmit(true, true, true, true);
+        emit RepoAdminChanged(REPO_ID, repoAdmin, address(0));
+
+        vm.prank(newAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+
+        assertFalse(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin));
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, newAdmin));
+        assertFalse(escrow.canDistribute(REPO_ID, ACCOUNT_ID, repoAdmin));
+        
+        // Should be 1 admin left
+        address[] memory allAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
+        assertEq(allAdmins.length, 1);
+        assertEq(allAdmins[0], newAdmin);
+    }
+
+    function test_removeAdmins_multiple() public {
+        // Add multiple admins
+        address admin1 = makeAddr("admin1");
+        address admin2 = makeAddr("admin2");
+        address admin3 = makeAddr("admin3");
+        
+        address[] memory adminsToAdd = new address[](3);
+        adminsToAdd[0] = admin1;
+        adminsToAdd[1] = admin2;
+        adminsToAdd[2] = admin3;
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+
+        // Remove two of them
+        address[] memory adminsToRemove = new address[](2);
+        adminsToRemove[0] = admin1;
+        adminsToRemove[1] = admin3;
+
+        vm.prank(repoAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+
+        assertFalse(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, admin1));
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, admin2)); // Should remain
+        assertFalse(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, admin3));
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin)); // Original should remain
+        
+        // Should be 2 admins left
+        address[] memory allAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
+        assertEq(allAdmins.length, 2);
+    }
+
+    function test_removeAdmins_revert_cannotRemoveAllAdmins() public {
+        // Try to remove the only admin
+        address[] memory adminsToRemove = new address[](1);
+        adminsToRemove[0] = repoAdmin;
+
+        expectRevert(Errors.CANNOT_REMOVE_ALL_ADMINS);
+        vm.prank(repoAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+    }
+
+    function test_removeAdmins_revert_cannotRemoveAllAdminsMultiple() public {
+        // Add one more admin
+        address[] memory adminsToAdd = new address[](1);
+        adminsToAdd[0] = newAdmin;
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+
+        // Try to remove both admins
+        address[] memory adminsToRemove = new address[](2);
+        adminsToRemove[0] = repoAdmin;
+        adminsToRemove[1] = newAdmin;
+
+        expectRevert(Errors.CANNOT_REMOVE_ALL_ADMINS);
+        vm.prank(repoAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+    }
+
+    function test_removeAdmins_nonExistentAdmin() public {
+        // Add one admin so we can remove without violating the "at least one admin" rule
+        address[] memory adminsToAdd = new address[](1);
+        adminsToAdd[0] = newAdmin;
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+
+        // Try to remove non-existent admin (should not emit event)
+        address nonExistent = makeAddr("nonExistent");
+        address[] memory adminsToRemove = new address[](1);
+        adminsToRemove[0] = nonExistent;
+
+        vm.recordLogs();
+        vm.prank(repoAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+        
+        // Should not affect existing admins
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin));
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, newAdmin));
+    }
+
+    function test_removeAdmins_revert_emptyArray() public {
+        address[] memory adminsToRemove = new address[](0);
+
+        expectRevert(Errors.INVALID_AMOUNT);
+        vm.prank(repoAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+    }
+
+    function test_removeAdmins_revert_notRepoAdmin() public {
+        address[] memory adminsToRemove = new address[](1);
+        adminsToRemove[0] = repoAdmin;
+
+        expectRevert(Errors.NOT_REPO_ADMIN);
+        vm.prank(unauthorized);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+    }
+
+    function test_removeAdmins_revert_batchLimitExceeded() public {
+        uint256 batchLimit = escrow.batchLimit();
+        address[] memory adminsToRemove = new address[](batchLimit + 1);
+        
+        for (uint i = 0; i < batchLimit + 1; i++) {
+            adminsToRemove[i] = makeAddr(string(abi.encodePacked("admin", i)));
+        }
+
+        expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
+        vm.prank(repoAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+    }
 } 
