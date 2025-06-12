@@ -19,7 +19,7 @@ library Errors {
     string internal constant ARRAY_LENGTH_MISMATCH        = "Array Length Mismatch";
     string internal constant RECIPIENT_ALREADY_SET        = "Recipient Already Set";
     string internal constant RECIPIENT_NOT_SET            = "Recipient Not Set";
-    string internal constant INVALID_FEE_BPS              = "Invalid Fee BPS";
+    string internal constant INVALID_FEE                  = "Invalid Fee";
     string internal constant INSUFFICIENT_BALANCE         = "Insufficient Balance";
     string internal constant INVALID_CLAIM_ID             = "Invalid Claim ID";
     string internal constant CLAIM_DEADLINE_PASSED        = "Claim Deadline Passed";

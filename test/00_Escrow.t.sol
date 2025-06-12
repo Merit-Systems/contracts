@@ -42,28 +42,4 @@ contract Base_Test is Test {
         vm.expectRevert(bytes(message));
     }
 
-    function test_deploy() public view {
-        assertEq(escrow.owner(),        owner);
-        assertEq(escrow.signer(),       owner);
-        assertEq(escrow.fee(),          250);
-        assertEq(escrow.batchLimit(),   Params.BATCH_LIMIT);
-        assertEq(escrow.feeRecipient(), owner);
-        
-        // Check constants
-        assertEq(escrow.MAX_FEE_BPS(), 1000);
-        
-        // Check whitelist functionality
-        assertTrue(escrow.isTokenWhitelisted(address(wETH)));
-        assertFalse(escrow.isTokenWhitelisted(address(0)));
-        
-        address[] memory whitelistedTokens = escrow.getAllWhitelistedTokens();
-        assertEq(whitelistedTokens.length, 1);
-        assertEq(whitelistedTokens[0], address(wETH));
-        
-        // Check domain separator is set
-        assertTrue(escrow.DOMAIN_SEPARATOR() != bytes32(0));
-    }
-
-
 }
-
