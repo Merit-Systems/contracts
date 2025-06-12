@@ -269,6 +269,144 @@ contract ReclaimRepo_Test is Base_Test {
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + amount1 + amount2);
     }
 
+    function test_reclaimRepo_fuzz_batchSizes(uint8 numDistributions) public {
+        vm.assume(numDistributions > 0 && numDistributions <= 20); // Reasonable limit
+        uint256 batchLimit = escrow.batchLimit();
+        
+        uint256 distributionAmount = 100e18;
+        _fundRepo(distributionAmount * numDistributions + 1000e18); // Extra buffer
+        
+        uint[] memory distributionIds = new uint[](numDistributions);
+        
+        // Create distributions
+        for (uint i = 0; i < numDistributions; i++) {
+            distributionIds[i] = _createRepoDistribution(
+                makeAddr(string(abi.encodePacked("recipient", i))), 
+                distributionAmount
+            );
+        }
+        
+        // Move past deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+        
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        
+        if (numDistributions <= batchLimit) {
+            // Should succeed
+            escrow.reclaimRepo(distributionIds);
+            
+            // Verify all distributions were reclaimed
+            for (uint i = 0; i < numDistributions; i++) {
+                Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[i]);
+                assertTrue(uint8(distribution.status) == 2); // Reclaimed
+            }
+            
+            // Check balance increase
+            assertEq(
+                escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), 
+                initialRepoBalance + (distributionAmount * numDistributions)
+            );
+        } else {
+            // Should fail if exceeds batch limit
+            expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
+            escrow.reclaimRepo(distributionIds);
+        }
+    }
+
+    function test_reclaimRepo_fuzz_timeDelays(uint32 extraTime) public {
+        vm.assume(extraTime >= 1 && extraTime <= 365 days);
+        
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        
+        // Move past deadline by the fuzzed amount
+        vm.warp(block.timestamp + CLAIM_PERIOD + extraTime);
+        
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+        
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        escrow.reclaimRepo(distributionIds);
+        
+        // Should work regardless of how much time has passed after deadline
+        assertEq(
+            escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), 
+            initialRepoBalance + DISTRIBUTION_AMOUNT
+        );
+        
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
+        assertTrue(uint8(distribution.status) == 2); // Reclaimed
+    }
+
+    function test_reclaimRepo_fuzz_callers(address caller) public {
+        vm.assume(caller != address(0));
+        
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        
+        // Move past deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+        
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+        
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        
+        // Anyone should be able to reclaim expired repo distributions
+        vm.prank(caller);
+        escrow.reclaimRepo(distributionIds);
+        
+        assertEq(
+            escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), 
+            initialRepoBalance + DISTRIBUTION_AMOUNT
+        );
+    }
+
+    function test_reclaimRepo_fuzz_mixedDistributionTypes(uint8 numRepo, uint8 numSolo) public {
+        vm.assume(numRepo > 0 && numRepo <= 10);
+        vm.assume(numSolo > 0 && numSolo <= 10);
+        
+        uint256 distributionAmount = 100e18;
+        _fundRepo(distributionAmount * numRepo + 1000e18);
+        
+        uint[] memory repoDistributionIds = new uint[](numRepo);
+        uint[] memory mixedIds = new uint[](numRepo + numSolo);
+        
+        // Create repo distributions
+        for (uint i = 0; i < numRepo; i++) {
+            repoDistributionIds[i] = _createRepoDistribution(
+                makeAddr(string(abi.encodePacked("repoRecipient", i))), 
+                distributionAmount
+            );
+            mixedIds[i] = repoDistributionIds[i];
+        }
+        
+        // Create solo distributions
+        for (uint i = 0; i < numSolo; i++) {
+            uint256 soloId = _createSoloDistribution(
+                makeAddr(string(abi.encodePacked("soloRecipient", i))), 
+                distributionAmount
+            );
+            mixedIds[numRepo + i] = soloId;
+        }
+        
+        // Move past deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+        
+        // Try to reclaim all (should fail because of solo distributions)
+        expectRevert(Errors.NOT_REPO_DISTRIBUTION);
+        escrow.reclaimRepo(mixedIds);
+        
+        // Reclaiming only repo distributions should work
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        escrow.reclaimRepo(repoDistributionIds);
+        
+        assertEq(
+            escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), 
+            initialRepoBalance + (distributionAmount * numRepo)
+        );
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */

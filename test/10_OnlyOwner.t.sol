@@ -289,6 +289,88 @@ contract OnlyOwner_Test is Base_Test {
         assertEq(escrow.batchLimit(), newLimit);
     }
 
+    function test_addWhitelistedToken_fuzz_multipleTokens(uint8 numTokens) public {
+        vm.assume(numTokens > 0 && numTokens <= 50); // Reasonable limit to avoid gas issues
+        
+        address[] memory initialTokens = escrow.getAllWhitelistedTokens();
+        uint256 initialCount = initialTokens.length;
+        
+        for (uint i = 0; i < numTokens; i++) {
+            address token = address(new MockERC20(
+                string(abi.encodePacked("Token", i)), 
+                string(abi.encodePacked("TK", i)), 
+                18
+            ));
+            
+            vm.prank(owner);
+            escrow.addWhitelistedToken(token);
+            
+            assertTrue(escrow.isTokenWhitelisted(token));
+        }
+        
+        address[] memory finalTokens = escrow.getAllWhitelistedTokens();
+        assertEq(finalTokens.length, initialCount + numTokens);
+    }
+
+    function test_setFeeRecipient_fuzz(address recipient) public {
+        vm.prank(owner);
+        escrow.setFeeRecipient(recipient);
+        
+        assertEq(escrow.feeRecipient(), recipient);
+    }
+
+    function test_setSigner_fuzz(address signer) public {
+        vm.prank(owner);
+        escrow.setSigner(signer);
+        
+        assertEq(escrow.signer(), signer);
+    }
+
+    function test_ownerSettings_fuzz_combinedChanges(
+        uint256 newFee,
+        address newFeeRecipient,
+        address fuzzSigner,
+        uint256 newBatchLimit
+    ) public {
+        vm.assume(newFee <= escrow.MAX_FEE());
+        vm.assume(newBatchLimit > 0);
+        
+        vm.startPrank(owner);
+        escrow.setFee(newFee);
+        escrow.setFeeRecipient(newFeeRecipient);
+        escrow.setSigner(fuzzSigner);
+        escrow.setBatchLimit(newBatchLimit);
+        vm.stopPrank();
+        
+        assertEq(escrow.fee(), newFee);
+        assertEq(escrow.feeRecipient(), newFeeRecipient);
+        assertEq(escrow.signer(), fuzzSigner);
+        assertEq(escrow.batchLimit(), newBatchLimit);
+    }
+
+    function test_feeChanges_fuzz_distributionImpact(uint256 oldFee, uint256 newFee, uint256 amount) public {
+        vm.assume(oldFee <= escrow.MAX_FEE());
+        vm.assume(newFee <= escrow.MAX_FEE());
+        vm.assume(amount >= 100 && amount <= 1000e18); // Ensure amount is large enough to pass fee validation
+        
+        // Set initial fee
+        vm.prank(owner);
+        escrow.setFee(oldFee);
+        
+        // Create distribution with old fee
+        address recipient = makeAddr("recipient");
+        _createSingleDistribution(recipient, amount);
+        
+        // Change fee
+        vm.prank(owner);
+        escrow.setFee(newFee);
+        
+        // Verify distribution retains old fee but global fee is new
+        Escrow.Distribution memory distribution = escrow.getDistribution(0);
+        assertEq(distribution.fee, oldFee, "Distribution should retain creation-time fee");
+        assertEq(escrow.fee(), newFee, "Global fee should be updated");
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                              INTEGRATION TESTS                             */
     /* -------------------------------------------------------------------------- */

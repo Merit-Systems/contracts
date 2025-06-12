@@ -148,6 +148,66 @@ contract FundRepo_Test is Base_Test {
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), amount);
     }
 
+    function test_fundRepo_fuzz_repoAndAccountIds(uint256 repoId, uint256 accountId, uint256 amount) public {
+        vm.assume(amount > 0 && amount <= 1000e18);
+        vm.assume(repoId <= type(uint128).max && accountId <= type(uint128).max);
+        
+        vm.prank(alice);
+        escrow.fundRepo(repoId, accountId, wETH, amount, "");
+        
+        assertEq(escrow.getAccountBalance(repoId, accountId, address(wETH)), amount);
+    }
+
+    function test_fundRepo_fuzz_multipleFundings(uint8 numFundings, uint256 baseAmount) public {
+        vm.assume(numFundings > 0 && numFundings <= 20);
+        vm.assume(baseAmount > 0 && baseAmount <= 50e18);
+        
+        uint256 totalAmount = 0;
+        
+        for (uint i = 0; i < numFundings; i++) {
+            uint256 amount = baseAmount + (i * 1e18); // Vary amounts
+            vm.prank(alice);
+            escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, abi.encodePacked("funding ", i));
+            totalAmount += amount;
+        }
+        
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), totalAmount);
+    }
+
+    function test_fundRepo_fuzz_dataField(bytes calldata data) public {
+        vm.assume(data.length <= 1000); // Reasonable data size limit
+        uint256 amount = 100e18;
+        
+        vm.expectEmit(true, true, true, true);
+        emit Funded(REPO_ID, address(wETH), alice, amount, data);
+        
+        vm.prank(alice);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, data);
+        
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), amount);
+    }
+
+    function test_fundRepo_fuzz_multipleUsers(uint8 numUsers, uint256 amountPerUser) public {
+        vm.assume(numUsers > 0 && numUsers <= 10);
+        vm.assume(amountPerUser > 0 && amountPerUser <= 100e18);
+        
+        uint256 totalAmount = 0;
+        
+        for (uint i = 0; i < numUsers; i++) {
+            address user = makeAddr(string(abi.encodePacked("user", i)));
+            wETH.mint(user, amountPerUser);
+            
+            vm.startPrank(user);
+            wETH.approve(address(escrow), amountPerUser);
+            escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amountPerUser, "");
+            vm.stopPrank();
+            
+            totalAmount += amountPerUser;
+        }
+        
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), totalAmount);
+    }
+
     // Event for testing
     event Funded(uint256 indexed repoId, address indexed token, address indexed sender, uint256 amount, bytes data);
 } 

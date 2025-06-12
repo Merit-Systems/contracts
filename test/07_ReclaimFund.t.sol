@@ -269,6 +269,68 @@ contract ReclaimFund_Test is Base_Test {
         escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
     }
 
+    function test_reclaimFund_fuzz_repoAndAccountIds(uint256 repoId, uint256 accountId, uint256 amount) public {
+        vm.assume(amount > 0 && amount <= 1000e18);
+        vm.assume(repoId != REPO_ID || accountId != ACCOUNT_ID); // Avoid conflict with existing repo
+        vm.assume(repoId <= type(uint128).max && accountId <= type(uint128).max);
+        
+        address admin = makeAddr("fuzzAdmin");
+        
+        // Initialize new repo
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    accountId,
+                    keccak256(abi.encode(_toArray(admin))),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        escrow.initRepo(repoId, accountId, _toArray(admin), deadline, v, r, s);
+        
+        // Fund the repo
+        wETH.mint(address(this), amount);
+        wETH.approve(address(escrow), amount);
+        escrow.fundRepo(repoId, accountId, wETH, amount, "");
+        
+        uint256 initialAdminBalance = wETH.balanceOf(admin);
+        
+        // Reclaim funds
+        vm.prank(admin);
+        escrow.reclaimFund(repoId, accountId, address(wETH), amount);
+        
+        assertEq(wETH.balanceOf(admin), initialAdminBalance + amount);
+        assertEq(escrow.getAccountBalance(repoId, accountId, address(wETH)), 0);
+    }
+
+    function test_reclaimFund_fuzz_multipleReclaims(uint8 numReclaims, uint256 baseAmount) public {
+        vm.assume(numReclaims > 0 && numReclaims <= 10);
+        vm.assume(baseAmount > 0 && baseAmount <= 100e18);
+        
+        uint256 totalFundAmount = baseAmount * numReclaims;
+        _fundRepo(totalFundAmount);
+        
+        uint256 totalReclaimed = 0;
+        uint256 initialAdminBalance = wETH.balanceOf(repoAdmin);
+        
+        for (uint i = 0; i < numReclaims; i++) {
+            vm.prank(repoAdmin);
+            escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), baseAmount);
+            totalReclaimed += baseAmount;
+        }
+        
+        assertEq(wETH.balanceOf(repoAdmin), initialAdminBalance + totalReclaimed);
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), totalFundAmount - totalReclaimed);
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
