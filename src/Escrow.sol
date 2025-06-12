@@ -81,8 +81,9 @@ contract Escrow is Owned, IEscrow {
     mapping(address => uint) public recipientNonce;             // recipient → nonce
     uint                     public ownerNonce;    
 
-    uint16  public protocolFeeBps;
+    uint    public fee;
     address public feeRecipient;
+    uint    public batchLimit; 
 
     EnumerableSet.AddressSet private _whitelistedTokens;
 
@@ -112,13 +113,15 @@ contract Escrow is Owned, IEscrow {
         address          _owner,
         address          _signer,
         address[] memory _initialWhitelist,
-        uint16           _initialFeeBps
+        uint             _initialFeeBps,
+        uint             _batchLimit
     ) Owned(_owner) {
         require(_initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
 
         signer                   = _signer;
         feeRecipient             = _owner;
-        protocolFeeBps           = _initialFeeBps;
+        fee                      = _initialFeeBps;
+        batchLimit               = _batchLimit;
         INITIAL_CHAIN_ID         = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = _domainSeparator();
 
@@ -197,6 +200,8 @@ contract Escrow is Owned, IEscrow {
         external 
         returns (uint[] memory distributionIds)
     {
+        require(_distributions.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        
         Account storage account = accounts[repoId][accountId];
 
         bool isAdmin       = msg.sender == account.admin;
@@ -241,6 +246,8 @@ contract Escrow is Owned, IEscrow {
         external 
         returns (uint[] memory distributionIds)
     {
+        require(_distributions.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        
         distributionIds          = new uint[](_distributions.length);
         uint distributionBatchId = distributionBatchCount++;
         
@@ -301,8 +308,9 @@ contract Escrow is Owned, IEscrow {
         bytes32       r,
         bytes32       s
     ) external {
-        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
-        require(distributionIds.length > 0,  Errors.INVALID_AMOUNT);
+        require(block.timestamp <= deadline,          Errors.SIGNATURE_EXPIRED);
+        require(distributionIds.length > 0,           Errors.INVALID_AMOUNT);
+        require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
 
         require(ECDSA.recover(
             keccak256(
@@ -332,11 +340,11 @@ contract Escrow is Owned, IEscrow {
 
             distribution.distributionStatus = DistributionStatus.Claimed;
              
-            uint fee       = distribution.amount.mulDivUp(protocolFeeBps, 10_000);
-            uint netAmount = distribution.amount - fee;
+            uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
+            uint netAmount = distribution.amount - feeAmount;
             require(netAmount > 0, Errors.INVALID_AMOUNT);
             
-            if (fee > 0) distribution.token.safeTransfer(feeRecipient, fee);
+            if (feeAmount > 0) distribution.token.safeTransfer(feeRecipient, feeAmount);
             distribution.token.safeTransfer(msg.sender, netAmount);
             
             emit Claimed(distributionId, msg.sender, netAmount, fee);
@@ -372,6 +380,8 @@ contract Escrow is Owned, IEscrow {
     /*                               RECLAIM REPO                                 */
     /* -------------------------------------------------------------------------- */
     function reclaimRepo(uint[] calldata distributionIds) external {
+        require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        
         for (uint i; i < distributionIds.length; ++i) {
             uint distributionId = distributionIds[i];
             Distribution storage distribution = distributions[distributionId];
@@ -394,6 +404,8 @@ contract Escrow is Owned, IEscrow {
     /*                               RECLAIM SOLO                                 */
     /* -------------------------------------------------------------------------- */
     function reclaimSolo(uint[] calldata distributionIds) external {
+        require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        
         for (uint i; i < distributionIds.length; ++i) {
             uint              distributionId = distributionIds[i];
             Distribution storage distribution   = distributions[distributionId];
@@ -421,12 +433,12 @@ contract Escrow is Owned, IEscrow {
         emit TokenWhitelisted(token);
     }
 
-    function setProtocolFee(uint16 newFeeBps) 
+    function setFee(uint newFee) 
         external 
         onlyOwner 
     {
-        require(newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
-        protocolFeeBps = newFeeBps;
+        require(newFee <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
+        fee = newFee;
     }
 
     function setFeeRecipient(address newRec) 
@@ -441,6 +453,15 @@ contract Escrow is Owned, IEscrow {
         onlyOwner 
     {
         signer = newSigner;
+    }
+
+    function setBatchLimit(uint newBatchLimit) 
+        external 
+        onlyOwner 
+    {
+        require(newBatchLimit > 0, Errors.INVALID_AMOUNT);
+        batchLimit = newBatchLimit;
+        emit BatchLimitSet(newBatchLimit);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -461,6 +482,8 @@ contract Escrow is Owned, IEscrow {
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
+        require(distributors.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        
         Account storage account = accounts[repoId][accountId];
         for (uint i; i < distributors.length; ++i) {
             address distributor = distributors[i];
@@ -476,6 +499,8 @@ contract Escrow is Owned, IEscrow {
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
+        require(distributors.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        
         Account storage account = accounts[repoId][accountId];
         for (uint i; i < distributors.length; ++i) {
             address distributor = distributors[i];

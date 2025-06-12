@@ -72,4 +72,5 @@ interface IEscrow {
     event TokenRemovedFromWhitelist(address indexed token);
     event AddedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
     event RemovedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
+    event BatchLimitSet(uint256 newBatchLimit);
 } 
