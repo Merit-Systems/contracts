@@ -407,8 +407,8 @@ contract OnlyRepoAdmin_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event AdminSet(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
-    event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
+    event AddedAdmin(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
+    event RemovedAdmin(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
     event AddedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
     event RemovedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
 
@@ -424,7 +424,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
         assertFalse(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, testAdmin));
 
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), testAdmin);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), testAdmin);
 
         vm.prank(repoAdmin);
         escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
@@ -448,11 +448,11 @@ contract OnlyRepoAdmin_Test is Base_Test {
         adminsToAdd[2] = admin3;
 
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin1);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin1);
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin2);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin2);
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin3);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin3);
 
         vm.prank(repoAdmin);
         escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
@@ -478,7 +478,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
 
         // Only the new admin should emit event since repoAdmin is already an admin
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), makeAddr("anotherAdmin"));
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), makeAddr("anotherAdmin"));
 
         vm.prank(repoAdmin);
         escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
@@ -565,7 +565,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
         adminsToRemove[0] = repoAdmin;
 
         vm.expectEmit(true, true, true, true);
-        emit RepoAdminChanged(REPO_ID, repoAdmin, address(0));
+        emit RemovedAdmin(REPO_ID, repoAdmin, address(0));
 
         vm.prank(newAdmin);
         escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
@@ -701,9 +701,9 @@ contract OnlyRepoAdmin_Test is Base_Test {
 
         // Should only emit event once for newAdmin
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), newAdmin);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), newAdmin);
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), makeAddr("admin2"));
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), makeAddr("admin2"));
 
         vm.prank(repoAdmin);
         escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);

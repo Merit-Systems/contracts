@@ -45,7 +45,7 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), repoAdmin);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), repoAdmin);
 
         escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
 
@@ -89,11 +89,11 @@ contract InitRepo_Test is Base_Test {
 
         // Expect events for all admins
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin1);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin1);
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin2);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin2);
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin3);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin3);
 
         escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
 
@@ -443,7 +443,7 @@ contract InitRepo_Test is Base_Test {
 
         // Only one event should be emitted since EnumerableSet handles duplicates
         vm.expectEmit(true, true, true, true);
-        emit AdminSet(REPO_ID, ACCOUNT_ID, address(0), admin1);
+        emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin1);
 
         escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
 
@@ -1047,5 +1047,5 @@ contract InitRepo_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event AdminSet(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
+    event AddedAdmin(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
 } 
