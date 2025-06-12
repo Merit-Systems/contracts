@@ -229,7 +229,7 @@ contract Deploy_Test is Base_Test {
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint chainId,address verifyingContract)"),
-                keccak256(bytes("EscrowRepo")),
+                keccak256(bytes("Escrow")),
                 keccak256(bytes("1")),
                 block.chainid,
                 address(deployedEscrow)
