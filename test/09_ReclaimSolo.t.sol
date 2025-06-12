@@ -411,8 +411,8 @@ contract ReclaimSolo_Test is Base_Test {
     }
 
     function test_reclaimSolo_fuzz_amounts(uint256 amount1, uint256 amount2) public {
-        vm.assume(amount1 > 0 && amount1 <= 1000e18);
-        vm.assume(amount2 > 0 && amount2 <= 1000e18);
+        vm.assume(amount1 >= 100 && amount1 <= 1000e18); // Ensure minimum size for fees
+        vm.assume(amount2 >= 100 && amount2 <= 1000e18);
 
         uint256 distributionId1 = _createSoloDistribution(soloPayer, recipient, amount1);
         uint256 distributionId2 = _createSoloDistribution(soloPayer, recipient, amount2);
