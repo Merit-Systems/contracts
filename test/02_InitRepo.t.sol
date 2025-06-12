@@ -455,6 +455,422 @@ contract InitRepo_Test is Base_Test {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                        SIGNATURE VALIDATION EDGE CASES                     */
+    /* -------------------------------------------------------------------------- */
+
+    function test_initRepo_signature_wrongNonce() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Create signature with wrong nonce
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce() + 1, // Wrong nonce
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+    }
+
+    function test_initRepo_signature_wrongRepoId() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Create signature with wrong repo ID
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID + 1, // Wrong repo ID
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+    }
+
+    function test_initRepo_signature_wrongAccountId() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Create signature with wrong account ID
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID + 1, // Wrong account ID
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+    }
+
+    function test_initRepo_signature_wrongAdmins() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        address[] memory wrongAdmins = new address[](1);
+        wrongAdmins[0] = makeAddr("wrongAdmin");
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Create signature with wrong admins array
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(wrongAdmins)), // Wrong admins
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+    }
+
+    function test_initRepo_signature_wrongDeadline() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        uint256 wrongDeadline = deadline + 1 hours;
+        
+        // Create signature with wrong deadline
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    wrongDeadline // Wrong deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+    }
+
+    function test_initRepo_signature_wrongTypehash() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 wrongTypehash = keccak256("WrongTypehash(uint repoId,uint accountId,address[] admins,uint nonce,uint deadline)");
+        
+        // Create signature with wrong typehash
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    wrongTypehash, // Wrong typehash
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+    }
+
+    function test_initRepo_signature_malformedSignature() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Use malformed signature components
+        uint8 v = 27;
+        bytes32 r = bytes32(0);
+        bytes32 s = bytes32(0);
+
+        vm.expectRevert(); // Expect any revert, not specific error message
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+    }
+
+    function test_initRepo_signature_invalidRecoveryId() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        
+        // Modify v to invalid value
+        uint8 invalidV = v == 27 ? 26 : 29; // Invalid recovery ID
+
+        vm.expectRevert(); // Expect any revert, not specific error message
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, invalidV, r, s);
+    }
+
+    function test_initRepo_signature_replayAttack() public {
+        address[] memory admins1 = new address[](1);
+        admins1[0] = makeAddr("admin1");
+        
+        address[] memory admins2 = new address[](1);
+        admins2[0] = makeAddr("admin2");
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Create signature for first repo
+        bytes32 digest1 = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins1)),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(ownerPrivateKey, digest1);
+        
+        // Initialize first repo
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins1, deadline, v1, r1, s1);
+        
+        // Try to reuse signature for second repo (should fail due to nonce increment)
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(REPO_ID + 1, ACCOUNT_ID + 1, admins2, deadline, v1, r1, s1);
+        
+        // Proper second initialization should work
+        bytes32 digest2 = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID + 1,
+                    ACCOUNT_ID + 1,
+                    keccak256(abi.encode(admins2)),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(ownerPrivateKey, digest2);
+        escrow.initRepo(REPO_ID + 1, ACCOUNT_ID + 1, admins2, deadline, v2, r2, s2);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                          INTEGRATION TESTS                                 */
+    /* -------------------------------------------------------------------------- */
+
+    function test_initRepo_integration_afterOwnerChange() public {
+        uint256 newOwnerPrivateKey = 0x3333333333333333333333333333333333333333333333333333333333333333;
+        address newOwner = vm.addr(newOwnerPrivateKey); // Get the correct address for this private key
+        
+        // Transfer ownership
+        vm.prank(owner);
+        escrow.transferOwnership(newOwner);
+        
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Old owner signature should fail
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 vOld, bytes32 rOld, bytes32 sOld) = vm.sign(ownerPrivateKey, digest);
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, vOld, rOld, sOld);
+        
+        // New owner signature should work
+        (uint8 vNew, bytes32 rNew, bytes32 sNew) = vm.sign(newOwnerPrivateKey, digest);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, vNew, rNew, sNew);
+        
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin));
+    }
+
+    function test_initRepo_integration_maxBatchLimit() public {
+        uint256 batchLimit = escrow.batchLimit();
+        address[] memory admins = new address[](batchLimit);
+        
+        // Fill with valid addresses
+        for (uint i = 0; i < batchLimit; i++) {
+            admins[i] = address(uint160(i + 1));
+        }
+        
+        _initializeRepo(REPO_ID, ACCOUNT_ID, admins);
+        
+        // Verify all admins were added
+        address[] memory retrievedAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
+        assertEq(retrievedAdmins.length, batchLimit);
+        
+        for (uint i = 0; i < batchLimit; i++) {
+            assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, admins[i]));
+        }
+    }
+
+    function test_initRepo_integration_gasOptimization() public {
+        // Test gas usage for different admin array sizes
+        address[] memory singleAdmin = new address[](1);
+        singleAdmin[0] = makeAddr("singleAdmin");
+        
+        address[] memory multipleAdmins = new address[](10);
+        for (uint i = 0; i < 10; i++) {
+            multipleAdmins[i] = makeAddr(string(abi.encodePacked("admin", i)));
+        }
+        
+        // Single admin initialization
+        uint256 gasBefore = gasleft();
+        _initializeRepo(1, 100, singleAdmin);
+        uint256 gasUsedSingle = gasBefore - gasleft();
+        
+        // Multiple admin initialization
+        gasBefore = gasleft();
+        _initializeRepo(2, 200, multipleAdmins);
+        uint256 gasUsedMultiple = gasBefore - gasleft();
+        
+        // Multiple should be more efficient per admin than individual calls
+        assertTrue(gasUsedMultiple < gasUsedSingle * 10);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                FUZZ TESTS                                  */
+    /* -------------------------------------------------------------------------- */
+
+    function test_initRepo_fuzz_adminCount(uint8 adminCount) public {
+        vm.assume(adminCount > 0 && adminCount <= 50); // Reasonable bounds
+        
+        address[] memory admins = new address[](adminCount);
+        for (uint i = 0; i < adminCount; i++) {
+            admins[i] = address(uint160(i + 1));
+        }
+        
+        _initializeRepo(REPO_ID, ACCOUNT_ID, admins);
+        
+        // Verify all admins were added
+        address[] memory retrievedAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
+        assertEq(retrievedAdmins.length, adminCount);
+        
+        for (uint i = 0; i < adminCount; i++) {
+            assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, admins[i]));
+        }
+    }
+
+    function test_initRepo_fuzz_deadline(uint256 timeOffset) public {
+        vm.assume(timeOffset > 0 && timeOffset <= 365 days); // Reasonable future deadline
+        
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 deadline = block.timestamp + timeOffset;
+        
+        uint256 deadline_param = deadline;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    deadline_param
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline_param, v, r, s);
+        
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin));
+    }
+
+    /* -------------------------------------------------------------------------- */
     /*                                HELPER FUNCTIONS                           */
     /* -------------------------------------------------------------------------- */
 
