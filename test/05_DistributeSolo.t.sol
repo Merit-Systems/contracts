@@ -581,6 +581,239 @@ contract DistributeSolo_Test is Base_Test {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                          FEE SNAPSHOT MECHANISM TESTS                     */
+    /* -------------------------------------------------------------------------- */
+
+    function test_distributeSolo_feeSnapshotAtCreation() public {
+        // Test that fee is correctly snapshotted at distribution creation time
+        vm.prank(owner);
+        escrow.setFee(600); // 6%
+
+        wETH.mint(distributor, 1000e18);
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(distributor);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+
+        // Check that the distribution stores the correct fee
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.fee, 600, "Fee should be snapshotted at creation time");
+    }
+
+    function test_distributeSolo_differentFeesForDifferentDistributions() public {
+        // Test that distributions created at different times can have different fees
+        wETH.mint(distributor, 5000e18);
+
+        // Create first distribution with 3% fee
+        vm.prank(owner);
+        escrow.setFee(300);
+        
+        Escrow.DistributionParams[] memory distributions1 = new Escrow.DistributionParams[](1);
+        distributions1[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(distributor);
+        uint[] memory distributionIds1 = escrow.distributeSolo(distributions1);
+
+        // Change fee and create second distribution with 7% fee
+        vm.prank(owner);
+        escrow.setFee(700);
+        
+        Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
+        distributions2[0] = Escrow.DistributionParams({
+            amount: 2000e18,
+            recipient: recipient2,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(distributor);
+        uint[] memory distributionIds2 = escrow.distributeSolo(distributions2);
+
+        // Check that each distribution has its respective fee
+        Escrow.Distribution memory dist1 = escrow.getDistribution(distributionIds1[0]);
+        Escrow.Distribution memory dist2 = escrow.getDistribution(distributionIds2[0]);
+        
+        assertEq(dist1.fee, 300, "First distribution should have 3% fee");
+        assertEq(dist2.fee, 700, "Second distribution should have 7% fee");
+    }
+
+    function test_distributeSolo_zeroFeeSnapshot() public {
+        // Test that zero fees are correctly snapshotted
+        vm.prank(owner);
+        escrow.setFee(0); // 0% fee
+
+        wETH.mint(distributor, 1000e18);
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(distributor);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.fee, 0, "Zero fee should be correctly snapshotted");
+    }
+
+    function test_distributeSolo_maxFeeSnapshot() public {
+        // Test that maximum fees are correctly snapshotted
+        vm.prank(owner);
+        escrow.setFee(1000); // 10% (maximum) fee
+
+        wETH.mint(distributor, 1000e18);
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(distributor);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.fee, 1000, "Maximum fee should be correctly snapshotted");
+    }
+
+    function test_distributeSolo_batchDistributionsSameFeeSnapshot() public {
+        // Test that all distributions in a batch get the same fee snapshot
+        vm.prank(owner);
+        escrow.setFee(400); // 4%
+
+        wETH.mint(distributor, 5000e18);
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](3);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+        distributions[1] = Escrow.DistributionParams({
+            amount: 1500e18,
+            recipient: recipient2,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+        distributions[2] = Escrow.DistributionParams({
+            amount: 2000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(distributor);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+
+        // All distributions should have the same fee
+        for (uint i = 0; i < distributionIds.length; i++) {
+            Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[i]);
+            assertEq(distribution.fee, 400, "All distributions in batch should have same fee");
+        }
+    }
+
+    function test_distributeSolo_feeChangeAfterCreationDoesNotAffect() public {
+        // Test that changing fee after creation doesn't affect existing distributions
+        vm.prank(owner);
+        escrow.setFee(150); // 1.5%
+
+        wETH.mint(distributor, 1000e18);
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(distributor);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+
+        // Change fee after creation
+        vm.prank(owner);
+        escrow.setFee(850); // 8.5%
+
+        // Check that existing distribution still has original fee
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.fee, 150, "Existing distribution should retain original fee");
+        
+        // Verify global fee did change
+        assertEq(escrow.fee(), 850, "Global fee should have changed");
+    }
+
+    function test_distributeSolo_multiplePayers_differentFees() public {
+        // Test that different payers can create distributions with different fees
+        address payer1 = makeAddr("payer1");
+        address payer2 = makeAddr("payer2");
+        
+        wETH.mint(payer1, 1000e18);
+        wETH.mint(payer2, 1000e18);
+        
+        vm.prank(payer1);
+        wETH.approve(address(escrow), 1000e18);
+        vm.prank(payer2);
+        wETH.approve(address(escrow), 1000e18);
+
+        // Payer1 creates distribution with 2% fee
+        vm.prank(owner);
+        escrow.setFee(200);
+        
+        Escrow.DistributionParams[] memory distributions1 = new Escrow.DistributionParams[](1);
+        distributions1[0] = Escrow.DistributionParams({
+            amount: 500e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(payer1);
+        uint[] memory distributionIds1 = escrow.distributeSolo(distributions1);
+
+        // Change fee, then payer2 creates distribution with 9% fee
+        vm.prank(owner);
+        escrow.setFee(900);
+        
+        Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
+        distributions2[0] = Escrow.DistributionParams({
+            amount: 500e18,
+            recipient: recipient2,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(payer2);
+        uint[] memory distributionIds2 = escrow.distributeSolo(distributions2);
+
+        // Check that each payer's distribution has the fee that was active when they created it
+        Escrow.Distribution memory dist1 = escrow.getDistribution(distributionIds1[0]);
+        Escrow.Distribution memory dist2 = escrow.getDistribution(distributionIds2[0]);
+        
+        assertEq(dist1.fee, 200, "Payer1's distribution should have 2% fee");
+        assertEq(dist2.fee, 900, "Payer2's distribution should have 9% fee");
+        assertEq(dist1.payer, payer1, "First distribution should track correct payer");
+        assertEq(dist2.payer, payer2, "Second distribution should track correct payer");
+    }
+
+    /* -------------------------------------------------------------------------- */
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
     

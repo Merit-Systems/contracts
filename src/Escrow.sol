@@ -358,6 +358,7 @@ contract Escrow is Owned, IEscrow {
             
             emit Claimed(distributionId, msg.sender, netAmount, distribution.fee);
         }
+        emit ClaimedBatch(distributionIds, msg.sender, deadline);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -407,6 +408,7 @@ contract Escrow is Owned, IEscrow {
             
             emit ReclaimedRepo(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
         }
+        emit ReclaimedRepoBatch(distributionIds);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -429,6 +431,7 @@ contract Escrow is Owned, IEscrow {
             
             emit ReclaimedSolo(distributionId, distribution.payer, distribution.amount);
         }
+        emit ReclaimedSoloBatch(distributionIds);
     }
 
     /* -------------------------------------------------------------------------- */

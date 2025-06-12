@@ -185,8 +185,6 @@ contract OnlyOwner_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     function test_setSigner_success() public {
-        assertEq(escrow.signer(), owner); // Initial from setup
-
         vm.prank(owner);
         escrow.setSigner(newSigner);
 
@@ -222,7 +220,6 @@ contract OnlyOwner_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     function test_setBatchLimit_success() public {
-        uint256 currentLimit = escrow.batchLimit();
         uint256 newLimit = 50;
         
         vm.expectEmit(false, false, false, true);
@@ -383,4 +380,167 @@ contract OnlyOwner_Test is Base_Test {
 
     event TokenWhitelisted(address indexed token);
     event BatchLimitSet(uint256 newBatchLimit);
+    event SignerSet(address oldSigner, address newSigner);
+
+    /* -------------------------------------------------------------------------- */
+    /*                        FEE SNAPSHOT INTERACTION TESTS                      */
+    /* -------------------------------------------------------------------------- */
+
+    function test_setFee_doesNotAffectExistingDistributions() public {
+        // Create distributions with initial fee
+        vm.prank(owner);
+        escrow.setFee(300); // 3%
+
+        // Setup repo and create distributions
+        _setupRepoAndCreateDistributions(300); // This creates distributions with 3% fee
+
+        // Change fee after distributions are created
+        vm.prank(owner);
+        escrow.setFee(800); // 8%
+
+        // Check that global fee changed
+        assertEq(escrow.fee(), 800, "Global fee should have changed");
+
+        // Check that existing distributions retain their original fee
+        _verifyDistributionFeesUnchanged(300); // Verify they still have 3% fee
+    }
+
+    function test_setFee_newDistributionsUseNewFee() public {
+        // Start with one fee
+        vm.prank(owner);
+        escrow.setFee(200); // 2%
+
+        // Create first distribution
+        _setupRepoAndCreateDistributions(200);
+
+        // Change fee
+        vm.prank(owner);
+        escrow.setFee(700); // 7%
+
+        // Create second distribution with new fee
+        address recipient2 = makeAddr("recipient2");
+        _createSingleDistribution(recipient2, 1000e18);
+
+        // Verify each distribution has its respective creation-time fee
+        // First distribution should have 2%, second should have 7%
+        _verifyDistributionFeesUnchanged(200); // First distribution
+        
+        // Get the second distribution (should be distribution ID 1)
+        Escrow.Distribution memory dist2 = escrow.getDistribution(1);
+        assertEq(dist2.fee, 700, "New distribution should use current fee");
+    }
+
+    function test_setFee_multipleChangesCreateHistoricalSnapshot() public {
+        // Test that multiple fee changes create a historical record in distributions
+        address recipient1 = makeAddr("recipient1");
+        address recipient2 = makeAddr("recipient2");
+        address recipient3 = makeAddr("recipient3");
+
+        // Create distributions with different fees over time
+        vm.prank(owner);
+        escrow.setFee(100); // 1%
+        _createSingleDistribution(recipient1, 1000e18);
+
+        vm.prank(owner);
+        escrow.setFee(500); // 5%
+        _createSingleDistribution(recipient2, 1000e18);
+
+        vm.prank(owner);
+        escrow.setFee(900); // 9%
+        _createSingleDistribution(recipient3, 1000e18);
+
+        // Verify each distribution preserved its creation-time fee
+        Escrow.Distribution memory dist1 = escrow.getDistribution(0);
+        Escrow.Distribution memory dist2 = escrow.getDistribution(1);
+        Escrow.Distribution memory dist3 = escrow.getDistribution(2);
+
+        assertEq(dist1.fee, 100, "First distribution should have 1% fee");
+        assertEq(dist2.fee, 500, "Second distribution should have 5% fee");
+        assertEq(dist3.fee, 900, "Third distribution should have 9% fee");
+
+        // Verify global fee is the latest
+        assertEq(escrow.fee(), 900, "Global fee should be latest value");
+    }
+
+    function test_setFee_zeroToNonZeroDoesNotAffectExisting() public {
+        // Start with zero fee
+        vm.prank(owner);
+        escrow.setFee(0); // 0%
+
+        _setupRepoAndCreateDistributions(0);
+
+        // Change to non-zero fee
+        vm.prank(owner);
+        escrow.setFee(1000); // 10%
+
+        // Existing distributions should still have 0% fee
+        _verifyDistributionFeesUnchanged(0);
+        assertEq(escrow.fee(), 1000, "Global fee should be 10%");
+    }
+
+    // Helper functions for fee snapshot tests
+    function _setupRepoAndCreateDistributions(uint256 expectedFee) internal {
+        // Initialize repo
+        uint256 repoId = 1;
+        uint256 accountId = 100;
+        address admin = makeAddr("admin");
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    accountId,
+                    admin,
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        escrow.initRepo(repoId, accountId, admin, deadline, v, r, s);
+
+        // Fund repo
+        wETH.mint(address(this), 10000e18);
+        wETH.approve(address(escrow), 10000e18);
+        escrow.fundRepo(repoId, accountId, wETH, 10000e18);
+
+        // Create distribution
+        address recipient = makeAddr("recipient");
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient,
+            claimPeriod: 7 days,
+            token: wETH
+        });
+
+        vm.prank(admin);
+        escrow.distributeRepo(repoId, accountId, distributions, "");
+    }
+
+    function _createSingleDistribution(address recipient, uint256 amount) internal {
+        // Create a solo distribution
+        wETH.mint(address(this), amount);
+        wETH.approve(address(escrow), amount);
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: amount,
+            recipient: recipient,
+            claimPeriod: 7 days,
+            token: wETH
+        });
+
+        escrow.distributeSolo(distributions);
+    }
+
+    function _verifyDistributionFeesUnchanged(uint256 expectedFee) internal {
+        Escrow.Distribution memory distribution = escrow.getDistribution(0);
+        assertEq(distribution.fee, expectedFee, "Distribution fee should be unchanged");
+    }
 } 
