@@ -174,7 +174,7 @@ contract Escrow is Owned, IEscrow {
         for (uint i; i < admins.length; ++i) {
             require(admins[i] != address(0), Errors.INVALID_ADDRESS);
             account.admins.add(admins[i]);
-            emit AdminSet(repoId, accountId, address(0), admins[i]);
+            emit AddedAdmin(repoId, accountId, address(0), admins[i]);
         }
     }
 
@@ -499,7 +499,7 @@ contract Escrow is Owned, IEscrow {
             address admin = admins[i];
             require(admin != address(0), Errors.INVALID_ADDRESS);
             if (account.admins.add(admin)) {
-                emit AdminSet(repoId, accountId, address(0), admin);
+                emit AddedAdmin(repoId, accountId, address(0), admin);
             }
         }
     }
@@ -519,7 +519,7 @@ contract Escrow is Owned, IEscrow {
         for (uint i; i < admins.length; ++i) {
             address admin = admins[i];
             if (account.admins.remove(admin)) {
-                emit RepoAdminChanged(repoId, admin, address(0));
+                emit RemovedAdmin(repoId, admin, address(0));
             }
         }
     }
