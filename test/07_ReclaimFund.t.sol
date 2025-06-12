@@ -62,7 +62,7 @@ contract ReclaimFund_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
         return distributionIds[0];
     }
 
