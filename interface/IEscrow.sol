@@ -82,8 +82,8 @@ interface IEscrow {
         bytes data
     );
 
-    event AdminSet(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
-    event RepoAdminChanged(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
+    event AddedAdmin(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
+    event RemovedAdmin(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
     event TokenWhitelisted(address indexed token);
     event TokenRemovedFromWhitelist(address indexed token);
     event AddedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
