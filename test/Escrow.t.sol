@@ -23,7 +23,7 @@ contract Base_Test is Test {
 
     MockERC20 wETH = new MockERC20("Wrapped Ether", "wETH", 18);
 
-    function setUp() public {
+    function setUp() public virtual {
         address[] memory initialWhitelistedTokens = new address[](1);
         initialWhitelistedTokens[0] = address(wETH);
         escrow = new Deploy().deploy(
@@ -63,4 +63,7 @@ contract Base_Test is Test {
         // Check domain separator is set
         assertTrue(escrow.DOMAIN_SEPARATOR() != bytes32(0));
     }
+
+
 }
+
