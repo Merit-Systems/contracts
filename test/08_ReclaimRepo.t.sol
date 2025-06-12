@@ -50,7 +50,7 @@ contract ReclaimRepo_Test is Base_Test {
     function _fundRepo(uint256 amount) internal {
         wETH.mint(address(this), amount);
         wETH.approve(address(escrow), amount);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, "");
     }
 
     function _createRepoDistribution(address _recipient, uint256 amount) internal returns (uint256 distributionId) {

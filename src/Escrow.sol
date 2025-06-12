@@ -180,7 +180,8 @@ contract Escrow is Owned, IEscrow {
         uint  repoId,
         uint  accountId,
         ERC20 token,
-        uint  amount
+        uint  amount,
+        bytes calldata data
     ) external {
         require(_whitelistedTokens.contains(address(token)), Errors.INVALID_TOKEN);
         require(amount > 0,                                  Errors.INVALID_AMOUNT);
@@ -189,7 +190,7 @@ contract Escrow is Owned, IEscrow {
 
         accounts[repoId][accountId].balance[address(token)] += amount;
 
-        emit Funded(repoId, address(token), msg.sender, amount);
+        emit Funded(repoId, address(token), msg.sender, amount, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -246,7 +247,7 @@ contract Escrow is Owned, IEscrow {
     ///
     function distributeSolo(
         DistributionParams[] calldata _distributions,
-        bytes calldata data
+        bytes                calldata data
     ) 
         external 
         returns (uint[] memory distributionIds)

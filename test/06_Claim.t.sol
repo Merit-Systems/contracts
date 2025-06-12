@@ -52,7 +52,7 @@ contract Claim_Test is Base_Test {
         // Fund repo
         wETH.mint(address(this), DISTRIBUTION_AMOUNT * 10);
         wETH.approve(address(escrow), DISTRIBUTION_AMOUNT * 10);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, DISTRIBUTION_AMOUNT * 10);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, DISTRIBUTION_AMOUNT * 10, "");
     }
 
     function _createRepoDistribution(address _recipient, uint256 amount) internal returns (uint256 distributionId) {

@@ -6,7 +6,8 @@ interface IEscrow {
         uint256 indexed repoId,
         address indexed token,
         address indexed sender,
-        uint256 amount
+        uint256 amount,
+        bytes data
     );
 
     event DistributedRepo(
