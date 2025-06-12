@@ -33,6 +33,12 @@ interface IEscrow {
         uint256 fee
     );
 
+    event ClaimedBatch(
+        uint256[] distributionIds,
+        address indexed recipient,
+        uint256 deadline
+    );
+
     event ReclaimedFund(
         uint256 indexed repoId,
         address indexed admin,
@@ -46,6 +52,10 @@ interface IEscrow {
         uint256 amount
     );
 
+    event ReclaimedRepoBatch(
+        uint256[] distributionIds
+    );
+
     event DistributedSolo(
         uint256 indexed distributionId,
         address indexed payer,
@@ -53,6 +63,10 @@ interface IEscrow {
         address token,
         uint256 amount,
         uint256 claimDeadline
+    );
+
+    event ReclaimedSoloBatch(
+        uint256[] distributionIds
     );
 
     event ReclaimedSolo(

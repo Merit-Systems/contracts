@@ -45,6 +45,7 @@ contract Escrow is Owned, IEscrow {
         DistributionStatus distributionStatus; // Distributed → Claimed / Reclaimed
         DistributionType   distributionType;   // Repo or Solo
         address            payer;              // who paid for this distribution (only used for Solo)
+        uint               fee;                // fee rate at creation time (basis points)
     }
 
     enum DistributionType {
@@ -282,6 +283,10 @@ contract Escrow is Owned, IEscrow {
         require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
         require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
 
+        // Validate that after fees, recipient will receive at least 1 wei
+        uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
+        require(distribution.amount > feeAmount, Errors.INVALID_AMOUNT);
+
         uint claimDeadline = block.timestamp + distribution.claimPeriod;
         
         distributionId = distributionCount++;
@@ -294,7 +299,8 @@ contract Escrow is Owned, IEscrow {
             distributionStatus: DistributionStatus.Distributed,
             exists:             true,
             distributionType:   distributionType,
-            payer:              distributionType == DistributionType.Solo ? msg.sender : address(0)
+            payer:              distributionType == DistributionType.Solo ? msg.sender : address(0),
+            fee:                fee
         });
     }
 
@@ -340,15 +346,19 @@ contract Escrow is Owned, IEscrow {
 
             distribution.distributionStatus = DistributionStatus.Claimed;
              
-            uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
+            uint feeAmount = distribution.amount.mulDivUp(distribution.fee, 10_000);
+            // Cap fee to ensure recipient gets at least 1 wei
+            if (feeAmount >= distribution.amount) {
+                feeAmount = distribution.amount - 1;
+            }
             uint netAmount = distribution.amount - feeAmount;
-            require(netAmount > 0, Errors.INVALID_AMOUNT);
             
             if (feeAmount > 0) distribution.token.safeTransfer(feeRecipient, feeAmount);
             distribution.token.safeTransfer(msg.sender, netAmount);
             
-            emit Claimed(distributionId, msg.sender, netAmount, fee);
+            emit Claimed(distributionId, msg.sender, netAmount, distribution.fee);
         }
+        emit ClaimedBatch(distributionIds, msg.sender, deadline);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -398,6 +408,7 @@ contract Escrow is Owned, IEscrow {
             
             emit ReclaimedRepo(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
         }
+        emit ReclaimedRepoBatch(distributionIds);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -420,6 +431,7 @@ contract Escrow is Owned, IEscrow {
             
             emit ReclaimedSolo(distributionId, distribution.payer, distribution.amount);
         }
+        emit ReclaimedSoloBatch(distributionIds);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -518,7 +530,7 @@ contract Escrow is Owned, IEscrow {
         return keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint chainId,address verifyingContract)"),
-                keccak256(bytes("EscrowRepo")),
+                keccak256(bytes("Escrow")),
                 keccak256(bytes("1")),
                 block.chainid,
                 address(this)

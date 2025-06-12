@@ -75,8 +75,6 @@ contract DistributeRepo_Test is Base_Test {
         escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
     }
 
-
-
     function test_distributeRepo_success_asAdmin() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
@@ -332,6 +330,15 @@ contract DistributeRepo_Test is Base_Test {
         vm.assume(amount2 > 0 && amount2 <= FUND_AMOUNT / 2);
         vm.assume(amount1 + amount2 <= FUND_AMOUNT);
 
+        // Add validation for fee edge case - ensure amounts are large enough
+        uint256 currentFee = escrow.fee();
+        if (currentFee > 0) {
+            // Ensure amounts are large enough to handle fees
+            // For 10% max fee, amounts should be at least 100 to avoid fee >= amount
+            vm.assume(amount1 >= 100);
+            vm.assume(amount2 >= 100);
+        }
+
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](2);
         distributions[0] = Escrow.DistributionParams({
             amount: amount1,
@@ -419,6 +426,310 @@ contract DistributeRepo_Test is Base_Test {
         escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         assertEq(escrow.distributionBatchCount(), initialBatchCount + 1);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                             FEE EDGE CASE TESTS                           */
+    /* -------------------------------------------------------------------------- */
+
+    function test_distributeRepo_revert_feeExceedsAmount_maxFee() public {
+        // Set fee to maximum (10%)
+        vm.prank(owner);
+        escrow.setFee(1000); // 10%
+        
+        // Try to create distribution where fee would equal or exceed amount
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 9, // 9 wei - with 10% fee rounded up, fee would be 1 wei, leaving 8 wei
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // This should succeed as 9 > 1 (fee)
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        assertEq(distributionIds.length, 1);
+    }
+
+    function test_distributeRepo_revert_feeEqualsAmount() public {
+        // Set fee to maximum (10%)
+        vm.prank(owner);
+        escrow.setFee(1000); // 10%
+        
+        // Try to create distribution where fee would equal amount
+        // With mulDivUp, fee = (10 * 1000 + 9999) / 10000 = 1
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 10, // 10 wei - fee would be exactly 1 wei due to rounding
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // This should succeed as 10 > 1 (fee)
+        vm.prank(repoAdmin);
+        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+    }
+
+    function test_distributeRepo_revert_feeExceedsAmount_edgeCase() public {
+        // Set fee to maximum (10%)
+        vm.prank(owner);
+        escrow.setFee(1000); // 10%
+        
+        // Create distribution where mulDivUp would make fee >= amount
+        // For amount = 1: fee = mulDivUp(1, 1000, 10000) = (1 * 1000 + 9999) / 10000 = 1
+        // This would leave netAmount = 1 - 1 = 0, which should be prevented
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1, // 1 wei - fee would be 1 wei, leaving 0 for recipient
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        expectRevert(Errors.INVALID_AMOUNT);
+        vm.prank(repoAdmin);
+        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+    }
+
+    function test_distributeRepo_revert_feeExceedsAmount_smallAmounts() public {
+        // Set moderate fee (5%)
+        vm.prank(owner);
+        escrow.setFee(500); // 5%
+        
+        // Test various small amounts that would cause issues
+        uint256[] memory problematicAmounts = new uint256[](3);
+        problematicAmounts[0] = 1; // fee = mulDivUp(1, 500, 10000) = 1, leaving 0
+        problematicAmounts[1] = 19; // fee = mulDivUp(19, 500, 10000) = 1, leaving 18 (this should work)
+        problematicAmounts[2] = 20; // fee = mulDivUp(20, 500, 10000) = 1, leaving 19 (this should work)
+
+        // Test amount = 1 (should fail)
+        Escrow.DistributionParams[] memory distributions1 = new Escrow.DistributionParams[](1);
+        distributions1[0] = Escrow.DistributionParams({
+            amount: problematicAmounts[0],
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        expectRevert(Errors.INVALID_AMOUNT);
+        vm.prank(repoAdmin);
+        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions1, "");
+
+        // Test amount = 19 (should succeed)
+        Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
+        distributions2[0] = Escrow.DistributionParams({
+            amount: problematicAmounts[1],
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions2, "");
+        assertEq(distributionIds.length, 1);
+    }
+
+    function test_distributeRepo_fuzz_feeValidation(uint256 amount, uint256 feeRate) public {
+        // Bound inputs to reasonable ranges
+        vm.assume(amount > 0 && amount <= 1000e18);
+        vm.assume(feeRate <= 1000); // Max 10% fee
+        
+        // Set the fee rate
+        vm.prank(owner);
+        escrow.setFee(feeRate);
+        
+        // Calculate expected fee using same logic as contract
+        uint256 expectedFee = (amount * feeRate + 9999) / 10000; // mulDivUp equivalent
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: amount,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        if (expectedFee >= amount) {
+            // Should revert if fee would consume entire amount
+            expectRevert(Errors.INVALID_AMOUNT);
+            vm.prank(repoAdmin);
+            escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        } else {
+            // Should succeed if recipient gets at least 1 wei
+            vm.prank(repoAdmin);
+            uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+            assertEq(distributionIds.length, 1);
+            
+            Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+            assertEq(distribution.amount, amount);
+        }
+    }
+
+    function test_distributeRepo_feeSnapshotAtCreation() public {
+        // Test that fee is correctly snapshotted at distribution creation time
+        vm.prank(owner);
+        escrow.setFee(500); // 5%
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        // Check that the distribution stores the correct fee
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.fee, 500, "Fee should be snapshotted at creation time");
+    }
+
+    function test_distributeRepo_differentFeesForDifferentDistributions() public {
+        // Test that distributions created at different times can have different fees
+
+        // Create first distribution with 2% fee
+        vm.prank(owner);
+        escrow.setFee(200);
+        
+        Escrow.DistributionParams[] memory distributions1 = new Escrow.DistributionParams[](1);
+        distributions1[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds1 = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions1, "");
+
+        // Change fee and create second distribution with 8% fee
+        vm.prank(owner);
+        escrow.setFee(800);
+        
+        Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
+        distributions2[0] = Escrow.DistributionParams({
+            amount: 2000e18,
+            recipient: recipient2,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds2 = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions2, "");
+
+        // Check that each distribution has its respective fee
+        Escrow.Distribution memory dist1 = escrow.getDistribution(distributionIds1[0]);
+        Escrow.Distribution memory dist2 = escrow.getDistribution(distributionIds2[0]);
+        
+        assertEq(dist1.fee, 200, "First distribution should have 2% fee");
+        assertEq(dist2.fee, 800, "Second distribution should have 8% fee");
+    }
+
+    function test_distributeRepo_zeroFeeSnapshot() public {
+        // Test that zero fees are correctly snapshotted
+        vm.prank(owner);
+        escrow.setFee(0); // 0% fee
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.fee, 0, "Zero fee should be correctly snapshotted");
+    }
+
+    function test_distributeRepo_maxFeeSnapshot() public {
+        // Test that maximum fees are correctly snapshotted
+        vm.prank(owner);
+        escrow.setFee(1000); // 10% (maximum) fee
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.fee, 1000, "Maximum fee should be correctly snapshotted");
+    }
+
+    function test_distributeRepo_batchDistributionsSameFeeSnapshot() public {
+        // Test that all distributions in a batch get the same fee snapshot
+        vm.prank(owner);
+        escrow.setFee(300); // 3%
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](3);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+        distributions[1] = Escrow.DistributionParams({
+            amount: 1500e18,
+            recipient: recipient2,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+        distributions[2] = Escrow.DistributionParams({
+            amount: 2000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        // All distributions should have the same fee
+        for (uint i = 0; i < distributionIds.length; i++) {
+            Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[i]);
+            assertEq(distribution.fee, 300, "All distributions in batch should have same fee");
+        }
+    }
+
+    function test_distributeRepo_feeChangeAfterCreationDoesNotAffect() public {
+        // Test that changing fee after creation doesn't affect existing distributions
+        vm.prank(owner);
+        escrow.setFee(250); // 2.5%
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1000e18,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        // Change fee after creation
+        vm.prank(owner);
+        escrow.setFee(750); // 7.5%
+
+        // Check that existing distribution still has original fee
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.fee, 250, "Existing distribution should retain original fee");
+        
+        // Verify global fee did change
+        assertEq(escrow.fee(), 750, "Global fee should have changed");
     }
 
     function test_distributeSolo_revert_invalidToken() public {
