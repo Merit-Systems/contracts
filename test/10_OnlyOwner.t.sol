@@ -536,7 +536,7 @@ contract OnlyOwner_Test is Base_Test {
             token: wETH
         });
 
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function _verifyDistributionFeesUnchanged(uint256 expectedFee) internal view {

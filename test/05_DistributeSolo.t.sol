@@ -46,7 +46,7 @@ contract DistributeSolo_Test is Base_Test {
         emit DistributedSolo(0, distributor, recipient1, address(wETH), DISTRIBUTION_AMOUNT, expectedDeadline);
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         // Check return values
         assertEq(distributionIds.length, 1);
@@ -92,7 +92,7 @@ contract DistributeSolo_Test is Base_Test {
         uint256 initialDistributorBalance = wETH.balanceOf(distributor);
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         assertEq(distributionIds.length, 3);
         assertEq(wETH.balanceOf(distributor), initialDistributorBalance - totalAmount);
@@ -132,11 +132,11 @@ contract DistributeSolo_Test is Base_Test {
 
         // First distributor
         vm.prank(distributor);
-        uint[] memory distributionIds1 = escrow.distributeSolo(distributions1);
+        uint[] memory distributionIds1 = escrow.distributeSolo(distributions1, "");
 
         // Second distributor
         vm.prank(distributor2);
-        uint[] memory distributionIds2 = escrow.distributeSolo(distributions2);
+        uint[] memory distributionIds2 = escrow.distributeSolo(distributions2, "");
 
         // Verify distributions have different payers
         Escrow.Distribution memory dist1 = escrow.getDistribution(distributionIds1[0]);
@@ -163,7 +163,7 @@ contract DistributeSolo_Test is Base_Test {
 
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
         vm.prank(distributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function test_distributeSolo_revert_invalidToken() public {
@@ -183,7 +183,7 @@ contract DistributeSolo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_TOKEN);
         vm.prank(distributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function test_distributeSolo_revert_zeroAmount() public {
@@ -197,7 +197,7 @@ contract DistributeSolo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(distributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function test_distributeSolo_revert_invalidRecipient() public {
@@ -211,7 +211,7 @@ contract DistributeSolo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_ADDRESS);
         vm.prank(distributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function test_distributeSolo_revert_zeroClaimPeriod() public {
@@ -225,7 +225,7 @@ contract DistributeSolo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_CLAIM_PERIOD);
         vm.prank(distributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function test_distributeSolo_revert_insufficientBalance() public {
@@ -241,7 +241,7 @@ contract DistributeSolo_Test is Base_Test {
 
         expectRevert("TRANSFER_FROM_FAILED");
         vm.prank(poorDistributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function test_distributeSolo_revert_insufficientAllowance() public {
@@ -259,7 +259,7 @@ contract DistributeSolo_Test is Base_Test {
 
         expectRevert("TRANSFER_FROM_FAILED");
         vm.prank(nonApprovedDistributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function test_distributeSolo_batchEvents() public {
@@ -285,7 +285,7 @@ contract DistributeSolo_Test is Base_Test {
         emit DistributedSoloBatch(0, expectedDistributionIds);
 
         vm.prank(distributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function test_distributeSolo_distributionCounter() public {
@@ -302,7 +302,7 @@ contract DistributeSolo_Test is Base_Test {
         }
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         assertEq(escrow.distributionCount(), initialCount + 3);
         assertEq(distributionIds[0], initialCount);
@@ -322,7 +322,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
 
         assertEq(escrow.distributionBatchCount(), initialBatchCount + 1);
     }
@@ -358,7 +358,7 @@ contract DistributeSolo_Test is Base_Test {
         uint256 initialBalance = wETH.balanceOf(distributor);
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         assertEq(distributionIds.length, 2);
         assertEq(wETH.balanceOf(distributor), initialBalance - amount1 - amount2);
@@ -384,7 +384,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
         assertEq(distribution.claimDeadline, block.timestamp + claimPeriod);
@@ -394,7 +394,7 @@ contract DistributeSolo_Test is Base_Test {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](0);
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         assertEq(distributionIds.length, 0);
     }
@@ -413,7 +413,7 @@ contract DistributeSolo_Test is Base_Test {
         }
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         assertEq(distributionIds.length, batchLimit);
     }
@@ -441,7 +441,7 @@ contract DistributeSolo_Test is Base_Test {
 
         // This should succeed as 9 > 1 (fee)
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
         assertEq(distributionIds.length, 1);
     }
 
@@ -466,7 +466,7 @@ contract DistributeSolo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(distributor);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     function test_distributeSolo_revert_feeExceedsAmount_smallAmounts() public {
@@ -488,7 +488,7 @@ contract DistributeSolo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(distributor);
-        escrow.distributeSolo(distributions1);
+        escrow.distributeSolo(distributions1, "");
 
         // Test amount = 40 (should succeed: fee = mulDivUp(40, 250, 10000) = 1, leaving 39)
         Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
@@ -500,7 +500,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions2);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions2, "");
         assertEq(distributionIds.length, 1);
     }
 
@@ -531,11 +531,11 @@ contract DistributeSolo_Test is Base_Test {
             // Should revert if fee would consume entire amount
             expectRevert(Errors.INVALID_AMOUNT);
             vm.prank(distributor);
-            escrow.distributeSolo(distributions);
+            escrow.distributeSolo(distributions, "");
         } else {
             // Should succeed if recipient gets at least 1 wei
             vm.prank(distributor);
-            uint[] memory distributionIds = escrow.distributeSolo(distributions);
+            uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
             assertEq(distributionIds.length, 1);
             
             Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
@@ -575,7 +575,7 @@ contract DistributeSolo_Test is Base_Test {
             });
             
             vm.prank(distributor);
-            uint[] memory distributionIds = escrow.distributeSolo(distributions);
+            uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
             assertEq(distributionIds.length, 1);
         }
     }
@@ -600,7 +600,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         // Check that the distribution stores the correct fee
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
@@ -624,7 +624,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        uint[] memory distributionIds1 = escrow.distributeSolo(distributions1);
+        uint[] memory distributionIds1 = escrow.distributeSolo(distributions1, "");
 
         // Change fee and create second distribution with 7% fee
         vm.prank(owner);
@@ -639,7 +639,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        uint[] memory distributionIds2 = escrow.distributeSolo(distributions2);
+        uint[] memory distributionIds2 = escrow.distributeSolo(distributions2, "");
 
         // Check that each distribution has its respective fee
         Escrow.Distribution memory dist1 = escrow.getDistribution(distributionIds1[0]);
@@ -665,7 +665,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
         assertEq(distribution.fee, 0, "Zero fee should be correctly snapshotted");
@@ -687,7 +687,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
         assertEq(distribution.fee, 1000, "Maximum fee should be correctly snapshotted");
@@ -721,7 +721,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         // All distributions should have the same fee
         for (uint i = 0; i < distributionIds.length; i++) {
@@ -746,7 +746,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
 
         // Change fee after creation
         vm.prank(owner);
@@ -786,7 +786,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(payer1);
-        uint[] memory distributionIds1 = escrow.distributeSolo(distributions1);
+        uint[] memory distributionIds1 = escrow.distributeSolo(distributions1, "");
 
         // Change fee, then payer2 creates distribution with 9% fee
         vm.prank(owner);
@@ -801,7 +801,7 @@ contract DistributeSolo_Test is Base_Test {
         });
 
         vm.prank(payer2);
-        uint[] memory distributionIds2 = escrow.distributeSolo(distributions2);
+        uint[] memory distributionIds2 = escrow.distributeSolo(distributions2, "");
 
         // Check that each payer's distribution has the fee that was active when they created it
         Escrow.Distribution memory dist1 = escrow.getDistribution(distributionIds1[0]);

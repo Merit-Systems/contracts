@@ -174,7 +174,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
         assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
     }
 
-    function test_addDistributor_adminCanDistribute() public {
+    function test_addDistributor_adminCanDistribute() public view {
         // Admin should always be able to distribute even without being in distributors list
         assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, repoAdmin));
     }

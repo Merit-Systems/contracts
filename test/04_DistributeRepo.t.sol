@@ -748,7 +748,7 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         expectRevert(Errors.INVALID_TOKEN);
-        escrow.distributeSolo(distributions);
+        escrow.distributeSolo(distributions, "");
     }
 
     // Events for testing

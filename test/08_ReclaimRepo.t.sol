@@ -82,7 +82,7 @@ contract ReclaimRepo_Test is Base_Test {
         });
 
         vm.prank(soloPayer);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
         return distributionIds[0];
     }
 

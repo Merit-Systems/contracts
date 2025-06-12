@@ -77,7 +77,8 @@ interface IEscrow {
 
     event DistributedSoloBatch(
         uint256 indexed distributionBatchId,
-        uint256[] distributionIds
+        uint256[] distributionIds,
+        bytes data
     );
 
     event AdminSet(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);

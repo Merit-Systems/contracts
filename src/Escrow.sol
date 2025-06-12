@@ -242,7 +242,8 @@ contract Escrow is Owned, IEscrow {
 
     ///
     function distributeSolo(
-        DistributionParams[] calldata _distributions
+        DistributionParams[] calldata _distributions,
+        bytes calldata data
     ) 
         external 
         returns (uint[] memory distributionIds)
@@ -267,7 +268,7 @@ contract Escrow is Owned, IEscrow {
                 block.timestamp + distribution.claimPeriod
             );
         } 
-        emit DistributedSoloBatch(distributionBatchId, distributionIds);
+        emit DistributedSoloBatch(distributionBatchId, distributionIds, data);
     }
 
     ///
