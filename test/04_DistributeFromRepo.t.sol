@@ -757,6 +757,47 @@ contract DistributeFromRepo_Test is Base_Test {
         escrow.distributeFromSender(distributions, "");
     }
 
+    function test_getDistributionRepo() public {
+        // Create a repo distribution
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        // Test getDistributionRepo for valid repo distribution
+        Escrow.RepoAccount memory repoAccount = escrow.getDistributionRepo(distributionIds[0]);
+        assertEq(repoAccount.repoId, REPO_ID);
+        assertEq(repoAccount.accountId, ACCOUNT_ID);
+
+        // Create a solo distribution for comparison
+        MockERC20(address(wETH)).mint(address(this), DISTRIBUTION_AMOUNT);
+        MockERC20(address(wETH)).approve(address(escrow), DISTRIBUTION_AMOUNT);
+        
+        Escrow.DistributionParams[] memory soloDistributions = new Escrow.DistributionParams[](1);
+        soloDistributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        uint[] memory soloDistributionIds = escrow.distributeFromSender(soloDistributions, "");
+
+        // Test getDistributionRepo with solo distribution (should revert)
+        expectRevert(Errors.NOT_REPO_DISTRIBUTION);
+        escrow.getDistributionRepo(soloDistributionIds[0]);
+
+        // Test getDistributionRepo with invalid distribution ID (should revert)
+        expectRevert(Errors.INVALID_DISTRIBUTION_ID);
+        escrow.getDistributionRepo(999999);
+    }
+
     // Events for testing
     event DistributedRepo(
         uint256 indexed distributionBatchId,
