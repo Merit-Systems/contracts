@@ -426,7 +426,7 @@ contract Escrow is Owned, IEscrow {
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
         for (uint i; i < distributionIds.length; ++i) {
-            uint              distributionId = distributionIds[i];
+            uint                 distributionId = distributionIds[i];
             Distribution storage distribution   = distributions[distributionId];
             
             require(distribution.exists,                                   Errors.INVALID_DISTRIBUTION_ID);
