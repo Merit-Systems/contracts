@@ -479,7 +479,7 @@ contract OnlyOwner_Test is Base_Test {
     }
 
     // Helper functions for fee snapshot tests
-    function _setupRepoAndCreateDistributions(uint256 expectedFee) internal {
+    function _setupRepoAndCreateDistributions(uint256 /* expectedFee */) internal {
         // Initialize repo
         uint256 repoId = 1;
         uint256 accountId = 100;
@@ -539,7 +539,7 @@ contract OnlyOwner_Test is Base_Test {
         escrow.distributeSolo(distributions);
     }
 
-    function _verifyDistributionFeesUnchanged(uint256 expectedFee) internal {
+    function _verifyDistributionFeesUnchanged(uint256 expectedFee) internal view {
         Escrow.Distribution memory distribution = escrow.getDistribution(0);
         assertEq(distribution.fee, expectedFee, "Distribution fee should be unchanged");
     }
