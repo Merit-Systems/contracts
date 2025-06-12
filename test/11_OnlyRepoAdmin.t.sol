@@ -1060,4 +1060,213 @@ contract OnlyRepoAdmin_Test is Base_Test {
         vm.prank(newAdmin);
         escrow.removeAdmins(REPO_ID, ACCOUNT_ID, lastAdmin);
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                FUZZ TESTS                                  */
+    /* -------------------------------------------------------------------------- */
+
+    function test_addAdmins_fuzz_batchSizes(uint8 numAdmins) public {
+        vm.assume(numAdmins > 0 && numAdmins <= 50); // Reasonable limit
+        
+        address[] memory adminsToAdd = new address[](numAdmins);
+        for (uint i = 0; i < numAdmins; i++) {
+            adminsToAdd[i] = makeAddr(string(abi.encodePacked("fuzzAdmin", i)));
+        }
+        
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+        
+        // Verify all admins were added
+        for (uint i = 0; i < numAdmins; i++) {
+            assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, adminsToAdd[i]));
+        }
+        
+        // Total should be original + new admins
+        address[] memory allAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
+        assertEq(allAdmins.length, 1 + numAdmins);
+    }
+
+    function test_addDistributors_fuzz_batchSizes(uint8 numDistributors) public {
+        vm.assume(numDistributors > 0 && numDistributors <= 50); // Reasonable limit
+        
+        address[] memory distributorsToAdd = new address[](numDistributors);
+        for (uint i = 0; i < numDistributors; i++) {
+            distributorsToAdd[i] = makeAddr(string(abi.encodePacked("fuzzDistributor", i)));
+        }
+        
+        vm.prank(repoAdmin);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributorsToAdd);
+        
+        // Verify all distributors were added
+        for (uint i = 0; i < numDistributors; i++) {
+            assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributorsToAdd[i]));
+        }
+        
+        address[] memory allDistributors = escrow.getAllDistributors(REPO_ID, ACCOUNT_ID);
+        assertEq(allDistributors.length, numDistributors);
+    }
+
+    function test_removeAdmins_fuzz_partialRemoval(uint8 numAdmins, uint8 numToRemove) public {
+        vm.assume(numAdmins > 1 && numAdmins <= 20); // Need at least 2 to avoid "cannot remove all" error
+        vm.assume(numToRemove > 0 && numToRemove < numAdmins); // Remove some but not all
+        
+        // Add admins
+        address[] memory adminsToAdd = new address[](numAdmins);
+        for (uint i = 0; i < numAdmins; i++) {
+            adminsToAdd[i] = makeAddr(string(abi.encodePacked("fuzzAdmin", i)));
+        }
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+        
+        // Remove some admins
+        address[] memory adminsToRemove = new address[](numToRemove);
+        for (uint i = 0; i < numToRemove; i++) {
+            adminsToRemove[i] = adminsToAdd[i];
+        }
+        vm.prank(repoAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+        
+        // Verify removed admins are no longer authorized
+        for (uint i = 0; i < numToRemove; i++) {
+            assertFalse(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, adminsToRemove[i]));
+        }
+        
+        // Verify remaining admins are still authorized
+        for (uint i = numToRemove; i < numAdmins; i++) {
+            assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, adminsToAdd[i]));
+        }
+        
+        // Original admin should still be there
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin));
+        
+        // Total count should be correct
+        address[] memory allAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
+        assertEq(allAdmins.length, 1 + numAdmins - numToRemove);
+    }
+
+    function test_removeDistributors_fuzz_partialRemoval(uint8 numDistributors, uint8 numToRemove) public {
+        vm.assume(numDistributors > 0 && numDistributors <= 20);
+        vm.assume(numToRemove > 0 && numToRemove <= numDistributors);
+        
+        // Add distributors
+        address[] memory distributorsToAdd = new address[](numDistributors);
+        for (uint i = 0; i < numDistributors; i++) {
+            distributorsToAdd[i] = makeAddr(string(abi.encodePacked("fuzzDistributor", i)));
+        }
+        vm.prank(repoAdmin);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributorsToAdd);
+        
+        // Remove some distributors
+        address[] memory distributorsToRemove = new address[](numToRemove);
+        for (uint i = 0; i < numToRemove; i++) {
+            distributorsToRemove[i] = distributorsToAdd[i];
+        }
+        vm.prank(repoAdmin);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributorsToRemove);
+        
+        // Verify removed distributors are no longer authorized
+        for (uint i = 0; i < numToRemove; i++) {
+            assertFalse(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributorsToRemove[i]));
+        }
+        
+        // Verify remaining distributors are still authorized
+        for (uint i = numToRemove; i < numDistributors; i++) {
+            assertTrue(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributorsToAdd[i]));
+        }
+        
+        // Total count should be correct
+        address[] memory allDistributors = escrow.getAllDistributors(REPO_ID, ACCOUNT_ID);
+        assertEq(allDistributors.length, numDistributors - numToRemove);
+    }
+
+    function test_adminManagement_fuzz_crossRepo(uint256 repoId, uint256 accountId, uint8 numAdmins) public {
+        vm.assume(repoId != REPO_ID || accountId != ACCOUNT_ID); // Different from setup repo
+        vm.assume(repoId <= type(uint128).max && accountId <= type(uint128).max);
+        vm.assume(numAdmins > 0 && numAdmins <= 10);
+        
+        address initialAdmin = makeAddr("initialAdmin");
+        
+        // Initialize new repo
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    accountId,
+                    keccak256(abi.encode(_singleAddressArray(initialAdmin))),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        escrow.initRepo(repoId, accountId, _singleAddressArray(initialAdmin), deadline, v, r, s);
+        
+        // Add admins to new repo
+        address[] memory adminsToAdd = new address[](numAdmins);
+        for (uint i = 0; i < numAdmins; i++) {
+            adminsToAdd[i] = makeAddr(string(abi.encodePacked("crossRepoAdmin", i)));
+        }
+        
+        vm.prank(initialAdmin);
+        escrow.addAdmins(repoId, accountId, adminsToAdd);
+        
+        // Verify admins were added to the correct repo
+        for (uint i = 0; i < numAdmins; i++) {
+            assertTrue(escrow.getIsAuthorizedAdmin(repoId, accountId, adminsToAdd[i]));
+            // Should NOT be admin of original repo
+            assertFalse(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, adminsToAdd[i]));
+        }
+        
+        // Original repo admin should NOT be admin of new repo
+        assertFalse(escrow.getIsAuthorizedAdmin(repoId, accountId, repoAdmin));
+    }
+
+    function test_distributorManagement_fuzz_lifecycle(uint8 addCount, uint8 removeCount) public {
+        vm.assume(addCount > 0 && addCount <= 15);
+        vm.assume(removeCount > 0 && removeCount <= addCount);
+        
+        // Add distributors
+        address[] memory distributorsToAdd = new address[](addCount);
+        for (uint i = 0; i < addCount; i++) {
+            distributorsToAdd[i] = makeAddr(string(abi.encodePacked("lifecycleDistributor", i)));
+        }
+        vm.prank(repoAdmin);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributorsToAdd);
+        
+        // Verify all were added
+        assertEq(escrow.getAllDistributors(REPO_ID, ACCOUNT_ID).length, addCount);
+        
+        // Remove some distributors
+        address[] memory distributorsToRemove = new address[](removeCount);
+        for (uint i = 0; i < removeCount; i++) {
+            distributorsToRemove[i] = distributorsToAdd[i];
+        }
+        vm.prank(repoAdmin);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributorsToRemove);
+        
+        // Verify final count
+        assertEq(escrow.getAllDistributors(REPO_ID, ACCOUNT_ID).length, addCount - removeCount);
+        
+        // Verify can distribute status
+        for (uint i = 0; i < removeCount; i++) {
+            assertFalse(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributorsToRemove[i]));
+        }
+        for (uint i = removeCount; i < addCount; i++) {
+            assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributorsToAdd[i]));
+        }
+        
+        // Admin should still be able to distribute
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, repoAdmin));
+    }
+
+    function _singleAddressArray(address addr) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](1);
+        arr[0] = addr;
+        return arr;
+    }
 } 
