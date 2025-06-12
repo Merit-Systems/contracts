@@ -48,7 +48,7 @@ contract DistributeFromRepo_Test is Base_Test {
                     escrow.SET_ADMIN_TYPEHASH(),
                     REPO_ID,
                     ACCOUNT_ID,
-                    repoAdmin,
+                    keccak256(abi.encode(_toArray(repoAdmin))),
                     escrow.ownerNonce(),
                     deadline
                 ))
@@ -57,7 +57,13 @@ contract DistributeFromRepo_Test is Base_Test {
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
         
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, repoAdmin, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, _toArray(repoAdmin), deadline, v, r, s);
+    }
+
+    function _toArray(address addr) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](1);
+        arr[0] = addr;
+        return arr;
     }
 
     function _fundRepo() internal {
@@ -72,7 +78,7 @@ contract DistributeFromRepo_Test is Base_Test {
         distributors[1] = distributor2;
         
         vm.prank(repoAdmin);
-        escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributors);
     }
 
     function test_distributeFromRepo_success_asAdmin() public {

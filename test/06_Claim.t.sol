@@ -39,7 +39,7 @@ contract Claim_Test is Base_Test {
                     escrow.SET_ADMIN_TYPEHASH(),
                     REPO_ID,
                     ACCOUNT_ID,
-                    repoAdmin,
+                    keccak256(abi.encode(_toArray(repoAdmin))),
                     escrow.ownerNonce(),
                     deadline
                 ))
@@ -47,7 +47,7 @@ contract Claim_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, repoAdmin, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, _toArray(repoAdmin), deadline, v, r, s);
 
         // Fund repo
         wETH.mint(address(this), DISTRIBUTION_AMOUNT * 10);
@@ -104,6 +104,12 @@ contract Claim_Test is Base_Test {
         );
         
         return vm.sign(signerPrivateKey, digest);
+    }
+
+    function _toArray(address addr) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](1);
+        arr[0] = addr;
+        return arr;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -330,32 +336,32 @@ contract Claim_Test is Base_Test {
         escrow.claim(distributionIds, deadline, v, r, s);
     }
 
-    function test_claim_fuzz_amounts(uint256 amount1, uint256 amount2) public {
-        // Ensure amounts are reasonable to avoid fee > amount scenarios and overflow
-        vm.assume(amount1 >= 1000 && amount1 <= 100e18); // Reasonable bounds
-        vm.assume(amount2 >= 1000 && amount2 <= 100e18);
+    function test_claim_fuzz_amounts(uint256 amount) public {
+        vm.assume(amount >= 100 && amount <= 1000e18); // Ensure amount is large enough for fee validation and within repo balance
 
-        uint256 distributionId1 = _createRepoDistribution(recipient, amount1);
-        uint256 distributionId2 = _createSoloDistribution(recipient, amount2);
-
-        uint[] memory distributionIds = new uint[](2);
-        distributionIds[0] = distributionId1;
-        distributionIds[1] = distributionId2;
+        uint256 distributionId = _createRepoDistribution(recipient, amount);
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
 
-        uint256 initialBalance = wETH.balanceOf(recipient);
-        uint256 initialTotal = amount1 + amount2;
+        // Use the fee calculation logic from the contract
+        uint256 expectedFee = (amount * escrow.fee() + 9999) / 10000; // Round up like mulDivUp
+        if (expectedFee >= amount) {
+            expectedFee = amount - 1; // Cap fee to ensure recipient gets at least 1 wei
+        }
+        uint256 expectedNetAmount = amount - expectedFee;
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+        uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
         escrow.claim(distributionIds, deadline, v, r, s);
 
-        // Verify recipient received less than total (due to fees) but more than 0
-        uint256 finalBalance = wETH.balanceOf(recipient);
-        uint256 received = finalBalance - initialBalance;
-        assertTrue(received > 0);
-        assertTrue(received < initialTotal);
+        // Check balances
+        assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
+        assertEq(wETH.balanceOf(escrow.feeRecipient()), initialFeeRecipientBalance + expectedFee);
     }
 
     function test_claim_nonceIncrement() public {
@@ -469,6 +475,82 @@ contract Claim_Test is Base_Test {
 
         // Should use original 10% fee: 20 wei - 2 wei fee = 18 wei to recipient
         assertEq(wETH.balanceOf(recipient), initialRecipientBalance + 18);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                          COMPREHENSIVE FEE TESTS                           */
+    /* -------------------------------------------------------------------------- */
+
+    function test_claim_feeCalculation_variousFeeRates() public {
+        uint256[] memory feeRates = new uint256[](4);
+        feeRates[0] = 100;  // 1%
+        feeRates[1] = 250;  // 2.5%
+        feeRates[2] = 500;  // 5%
+        feeRates[3] = 1000; // 10%
+
+        for (uint i = 0; i < feeRates.length; i++) {
+            // Set fee rate
+            vm.prank(owner);
+            escrow.setFee(uint16(feeRates[i]));
+
+            uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+            uint[] memory distributionIds = new uint[](1);
+            distributionIds[0] = distributionId;
+
+            uint256 deadline = block.timestamp + 1 hours;
+            (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+            uint256 expectedFee = (DISTRIBUTION_AMOUNT * feeRates[i]) / 10000;
+            uint256 expectedNetAmount = DISTRIBUTION_AMOUNT - expectedFee;
+
+            uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+            uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+
+            vm.prank(recipient);
+            escrow.claim(distributionIds, deadline, v, r, s);
+
+            // Check balances
+            assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
+            assertEq(wETH.balanceOf(escrow.feeRecipient()), initialFeeRecipientBalance + expectedFee);
+        }
+    }
+
+    function test_claim_feeCalculation_roundingEdgeCases() public {
+        // Test with very small amounts
+        uint256 smallAmount = 100; // 100 wei
+        uint256 distributionId = _createRepoDistribution(recipient, smallAmount);
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+        uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // Should receive at least 1 wei after fees
+        assertTrue(wETH.balanceOf(recipient) > initialRecipientBalance);
+        assertTrue(wETH.balanceOf(escrow.feeRecipient()) >= initialFeeRecipientBalance);
+
+        // Test with large amounts - but within repo balance
+        uint256 largeAmount = 1000e18; // Use a reasonable large amount within our funded balance
+        distributionId = _createRepoDistribution(recipient, largeAmount);
+        distributionIds[0] = distributionId;
+
+        (v, r, s) = _signClaim(distributionIds, recipient, deadline);
+
+        initialRecipientBalance = wETH.balanceOf(recipient);
+        initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // Should handle large amounts without overflow
+        assertTrue(wETH.balanceOf(recipient) > initialRecipientBalance);
+        assertTrue(wETH.balanceOf(escrow.feeRecipient()) > initialFeeRecipientBalance);
     }
 
     function test_claim_feeCapAtDistributionAmount() public {
@@ -653,13 +735,313 @@ contract Claim_Test is Base_Test {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                          SIGNATURE EDGE CASE TESTS                         */
+    /* -------------------------------------------------------------------------- */
+
+    function test_claim_signature_wrongNonce() public {
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Create signature with wrong nonce
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.CLAIM_TYPEHASH(),
+                    keccak256(abi.encode(distributionIds)),
+                    recipient,
+                    escrow.recipientNonce(recipient) + 1, // Wrong nonce
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+    }
+
+    function test_claim_signature_wrongRecipient() public {
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Create signature for wrong recipient
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.CLAIM_TYPEHASH(),
+                    keccak256(abi.encode(distributionIds)),
+                    claimer, // Wrong recipient
+                    escrow.recipientNonce(recipient),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+    }
+
+    function test_claim_signature_wrongDistributionIds() public {
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId2 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId1;
+
+        uint[] memory wrongDistributionIds = new uint[](1);
+        wrongDistributionIds[0] = distributionId2;
+
+        uint256 deadline = block.timestamp + 1 hours;
+        
+        // Create signature for wrong distribution IDs
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(wrongDistributionIds, recipient, deadline);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+    }
+
+    function test_claim_signature_replayAttack() public {
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId2 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        
+        uint[] memory distributionIds1 = new uint[](1);
+        distributionIds1[0] = distributionId1;
+
+        uint[] memory distributionIds2 = new uint[](1);
+        distributionIds2[0] = distributionId2;
+
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // First claim
+        (uint8 v1, bytes32 r1, bytes32 s1) = _signClaim(distributionIds1, recipient, deadline);
+        vm.prank(recipient);
+        escrow.claim(distributionIds1, deadline, v1, r1, s1);
+
+        // Try to reuse signature for second claim (should fail due to nonce increment)
+        expectRevert(Errors.INVALID_SIGNATURE);
+        vm.prank(recipient);
+        escrow.claim(distributionIds2, deadline, v1, r1, s1);
+
+        // Proper second claim should work
+        (uint8 v2, bytes32 r2, bytes32 s2) = _signClaim(distributionIds2, recipient, deadline);
+        vm.prank(recipient);
+        escrow.claim(distributionIds2, deadline, v2, r2, s2);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                          BATCH OPERATION TESTS                             */
+    /* -------------------------------------------------------------------------- */
+
+    function test_claim_batchOperations_mixedStatuses() public {
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId2 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId3 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Claim first distribution individually
+        uint[] memory singleDistribution = new uint[](1);
+        singleDistribution[0] = distributionId1;
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v1, bytes32 r1, bytes32 s1) = _signClaim(singleDistribution, recipient, deadline);
+        vm.prank(recipient);
+        escrow.claim(singleDistribution, deadline, v1, r1, s1);
+
+        // Try to claim all three in batch (should fail because first is already claimed)
+        uint[] memory allDistributions = new uint[](3);
+        allDistributions[0] = distributionId1; // Already claimed
+        allDistributions[1] = distributionId2;
+        allDistributions[2] = distributionId3;
+
+        (uint8 v2, bytes32 r2, bytes32 s2) = _signClaim(allDistributions, recipient, deadline);
+        expectRevert(Errors.ALREADY_CLAIMED);
+        vm.prank(recipient);
+        escrow.claim(allDistributions, deadline, v2, r2, s2);
+
+        // Claim remaining two should work
+        uint[] memory remainingDistributions = new uint[](2);
+        remainingDistributions[0] = distributionId2;
+        remainingDistributions[1] = distributionId3;
+
+        (uint8 v3, bytes32 r3, bytes32 s3) = _signClaim(remainingDistributions, recipient, deadline);
+        vm.prank(recipient);
+        escrow.claim(remainingDistributions, deadline, v3, r3, s3);
+    }
+
+    function test_claim_batchOperations_mixedRecipients() public {
+        address recipient2 = makeAddr("recipient2");
+        
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId2 = _createRepoDistribution(recipient2, DISTRIBUTION_AMOUNT);
+
+        // Try to claim both with recipient (should fail because second is for recipient2)
+        uint[] memory distributionIds = new uint[](2);
+        distributionIds[0] = distributionId1;
+        distributionIds[1] = distributionId2;
+
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        expectRevert(Errors.INVALID_RECIPIENT);
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+    }
+
+    function test_claim_batchOperations_mixedDeadlines() public {
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        
+        // Move time forward so first distribution is near expiry
+        vm.warp(block.timestamp + CLAIM_PERIOD - 1 hours);
+        
+        uint256 distributionId2 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move time forward so first distribution expires but second is still valid
+        vm.warp(block.timestamp + 2 hours);
+
+        uint[] memory distributionIds = new uint[](2);
+        distributionIds[0] = distributionId1; // Expired
+        distributionIds[1] = distributionId2; // Still valid
+
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        expectRevert(Errors.CLAIM_DEADLINE_PASSED);
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                          INTEGRATION TESTS                                 */
+    /* -------------------------------------------------------------------------- */
+
+    function test_claim_integration_afterFeeChange() public {
+        // Create distribution with initial fee
+        vm.prank(owner);
+        escrow.setFee(100); // 1%
+        
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        
+        // Change fee after distribution creation
+        vm.prank(owner);
+        escrow.setFee(500); // 5%
+        
+        // Claim should use original fee from distribution creation time
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        uint256 expectedFee = (DISTRIBUTION_AMOUNT * 100) / 10000; // Original 1%
+        uint256 expectedNetAmount = DISTRIBUTION_AMOUNT - expectedFee;
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+        uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
+        assertEq(wETH.balanceOf(escrow.feeRecipient()), initialFeeRecipientBalance + expectedFee);
+    }
+
+    function test_claim_integration_afterSignerChange() public {
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        // Change signer
+        address newSigner = makeAddr("newSigner");
+        vm.prank(owner);
+        escrow.setSigner(newSigner);
+
+        // Old signature should fail
+        expectRevert(Errors.INVALID_SIGNATURE);
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+    }
+
+    function test_claim_integration_afterFeeRecipientChange() public {
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        address newFeeRecipient = makeAddr("newFeeRecipient");
+        uint256 initialNewFeeRecipientBalance = wETH.balanceOf(newFeeRecipient);
+
+        // Change fee recipient
+        vm.prank(owner);
+        escrow.setFeeRecipient(newFeeRecipient);
+
+        uint256 expectedFee = (DISTRIBUTION_AMOUNT * escrow.fee()) / 10000;
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // Fee should go to new recipient
+        assertEq(wETH.balanceOf(newFeeRecipient), initialNewFeeRecipientBalance + expectedFee);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                          FUZZ TESTS                                        */
+    /* -------------------------------------------------------------------------- */
+
+    function test_claim_fuzz_batchSizes(uint8 batchSize) public {
+        vm.assume(batchSize > 0 && batchSize <= 10); // Reasonable batch size limit
+
+        uint[] memory distributionIds = new uint[](batchSize);
+        for (uint i = 0; i < batchSize; i++) {
+            distributionIds[i] = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        }
+
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        uint256 totalAmount = DISTRIBUTION_AMOUNT * batchSize;
+        uint256 expectedFee = (totalAmount * escrow.fee()) / 10000;
+        uint256 expectedNetAmount = totalAmount - expectedFee;
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+        uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // Check balances
+        assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
+        assertEq(wETH.balanceOf(escrow.feeRecipient()), initialFeeRecipientBalance + expectedFee);
+
+        // Check all distributions are marked as claimed
+        for (uint i = 0; i < batchSize; i++) {
+            Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[i]);
+            assertTrue(uint8(distribution.status) == 1); // Claimed
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event Claimed(
-        uint256 indexed distributionId,
-        address indexed recipient,
-        uint256 amount,
-        uint256 fee
-    );
+    event Claimed(uint256 indexed distributionId, address indexed recipient, uint256 netAmount, uint256 fee);
+    event ClaimedBatch(uint256[] distributionIds, address indexed recipient, uint256 deadline);
 } 

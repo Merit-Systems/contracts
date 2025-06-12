@@ -494,7 +494,7 @@ contract OnlyOwner_Test is Base_Test {
                     escrow.SET_ADMIN_TYPEHASH(),
                     repoId,
                     accountId,
-                    admin,
+                    keccak256(abi.encode(_toArray(admin))),
                     escrow.ownerNonce(),
                     deadline
                 ))
@@ -502,7 +502,7 @@ contract OnlyOwner_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId, accountId, admin, deadline, v, r, s);
+        escrow.initRepo(repoId, accountId, _toArray(admin), deadline, v, r, s);
 
         // Fund repo
         wETH.mint(address(this), 10000e18);
@@ -542,5 +542,11 @@ contract OnlyOwner_Test is Base_Test {
     function _verifyDistributionFeesUnchanged(uint256 expectedFee) internal view {
         Escrow.Distribution memory distribution = escrow.getDistribution(0);
         assertEq(distribution.fee, expectedFee, "Distribution fee should be unchanged");
+    }
+
+    function _toArray(address addr) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](1);
+        arr[0] = addr;
+        return arr;
     }
 } 
