@@ -41,11 +41,11 @@ contract Escrow is Owned, IEscrow {
         uint               amount;
         ERC20              token;
         address            recipient;
-        uint               claimDeadline;      // unix seconds
-        DistributionStatus distributionStatus; // Distributed → Claimed / Reclaimed
-        DistributionType   distributionType;   // Repo or Solo
+        uint               claimDeadline; // unix seconds
+        DistributionStatus status;        // Distributed → Claimed / Reclaimed
+        DistributionType   _type;         // Repo or Solo
         address            payer;
-        uint               fee;                // fee rate at creation time (basis points)
+        uint               fee;           // fee rate at creation time (basis points)
         bool               exists;
     }
 
@@ -278,7 +278,7 @@ contract Escrow is Owned, IEscrow {
     ///
     function _createDistribution(
         DistributionParams calldata distribution,
-        DistributionType            distributionType
+        DistributionType            _type
     ) 
         internal 
         returns (uint distributionId) 
@@ -292,20 +292,18 @@ contract Escrow is Owned, IEscrow {
         uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
         require(distribution.amount > feeAmount, Errors.INVALID_AMOUNT);
 
-        uint claimDeadline = block.timestamp + distribution.claimPeriod;
-        
         distributionId = distributionCount++;
 
         distributions[distributionId] = Distribution({
-            amount:             distribution.amount,
-            token:              distribution.token,
-            recipient:          distribution.recipient,
-            claimDeadline:      claimDeadline,
-            distributionStatus: DistributionStatus.Distributed,
-            exists:             true,
-            distributionType:   distributionType,
-            payer:              distributionType == DistributionType.Solo ? msg.sender : address(0),
-            fee:                fee
+            amount:        distribution.amount,
+            token:         distribution.token,
+            recipient:     distribution.recipient,
+            claimDeadline: block.timestamp + distribution.claimPeriod,
+            status:        DistributionStatus.Distributed,
+            exists:        true,
+            _type:         _type,
+            payer:         _type == DistributionType.Solo ? msg.sender : address(0),
+            fee:           fee
         });
     }
 
@@ -344,12 +342,12 @@ contract Escrow is Owned, IEscrow {
             uint distributionId = distributionIds[i];
             Distribution storage distribution = distributions[distributionId];
 
-            require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
-            require(distribution.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
-            require(distribution.recipient          == msg.sender,                     Errors.INVALID_RECIPIENT);
-            require(block.timestamp                 <= distribution.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
+            require(distribution.exists,                                      Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution.status    == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(distribution.recipient == msg.sender,                     Errors.INVALID_RECIPIENT);
+            require(block.timestamp        <= distribution.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
 
-            distribution.distributionStatus = DistributionStatus.Claimed;
+            distribution.status = DistributionStatus.Claimed;
              
             uint feeAmount = distribution.amount.mulDivUp(distribution.fee, 10_000);
             // Cap fee to ensure recipient gets at least 1 wei
@@ -401,12 +399,12 @@ contract Escrow is Owned, IEscrow {
             uint distributionId = distributionIds[i];
             Distribution storage distribution = distributions[distributionId];
             
-            require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
-            require(distribution.distributionType   == DistributionType.Repo,          Errors.NOT_REPO_DISTRIBUTION);
-            require(distribution.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
-            require(block.timestamp      >  distribution.claimDeadline,                Errors.STILL_CLAIMABLE);
+            require(distribution.exists,                                   Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution._type  == DistributionType.Repo,          Errors.NOT_REPO_DISTRIBUTION);
+            require(distribution.status == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(block.timestamp      > distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
 
-            distribution.distributionStatus = DistributionStatus.Reclaimed;
+            distribution.status = DistributionStatus.Reclaimed;
             
             RepoAccount memory repoAccount = distributionToRepo[distributionId];
             accounts[repoAccount.repoId][repoAccount.accountId].balance[address(distribution.token)] += distribution.amount;
@@ -426,12 +424,12 @@ contract Escrow is Owned, IEscrow {
             uint              distributionId = distributionIds[i];
             Distribution storage distribution   = distributions[distributionId];
             
-            require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
-            require(distribution.distributionType   == DistributionType.Solo,          Errors.NOT_DIRECT_DISTRIBUTION);
-            require(distribution.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
-            require(block.timestamp                 >  distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
+            require(distribution.exists,                                   Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution._type  == DistributionType.Solo,          Errors.NOT_DIRECT_DISTRIBUTION);
+            require(distribution.status == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(block.timestamp     >  distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
             
-            distribution.distributionStatus = DistributionStatus.Reclaimed;
+            distribution.status = DistributionStatus.Reclaimed;
             distribution.token.safeTransfer(distribution.payer, distribution.amount);
             
             emit ReclaimedSolo(distributionId, distribution.payer, distribution.amount);
@@ -605,7 +603,7 @@ contract Escrow is Owned, IEscrow {
         returns (RepoAccount memory) 
     {
         require(distributions[distributionId].exists, Errors.INVALID_DISTRIBUTION_ID);
-        require(distributions[distributionId].distributionType == DistributionType.Repo, Errors.NOT_REPO_DISTRIBUTION);
+        require(distributions[distributionId]._type == DistributionType.Repo, Errors.NOT_REPO_DISTRIBUTION);
         return distributionToRepo[distributionId];
     }
 
@@ -615,7 +613,7 @@ contract Escrow is Owned, IEscrow {
         returns (bool) 
     {
         return distributions[distributionId].exists && 
-               distributions[distributionId].distributionType == DistributionType.Solo;
+               distributions[distributionId]._type == DistributionType.Solo;
     }
 
     function getAllWhitelistedTokens() 

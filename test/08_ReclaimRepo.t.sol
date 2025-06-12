@@ -112,7 +112,7 @@ contract ReclaimRepo_Test is Base_Test {
 
         // Check distribution status
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
-        assertTrue(uint8(distribution.distributionStatus) == 2); // Reclaimed
+        assertTrue(uint8(distribution.status) == 2); // Reclaimed
     }
 
     function test_reclaimRepo_multipleDistributions() public {
@@ -140,8 +140,8 @@ contract ReclaimRepo_Test is Base_Test {
         // Check both distributions are reclaimed
         Escrow.Distribution memory distribution1 = escrow.getDistribution(distributionId1);
         Escrow.Distribution memory distribution2 = escrow.getDistribution(distributionId2);
-        assertTrue(uint8(distribution1.distributionStatus) == 2); // Reclaimed
-        assertTrue(uint8(distribution2.distributionStatus) == 2); // Reclaimed
+        assertTrue(uint8(distribution1.status) == 2); // Reclaimed
+        assertTrue(uint8(distribution2.status) == 2); // Reclaimed
     }
 
     function test_reclaimRepo_anyoneCanReclaim() public {
@@ -162,7 +162,7 @@ contract ReclaimRepo_Test is Base_Test {
 
         // Check distribution was reclaimed
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
-        assertTrue(uint8(distribution.distributionStatus) == 2); // Reclaimed
+        assertTrue(uint8(distribution.status) == 2); // Reclaimed
     }
 
     function test_reclaimRepo_revert_batchLimitExceeded() public {

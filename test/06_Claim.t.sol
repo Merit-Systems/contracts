@@ -136,7 +136,7 @@ contract Claim_Test is Base_Test {
 
         // Check distribution status
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
-        assertTrue(uint8(distribution.distributionStatus) == 1); // Claimed
+        assertTrue(uint8(distribution.status) == 1); // Claimed
 
         // Check nonce was incremented
         assertEq(escrow.recipientNonce(recipient), 1);
@@ -174,7 +174,7 @@ contract Claim_Test is Base_Test {
         // Check all distributions are marked as claimed
         for (uint i = 0; i < 3; i++) {
             Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[i]);
-            assertTrue(uint8(distribution.distributionStatus) == 1); // Claimed
+            assertTrue(uint8(distribution.status) == 1); // Claimed
         }
     }
 
@@ -401,7 +401,7 @@ contract Claim_Test is Base_Test {
         // All should be claimed
         for (uint i = 0; i < batchLimit; i++) {
             Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[i]);
-            assertTrue(uint8(distribution.distributionStatus) == 1); // Claimed
+            assertTrue(uint8(distribution.status) == 1); // Claimed
         }
     }
 
