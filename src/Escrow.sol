@@ -42,11 +42,11 @@ contract Escrow is Owned, IEscrow {
         ERC20              token;
         address            recipient;
         uint               claimDeadline;      // unix seconds
-        bool               exists;             // whether this distribution exists
         DistributionStatus distributionStatus; // Distributed → Claimed / Reclaimed
         DistributionType   distributionType;   // Repo or Solo
-        address            payer;              // who paid for this distribution (only used for Solo)
+        address            payer;
         uint               fee;                // fee rate at creation time (basis points)
+        bool               exists;
     }
 
     enum DistributionType {
