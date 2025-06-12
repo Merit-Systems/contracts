@@ -2,6 +2,7 @@
 pragma solidity =0.8.26;
 
 import "./00_Escrow.t.sol";
+import "../script/Deploy.Base.s.sol";
 
 contract Deploy_Test is Base_Test {
     
@@ -27,6 +28,34 @@ contract Deploy_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
     /*                             DEPLOYMENT TESTS                              */
     /* -------------------------------------------------------------------------- */
+
+    function test_deploy_success_usingScript() public {
+        // Use the actual deployment script
+        DeployBase deployScript = new DeployBase();
+        
+        // The deployment script will emit these events for the BASE_USDC token
+        vm.expectEmit(true, false, false, false);
+        emit TokenWhitelisted(Params.BASE_USDC);
+
+        Escrow deployedEscrow = deployScript.run();
+
+        // Verify initial state matches the parameters in Deploy.Base.s.sol
+        assertEq(deployedEscrow.owner(), Params.BASE_OWNER);
+        assertEq(deployedEscrow.signer(), Params.BASE_SIGNER);
+        assertEq(deployedEscrow.feeRecipient(), Params.BASE_OWNER);
+        assertEq(deployedEscrow.fee(), Params.BASE_FEE_BPS);
+        assertEq(deployedEscrow.batchLimit(), Params.BATCH_LIMIT);
+        assertEq(deployedEscrow.ownerNonce(), 0);
+        assertEq(deployedEscrow.distributionBatchCount(), 0);
+        assertEq(deployedEscrow.distributionCount(), 0);
+
+        // Verify BASE_USDC was whitelisted
+        assertTrue(deployedEscrow.isTokenWhitelisted(Params.BASE_USDC));
+        
+        address[] memory whitelistedTokens = deployedEscrow.getAllWhitelistedTokens();
+        assertEq(whitelistedTokens.length, 1);
+        assertEq(whitelistedTokens[0], Params.BASE_USDC);
+    }
 
     function test_deploy_success() public {
         address[] memory initialWhitelist = new address[](2);
