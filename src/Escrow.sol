@@ -32,8 +32,8 @@ contract Escrow is Owned, IEscrow {
     struct Account {
         mapping(address => uint) balance;          // token → balance
         bool                     hasDistributions; // whether any distributions have occurred
-        address                  admin;
-        mapping(address => bool) distributors;     // distributor → authorized?
+        EnumerableSet.AddressSet admins;           // set of authorized admins
+        EnumerableSet.AddressSet distributors;     // set of authorized distributors
         bool                     exists;  
     }
 
@@ -75,12 +75,12 @@ contract Escrow is Owned, IEscrow {
     /* -------------------------------------------------------------------------- */
     /*                                STATE VARIABLES                             */
     /* -------------------------------------------------------------------------- */
-    mapping(uint => mapping(uint => Account)) public accounts; // repoId → accountId → Account
+    mapping(uint => mapping(uint => Account)) accounts;      // repoId → accountId → Account
 
-    mapping(uint => Distribution) public distributions;         // distributionId → Distribution
-    mapping(uint => RepoAccount)  public distributionToRepo;    // distributionId → RepoAccount (for repo distributions)
+    mapping(uint => Distribution) public distributions;      // distributionId → Distribution
+    mapping(uint => RepoAccount)  public distributionToRepo; // distributionId → RepoAccount (for repo distributions)
 
-    mapping(address => uint) public recipientNonce;             // recipient → nonce
+    mapping(address => uint) public recipientNonce;          // recipient → nonce
     uint                     public ownerNonce;    
 
     uint    public fee;
@@ -104,7 +104,7 @@ contract Escrow is Owned, IEscrow {
     /*                                 MODIFIERS                                  */
     /* -------------------------------------------------------------------------- */
     modifier onlyRepoAdmin(uint repoId, uint accountId) {
-        require(msg.sender == accounts[repoId][accountId].admin, Errors.NOT_REPO_ADMIN);
+        require(accounts[repoId][accountId].admins.contains(msg.sender), Errors.NOT_REPO_ADMIN);
         _;
     }
 
@@ -210,7 +210,7 @@ contract Escrow is Owned, IEscrow {
         Account storage account = accounts[repoId][accountId];
 
         bool isAdmin       = msg.sender == account.admin;
-        bool isDistributor = account.distributors[msg.sender];
+        bool isDistributor = account.distributors.contains(msg.sender);
         require(isAdmin || isDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
         
         distributionIds          = new uint[](_distributions.length);
@@ -503,8 +503,8 @@ contract Escrow is Owned, IEscrow {
         for (uint i; i < distributors.length; ++i) {
             address distributor = distributors[i];
             require(distributor != address(0), Errors.INVALID_ADDRESS);
-            if (!account.distributors[distributor]) {
-                account.distributors[distributor] = true;
+            if (!account.distributors.contains(distributor)) {
+                account.distributors.add(distributor);
                 emit AddedDistributor(repoId, accountId, distributor);
             }
         }
@@ -519,8 +519,7 @@ contract Escrow is Owned, IEscrow {
         Account storage account = accounts[repoId][accountId];
         for (uint i; i < distributors.length; ++i) {
             address distributor = distributors[i];
-            if (account.distributors[distributor]) {
-                account.distributors[distributor] = false;
+            if (account.distributors.remove(distributor)) {
                 emit RemovedDistributor(repoId, accountId, distributor);
             }
         }
@@ -560,7 +559,7 @@ contract Escrow is Owned, IEscrow {
         view 
         returns (bool) 
     {
-        return accounts[repoId][accountId].distributors[distributor];
+        return accounts[repoId][accountId].distributors.contains(distributor);
     }
 
     function canDistribute(uint repoId, uint accountId, address caller) 
@@ -568,7 +567,20 @@ contract Escrow is Owned, IEscrow {
         view 
         returns (bool) 
     {
-        return caller == accounts[repoId][accountId].admin || accounts[repoId][accountId].distributors[caller];
+        return caller == accounts[repoId][accountId].admin || accounts[repoId][accountId].distributors.contains(caller);
+    }
+
+    function getAllDistributors(uint repoId, uint accountId) 
+        external 
+        view 
+        returns (address[] memory distributors) 
+    {
+        EnumerableSet.AddressSet storage distributorSet = accounts[repoId][accountId].distributors;
+        uint len = distributorSet.length();
+        distributors = new address[](len);
+        for (uint i; i < len; ++i) {
+            distributors[i] = distributorSet.at(i);
+        }
     }
 
     function getAccountBalance(uint repoId, uint accountId, address token) 
@@ -585,6 +597,14 @@ contract Escrow is Owned, IEscrow {
         returns (bool) 
     {
         return accounts[repoId][accountId].hasDistributions;
+    }
+
+    function getAccountExists(uint repoId, uint accountId) 
+        external 
+        view 
+        returns (bool) 
+    {
+        return accounts[repoId][accountId].exists;
     }
 
     function getDistribution(uint distributionId) 
