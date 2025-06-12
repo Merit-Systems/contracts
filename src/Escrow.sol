@@ -292,15 +292,13 @@ contract Escrow is Owned, IEscrow {
         uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
         require(distribution.amount > feeAmount, Errors.INVALID_AMOUNT);
 
-        uint claimDeadline = block.timestamp + distribution.claimPeriod;
-        
         distributionId = distributionCount++;
 
         distributions[distributionId] = Distribution({
             amount:        distribution.amount,
             token:         distribution.token,
             recipient:     distribution.recipient,
-            claimDeadline: claimDeadline,
+            claimDeadline: block.timestamp + distribution.claimPeriod,
             status:        DistributionStatus.Distributed,
             exists:        true,
             _type:         _type,
