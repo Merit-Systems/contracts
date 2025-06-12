@@ -1,3 +1,5 @@
+Notes for Auditors
+
 - Accepted ERC-20 Types: wETH, USDC
 - Chains: Base
 - Addresses can only claim if whitelisted by us with the signature
