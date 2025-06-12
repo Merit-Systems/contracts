@@ -508,7 +508,7 @@ contract Escrow is Owned, IEscrow {
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
-        require(admins.length > 0,           Errors.INVALID_AMOUNT);
+        require(admins.length >  0,          Errors.INVALID_AMOUNT);
         require(admins.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
         Account storage account = accounts[repoId][accountId];
