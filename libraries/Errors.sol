@@ -32,4 +32,5 @@ library Errors {
     string internal constant NOT_ORIGINAL_PAYER             = "Not Original Payer";
     string internal constant NOT_AUTHORIZED_DISTRIBUTOR     = "Not Authorized Distributor";
     string internal constant REPO_ALREADY_INITIALIZED       = "Repo Already Initialized";
+    string internal constant BATCH_LIMIT_EXCEEDED           = "Batch Limit Exceeded";
 } 
