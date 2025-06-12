@@ -73,9 +73,6 @@ deploy-base:
 test-escrow:
 	forge test --match-path test/Escrow.t.sol
 
-test-escrow-with-fee:
-	forge test --match-path test/EscrowWithFee.t.sol
-
 # ---------------------------------------------------------------------------
 # Utility Scripts
 # ---------------------------------------------------------------------------
