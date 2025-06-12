@@ -13,7 +13,7 @@ contract Deploy is Script {
       address          signer,
       address[] memory initialWhitelistedTokens,
       uint             feeBps,
-      uint             batchDepositLimit
+      uint             batchLimit
     )
       public
       returns (Escrow escrow)
@@ -22,15 +22,17 @@ contract Deploy is Script {
                             PRINT INIT CODE HASH
       //////////////////////////////////////////////////////////////*/
       bytes memory bytecode = type(Escrow).creationCode;
-      bytes memory args = abi.encode(
+      bytes memory args     = abi.encode(
           owner,
           signer,
           initialWhitelistedTokens,
           feeBps,
-          batchDepositLimit
+          batchLimit
       );
-      bytes memory initCode = bytes.concat(bytecode, args);
-      bytes32 initCodeHash = keccak256(initCode);
+
+      bytes   memory initCode     = bytes.concat(bytecode, args);
+      bytes32        initCodeHash = keccak256(initCode);
+
       console.log("Init code hash:");
       console.logBytes32(initCodeHash);
 
@@ -41,7 +43,7 @@ contract Deploy is Script {
           signer,
           initialWhitelistedTokens,
           feeBps,
-          batchDepositLimit
+          batchLimit
       );
 
       vm.stopBroadcast();
