@@ -507,7 +507,7 @@ contract OnlyOwner_Test is Base_Test {
         // Fund repo
         wETH.mint(address(this), 10000e18);
         wETH.approve(address(escrow), 10000e18);
-        escrow.fundRepo(repoId, accountId, wETH, 10000e18);
+        escrow.fundRepo(repoId, accountId, wETH, 10000e18, "");
 
         // Create distribution
         address recipient = makeAddr("recipient");

@@ -63,7 +63,7 @@ contract DistributeRepo_Test is Base_Test {
     function _fundRepo() internal {
         wETH.mint(address(this), FUND_AMOUNT);
         wETH.approve(address(escrow), FUND_AMOUNT);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, FUND_AMOUNT);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, FUND_AMOUNT, "");
     }
 
     function _addDistributors() internal {

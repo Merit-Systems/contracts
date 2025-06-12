@@ -26,10 +26,10 @@ contract FundRepo_Test is Base_Test {
         uint256 initialAccountBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
 
         vm.expectEmit(true, true, true, true);
-        emit Funded(REPO_ID, address(wETH), alice, FUND_AMOUNT);
+        emit Funded(REPO_ID, address(wETH), alice, FUND_AMOUNT, "");
 
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, FUND_AMOUNT);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, FUND_AMOUNT, "");
 
         // Check balances
         assertEq(wETH.balanceOf(address(escrow)), initialEscrowBalance + FUND_AMOUNT);
@@ -42,10 +42,10 @@ contract FundRepo_Test is Base_Test {
         uint256 secondAmount = 300e18;
 
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, firstAmount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, firstAmount, "");
 
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, secondAmount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, secondAmount, "");
 
         // Should accumulate balances
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), firstAmount + secondAmount);
@@ -57,10 +57,10 @@ contract FundRepo_Test is Base_Test {
         uint256 REPO_ID_2 = 2;
 
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, repo1Amount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, repo1Amount, "");
 
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID_2, ACCOUNT_ID, wETH, repo2Amount);
+        escrow.fundRepo(REPO_ID_2, ACCOUNT_ID, wETH, repo2Amount, "");
 
         // Should have separate balances
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), repo1Amount);
@@ -73,10 +73,10 @@ contract FundRepo_Test is Base_Test {
         uint256 ACCOUNT_ID_2 = 200;
 
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, account1Amount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, account1Amount, "");
 
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID_2, wETH, account2Amount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID_2, wETH, account2Amount, "");
 
         // Should have separate balances
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), account1Amount);
@@ -92,13 +92,13 @@ contract FundRepo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_TOKEN);
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, nonWhitelistedToken, FUND_AMOUNT);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, nonWhitelistedToken, FUND_AMOUNT, "");
     }
 
     function test_fundRepo_revert_zeroAmount() public {
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, 0);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, 0, "");
     }
 
     function test_fundRepo_revert_insufficientBalance() public {
@@ -106,7 +106,7 @@ contract FundRepo_Test is Base_Test {
 
         expectRevert("TRANSFER_FROM_FAILED");
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, excessiveAmount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, excessiveAmount, "");
     }
 
     function test_fundRepo_revert_insufficientAllowance() public {
@@ -116,7 +116,7 @@ contract FundRepo_Test is Base_Test {
         // Charlie has tokens but hasn't approved the escrow
         expectRevert("TRANSFER_FROM_FAILED");
         vm.prank(charlie);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, FUND_AMOUNT);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, FUND_AMOUNT, "");
     }
 
     function test_fundRepo_multipleUsers() public {
@@ -130,10 +130,10 @@ contract FundRepo_Test is Base_Test {
 
         // Both users fund the same repo/account
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, aliceAmount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, aliceAmount, "");
 
         vm.prank(bob);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, bobAmount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, bobAmount, "");
 
         // Should accumulate from both users
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), aliceAmount + bobAmount);
@@ -143,11 +143,11 @@ contract FundRepo_Test is Base_Test {
         vm.assume(amount > 0 && amount <= FUND_AMOUNT * 10);
         
         vm.prank(alice);
-        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, "");
 
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), amount);
     }
 
     // Event for testing
-    event Funded(uint256 indexed repoId, address indexed token, address indexed funder, uint256 amount);
+    event Funded(uint256 indexed repoId, address indexed token, address indexed sender, uint256 amount, bytes data);
 } 
