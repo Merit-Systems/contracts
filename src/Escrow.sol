@@ -19,7 +19,7 @@ contract Escrow is Owned, IEscrow {
     /* -------------------------------------------------------------------------- */
     /*                                   CONSTANTS                                */
     /* -------------------------------------------------------------------------- */
-    uint16 public constant MAX_FEE_BPS = 1_000; // 10 %
+    uint16 public constant MAX_FEE = 1_000; // 10 %
 
     bytes32 public constant SET_ADMIN_TYPEHASH =
         keccak256("SetAdmin(uint repoId,uint accountId,address admin,uint nonce,uint deadline)");
@@ -113,14 +113,14 @@ contract Escrow is Owned, IEscrow {
         address          _owner,
         address          _signer,
         address[] memory _initialWhitelist,
-        uint             _initialFeeBps,
+        uint             _initialFee,
         uint             _batchLimit
     ) Owned(_owner) {
-        require(_initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
+        require(_initialFee <= MAX_FEE, Errors.INVALID_FEE);
 
         signer                   = _signer;
         feeRecipient             = _owner;
-        fee                      = _initialFeeBps;
+        fee                      = _initialFee;
         batchLimit               = _batchLimit;
         INITIAL_CHAIN_ID         = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = _domainSeparator();
@@ -437,7 +437,7 @@ contract Escrow is Owned, IEscrow {
         external 
         onlyOwner 
     {
-        require(newFee <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
+        require(newFee <= MAX_FEE, Errors.INVALID_FEE);
         fee = newFee;
     }
 

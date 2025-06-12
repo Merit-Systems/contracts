@@ -110,7 +110,7 @@ contract Deploy_Test is Base_Test {
         uint256 invalidFeeBps = 1001; // Above MAX_FEE_BPS
         uint256 batchLimit = 100;
 
-        expectRevert(Errors.INVALID_FEE_BPS);
+        expectRevert(Errors.INVALID_FEE);
         new Escrow(
             testOwner,
             testSigner,
@@ -251,7 +251,7 @@ contract Deploy_Test is Base_Test {
         );
 
         // Verify constants
-        assertEq(deployedEscrow.MAX_FEE_BPS(), 1000);
+        assertEq(deployedEscrow.MAX_FEE(), 1000);
         
         // Verify type hashes
         bytes32 expectedSetAdminTypehash = keccak256("SetAdmin(uint repoId,uint accountId,address admin,uint nonce,uint deadline)");
@@ -293,7 +293,7 @@ contract Deploy_Test is Base_Test {
         
         address[] memory initialWhitelist = new address[](0);
         
-        expectRevert(Errors.INVALID_FEE_BPS);
+        expectRevert(Errors.INVALID_FEE);
         new Escrow(
             testOwner,
             testSigner,

@@ -112,7 +112,7 @@ contract OnlyOwner_Test is Base_Test {
     }
 
     function test_setFee_maxFee() public {
-        uint256 maxFee = escrow.MAX_FEE_BPS(); // 10%
+        uint256 maxFee = escrow.MAX_FEE(); // 10%
 
         vm.prank(owner);
         escrow.setFee(maxFee);
@@ -127,15 +127,15 @@ contract OnlyOwner_Test is Base_Test {
     }
 
     function test_setFee_revert_exceedsMaxFee() public {
-        uint256 invalidFee = escrow.MAX_FEE_BPS() + 1;
+        uint256 invalidFee = escrow.MAX_FEE() + 1;
 
-        expectRevert(Errors.INVALID_FEE_BPS);
+        expectRevert(Errors.INVALID_FEE);
         vm.prank(owner);
         escrow.setFee(invalidFee);
     }
 
     function test_setFee_fuzz(uint256 fee) public {
-        vm.assume(fee <= escrow.MAX_FEE_BPS());
+        vm.assume(fee <= escrow.MAX_FEE());
 
         vm.prank(owner);
         escrow.setFee(fee);
