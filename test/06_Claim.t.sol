@@ -411,6 +411,225 @@ contract Claim_Test is Base_Test {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                          FEE EDGE CASE CLAIM TESTS                        */
+    /* -------------------------------------------------------------------------- */
+
+    function test_claim_safeguard_feeCapToEnsureRecipientGetsAmount() public {
+        // This test ensures the claim function safety net works even if somehow
+        // a problematic distribution was created (e.g., fee was changed after distribution)
+        
+        // Create distribution with normal fee
+        vm.prank(owner);
+        escrow.setFee(250); // 2.5%
+        
+        uint256 distributionId = _createRepoDistribution(recipient, 100); // 100 wei
+        
+        // Change fee to very high after distribution
+        vm.prank(owner);
+        escrow.setFee(1000); // 10% - this would make fee = 10 wei for 100 wei distribution
+        
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+        uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // With 100 wei distribution and 10% fee, expected fee would be 10 wei
+        // Recipient should get 90 wei, fee recipient should get 10 wei
+        uint256 expectedFee = 10;
+        uint256 expectedNetAmount = 90;
+        
+        assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
+        assertEq(wETH.balanceOf(escrow.feeRecipient()), initialFeeRecipientBalance + expectedFee);
+    }
+
+    function test_claim_safeguard_preventZeroNetAmount() public {
+        // Test the safety net that prevents netAmount from being 0
+        // This would only trigger if somehow a distribution bypassed the creation validation
+        
+        // Note: With our fixed _createDistribution, this scenario shouldn't occur naturally
+        // This test ensures the claim function is robust even if edge cases slip through
+        
+        // Create a very small distribution that would trigger the safety net
+        vm.prank(owner);
+        escrow.setFee(0); // Start with no fee
+        
+        uint256 distributionId = _createRepoDistribution(recipient, 2); // 2 wei
+        
+        // Set fee high enough that it would consume most/all of the amount
+        vm.prank(owner);
+        escrow.setFee(5000); // 50% - this would try to take 1 wei from 2 wei, leaving 1 wei
+        
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // Should still work - recipient gets 1 wei, fee gets 1 wei
+        assertEq(wETH.balanceOf(recipient), initialRecipientBalance + 1);
+    }
+
+    function test_claim_feeCapAtDistributionAmount() public {
+        // Test that fee is capped properly when it would equal the distribution amount
+        
+        // Create distribution with low fee
+        vm.prank(owner);
+        escrow.setFee(100); // 1%
+        
+        uint256 distributionId = _createRepoDistribution(recipient, 10); // 10 wei
+        
+        // Increase fee dramatically after distribution
+        vm.prank(owner);
+        escrow.setFee(9999); // 99.99% - this would try to take almost everything
+        
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+        uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // With the safety cap, fee should be limited to 9 wei, recipient gets 1 wei
+        assertEq(wETH.balanceOf(recipient), initialRecipientBalance + 1);
+        assertEq(wETH.balanceOf(escrow.feeRecipient()), initialFeeRecipientBalance + 9);
+    }
+
+    function test_claim_normalFeeCalculationStillWorks() public {
+        // Ensure normal fee calculations aren't affected by the safety net
+        
+        vm.prank(owner);
+        escrow.setFee(250); // 2.5%
+        
+        uint256 distributionId = _createRepoDistribution(recipient, 1000e18); // Large amount
+        
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+        uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // Normal calculation: fee = mulDivUp(1000e18, 250, 10000) = 25e18
+        uint256 expectedFee = 25e18;
+        uint256 expectedNetAmount = 1000e18 - expectedFee;
+        
+        assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
+        assertEq(wETH.balanceOf(escrow.feeRecipient()), initialFeeRecipientBalance + expectedFee);
+    }
+
+    function test_claim_multipleDistributions_withFeeCapping() public {
+        // Test claiming multiple distributions where some might trigger fee capping
+        
+        vm.prank(owner);
+        escrow.setFee(100); // 1%
+        
+        // Create distributions: one large, one small
+        uint256 distributionId1 = _createRepoDistribution(recipient, 1000e18); // Large
+        uint256 distributionId2 = _createRepoDistribution(recipient, 5); // Small - 5 wei
+        
+        // Increase fee significantly
+        vm.prank(owner);
+        escrow.setFee(8000); // 80%
+        
+        uint[] memory distributionIds = new uint[](2);
+        distributionIds[0] = distributionId1;
+        distributionIds[1] = distributionId2;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // Large distribution: normal fee calculation applies
+        // Small distribution: fee should be capped to 4 wei, recipient gets 1 wei
+        
+        // Calculate expected for large distribution using smaller intermediate values
+        // fee = mulDivUp(1000e18, 8000, 10000) = 800e18
+        uint256 largeFee = 800e18;
+        uint256 largeNet = 1000e18 - largeFee;
+        
+        // Small distribution gets capped: 4 wei fee, 1 wei to recipient
+        uint256 smallNet = 1;
+        
+        uint256 totalExpectedNet = largeNet + smallNet;
+        
+        assertEq(wETH.balanceOf(recipient), initialRecipientBalance + totalExpectedNet);
+    }
+
+    function test_claim_fuzz_feeCappingLogic(uint256 distributionAmount, uint256 feeRate) public {
+        // Fuzz test the fee capping logic
+        vm.assume(distributionAmount >= 2 && distributionAmount <= 100e18); // Limit to prevent overflow
+        vm.assume(feeRate <= 10000); // Max 100% fee
+        
+        // Create distribution with 0 fee initially
+        vm.prank(owner);
+        escrow.setFee(0);
+        
+        uint256 distributionId = _createRepoDistribution(recipient, distributionAmount);
+        
+        // Set the test fee rate
+        vm.prank(owner);
+        escrow.setFee(feeRate);
+        
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
+
+        uint256 initialRecipientBalance = wETH.balanceOf(recipient);
+        uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+
+        vm.prank(recipient);
+        escrow.claim(distributionIds, deadline, v, r, s);
+
+        // Calculate expected fee with safety capping - use safer division
+        uint256 calculatedFee;
+        if (feeRate == 0) {
+            calculatedFee = 0;
+        } else {
+            // Safer calculation to avoid overflow: (amount * rate) / 10000 + rounding
+            calculatedFee = (distributionAmount * feeRate) / 10000;
+            if ((distributionAmount * feeRate) % 10000 > 0) {
+                calculatedFee += 1; // Round up
+            }
+        }
+        uint256 actualFee = calculatedFee >= distributionAmount ? distributionAmount - 1 : calculatedFee;
+        uint256 actualNet = distributionAmount - actualFee;
+        
+        assertEq(wETH.balanceOf(recipient), initialRecipientBalance + actualNet);
+        assertEq(wETH.balanceOf(escrow.feeRecipient()), initialFeeRecipientBalance + actualFee);
+        
+        // Ensure recipient always gets at least 1 wei
+        assertTrue(actualNet >= 1);
+    }
+
+    /* -------------------------------------------------------------------------- */
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 

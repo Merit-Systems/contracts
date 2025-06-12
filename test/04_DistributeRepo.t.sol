@@ -421,6 +421,145 @@ contract DistributeRepo_Test is Base_Test {
         assertEq(escrow.distributionBatchCount(), initialBatchCount + 1);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                             FEE EDGE CASE TESTS                           */
+    /* -------------------------------------------------------------------------- */
+
+    function test_distributeRepo_revert_feeExceedsAmount_maxFee() public {
+        // Set fee to maximum (10%)
+        vm.prank(owner);
+        escrow.setFee(1000); // 10%
+        
+        // Try to create distribution where fee would equal or exceed amount
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 9, // 9 wei - with 10% fee rounded up, fee would be 1 wei, leaving 8 wei
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // This should succeed as 9 > 1 (fee)
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        assertEq(distributionIds.length, 1);
+    }
+
+    function test_distributeRepo_revert_feeEqualsAmount() public {
+        // Set fee to maximum (10%)
+        vm.prank(owner);
+        escrow.setFee(1000); // 10%
+        
+        // Try to create distribution where fee would equal amount
+        // With mulDivUp, fee = (10 * 1000 + 9999) / 10000 = 1
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 10, // 10 wei - fee would be exactly 1 wei due to rounding
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // This should succeed as 10 > 1 (fee)
+        vm.prank(repoAdmin);
+        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+    }
+
+    function test_distributeRepo_revert_feeExceedsAmount_edgeCase() public {
+        // Set fee to maximum (10%)
+        vm.prank(owner);
+        escrow.setFee(1000); // 10%
+        
+        // Create distribution where mulDivUp would make fee >= amount
+        // For amount = 1: fee = mulDivUp(1, 1000, 10000) = (1 * 1000 + 9999) / 10000 = 1
+        // This would leave netAmount = 1 - 1 = 0, which should be prevented
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1, // 1 wei - fee would be 1 wei, leaving 0 for recipient
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        expectRevert(Errors.INVALID_AMOUNT);
+        vm.prank(repoAdmin);
+        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+    }
+
+    function test_distributeRepo_revert_feeExceedsAmount_smallAmounts() public {
+        // Set moderate fee (5%)
+        vm.prank(owner);
+        escrow.setFee(500); // 5%
+        
+        // Test various small amounts that would cause issues
+        uint256[] memory problematicAmounts = new uint256[](3);
+        problematicAmounts[0] = 1; // fee = mulDivUp(1, 500, 10000) = 1, leaving 0
+        problematicAmounts[1] = 19; // fee = mulDivUp(19, 500, 10000) = 1, leaving 18 (this should work)
+        problematicAmounts[2] = 20; // fee = mulDivUp(20, 500, 10000) = 1, leaving 19 (this should work)
+
+        // Test amount = 1 (should fail)
+        Escrow.DistributionParams[] memory distributions1 = new Escrow.DistributionParams[](1);
+        distributions1[0] = Escrow.DistributionParams({
+            amount: problematicAmounts[0],
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        expectRevert(Errors.INVALID_AMOUNT);
+        vm.prank(repoAdmin);
+        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions1, "");
+
+        // Test amount = 19 (should succeed)
+        Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
+        distributions2[0] = Escrow.DistributionParams({
+            amount: problematicAmounts[1],
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions2, "");
+        assertEq(distributionIds.length, 1);
+    }
+
+    function test_distributeRepo_fuzz_feeValidation(uint256 amount, uint256 feeRate) public {
+        // Bound inputs to reasonable ranges
+        vm.assume(amount > 0 && amount <= 1000e18);
+        vm.assume(feeRate <= 1000); // Max 10% fee
+        
+        // Set the fee rate
+        vm.prank(owner);
+        escrow.setFee(feeRate);
+        
+        // Calculate expected fee using same logic as contract
+        uint256 expectedFee = (amount * feeRate + 9999) / 10000; // mulDivUp equivalent
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: amount,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        if (expectedFee >= amount) {
+            // Should revert if fee would consume entire amount
+            expectRevert(Errors.INVALID_AMOUNT);
+            vm.prank(repoAdmin);
+            escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        } else {
+            // Should succeed if recipient gets at least 1 wei
+            vm.prank(repoAdmin);
+            uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+            assertEq(distributionIds.length, 1);
+            
+            Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+            assertEq(distribution.amount, amount);
+        }
+    }
+
     function test_distributeSolo_revert_invalidToken() public {
         // Test token validation through distributeSolo which calls _createDistribution directly
         // This bypasses the repo balance check and tests the actual token validation

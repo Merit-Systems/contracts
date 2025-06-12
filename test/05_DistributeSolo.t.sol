@@ -410,6 +410,168 @@ contract DistributeSolo_Test is Base_Test {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                             FEE EDGE CASE TESTS                           */
+    /* -------------------------------------------------------------------------- */
+
+    function test_distributeSolo_revert_feeExceedsAmount_maxFee() public {
+        // Set fee to maximum (10%)
+        vm.prank(owner);
+        escrow.setFee(1000); // 10%
+        
+        // Create distribution where fee would equal or exceed amount
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 9, // 9 wei - with 10% fee rounded up, fee would be 1 wei, leaving 8 wei
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Give distributor minimal tokens for this test
+        wETH.mint(distributor, 100);
+
+        // This should succeed as 9 > 1 (fee)
+        vm.prank(distributor);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions);
+        assertEq(distributionIds.length, 1);
+    }
+
+    function test_distributeSolo_revert_feeExceedsAmount_edgeCase() public {
+        // Set fee to maximum (10%)
+        vm.prank(owner);
+        escrow.setFee(1000); // 10%
+        
+        // Create distribution where mulDivUp would make fee >= amount
+        // For amount = 1: fee = mulDivUp(1, 1000, 10000) = (1 * 1000 + 9999) / 10000 = 1
+        // This would leave netAmount = 1 - 1 = 0, which should be prevented
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1, // 1 wei - fee would be 1 wei, leaving 0 for recipient
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Give distributor minimal tokens for this test
+        wETH.mint(distributor, 100);
+
+        expectRevert(Errors.INVALID_AMOUNT);
+        vm.prank(distributor);
+        escrow.distributeSolo(distributions);
+    }
+
+    function test_distributeSolo_revert_feeExceedsAmount_smallAmounts() public {
+        // Set moderate fee (2.5%)
+        vm.prank(owner);
+        escrow.setFee(250); // 2.5%
+        
+        // Give distributor minimal tokens for this test
+        wETH.mint(distributor, 1000);
+
+        // Test amount = 1 (should fail because fee = mulDivUp(1, 250, 10000) = 1, leaving 0)
+        Escrow.DistributionParams[] memory distributions1 = new Escrow.DistributionParams[](1);
+        distributions1[0] = Escrow.DistributionParams({
+            amount: 1,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        expectRevert(Errors.INVALID_AMOUNT);
+        vm.prank(distributor);
+        escrow.distributeSolo(distributions1);
+
+        // Test amount = 40 (should succeed: fee = mulDivUp(40, 250, 10000) = 1, leaving 39)
+        Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
+        distributions2[0] = Escrow.DistributionParams({
+            amount: 40,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(distributor);
+        uint[] memory distributionIds = escrow.distributeSolo(distributions2);
+        assertEq(distributionIds.length, 1);
+    }
+
+    function test_distributeSolo_fuzz_feeValidation(uint256 amount, uint256 feeRate) public {
+        // Bound inputs to reasonable ranges
+        vm.assume(amount > 0 && amount <= 1000e18);
+        vm.assume(feeRate <= 1000); // Max 10% fee
+        
+        // Give distributor enough tokens
+        wETH.mint(distributor, amount + 1000e18);
+        
+        // Set the fee rate
+        vm.prank(owner);
+        escrow.setFee(feeRate);
+        
+        // Calculate expected fee using same logic as contract
+        uint256 expectedFee = (amount * feeRate + 9999) / 10000; // mulDivUp equivalent
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: amount,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        if (expectedFee >= amount) {
+            // Should revert if fee would consume entire amount
+            expectRevert(Errors.INVALID_AMOUNT);
+            vm.prank(distributor);
+            escrow.distributeSolo(distributions);
+        } else {
+            // Should succeed if recipient gets at least 1 wei
+            vm.prank(distributor);
+            uint[] memory distributionIds = escrow.distributeSolo(distributions);
+            assertEq(distributionIds.length, 1);
+            
+            Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+            assertEq(distribution.amount, amount);
+            assertEq(distribution.payer, distributor);
+        }
+    }
+
+    function test_distributeSolo_minimumAmountForFee() public {
+        // Test minimum amounts needed for various fee rates
+        uint256[] memory feeRates = new uint256[](4);
+        feeRates[0] = 100; // 1%
+        feeRates[1] = 250; // 2.5%
+        feeRates[2] = 500; // 5%
+        feeRates[3] = 1000; // 10%
+        
+        // Calculate minimum amounts that would leave at least 1 wei for recipient
+        uint256[] memory minAmounts = new uint256[](4);
+        minAmounts[0] = 100; // For 1%: fee = mulDivUp(100, 100, 10000) = 1, leaving 99
+        minAmounts[1] = 40;  // For 2.5%: fee = mulDivUp(40, 250, 10000) = 1, leaving 39
+        minAmounts[2] = 20;  // For 5%: fee = mulDivUp(20, 500, 10000) = 1, leaving 19
+        minAmounts[3] = 10;  // For 10%: fee = mulDivUp(10, 1000, 10000) = 1, leaving 9
+        
+        // Give distributor enough tokens
+        wETH.mint(distributor, 10000);
+        
+        for (uint i = 0; i < feeRates.length; i++) {
+            vm.prank(owner);
+            escrow.setFee(feeRates[i]);
+            
+            Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+            distributions[0] = Escrow.DistributionParams({
+                amount: minAmounts[i],
+                recipient: recipient1,
+                claimPeriod: CLAIM_PERIOD,
+                token: wETH
+            });
+            
+            vm.prank(distributor);
+            uint[] memory distributionIds = escrow.distributeSolo(distributions);
+            assertEq(distributionIds.length, 1);
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
     

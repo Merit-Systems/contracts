@@ -282,6 +282,10 @@ contract Escrow is Owned, IEscrow {
         require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
         require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
 
+        // Validate that after fees, recipient will receive at least 1 wei
+        uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
+        require(distribution.amount > feeAmount, Errors.INVALID_AMOUNT);
+
         uint claimDeadline = block.timestamp + distribution.claimPeriod;
         
         distributionId = distributionCount++;
@@ -341,8 +345,11 @@ contract Escrow is Owned, IEscrow {
             distribution.distributionStatus = DistributionStatus.Claimed;
              
             uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
+            // Cap fee to ensure recipient gets at least 1 wei
+            if (feeAmount >= distribution.amount) {
+                feeAmount = distribution.amount - 1;
+            }
             uint netAmount = distribution.amount - feeAmount;
-            require(netAmount > 0, Errors.INVALID_AMOUNT);
             
             if (feeAmount > 0) distribution.token.safeTransfer(feeRecipient, feeAmount);
             distribution.token.safeTransfer(msg.sender, netAmount);
