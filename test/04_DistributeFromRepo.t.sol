@@ -3,7 +3,7 @@ pragma solidity =0.8.26;
 
 import "./00_Escrow.t.sol";
 
-contract DistributeRepo_Test is Base_Test {
+contract DistributeFromRepo_Test is Base_Test {
     
     uint256 constant REPO_ID = 1;
     uint256 constant ACCOUNT_ID = 100;
@@ -75,7 +75,7 @@ contract DistributeRepo_Test is Base_Test {
         escrow.addDistributor(REPO_ID, ACCOUNT_ID, distributors);
     }
 
-    function test_distributeRepo_success_asAdmin() public {
+    function test_distributeFromRepo_success_asAdmin() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
             amount: DISTRIBUTION_AMOUNT,
@@ -91,7 +91,7 @@ contract DistributeRepo_Test is Base_Test {
         emit DistributedRepo(0, 0, recipient1, address(wETH), DISTRIBUTION_AMOUNT, expectedDeadline);
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         // Check return values
         assertEq(distributionIds.length, 1);
@@ -112,7 +112,7 @@ contract DistributeRepo_Test is Base_Test {
         assertTrue(distribution.exists);
     }
 
-    function test_distributeRepo_success_asDistributor() public {
+    function test_distributeFromRepo_success_asDistributor() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
             amount: DISTRIBUTION_AMOUNT,
@@ -122,7 +122,7 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(distributor1);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         assertEq(distributionIds.length, 1);
         
@@ -131,7 +131,7 @@ contract DistributeRepo_Test is Base_Test {
         assertEq(distribution.recipient, recipient1);
     }
 
-    function test_distributeRepo_multipleDistributions() public {
+    function test_distributeFromRepo_multipleDistributions() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](3);
         distributions[0] = Escrow.DistributionParams({
             amount: 500e18,
@@ -156,7 +156,7 @@ contract DistributeRepo_Test is Base_Test {
         uint256 initialBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "batch data");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "batch data");
 
         assertEq(distributionIds.length, 3);
         assertEq(
@@ -173,7 +173,7 @@ contract DistributeRepo_Test is Base_Test {
         }
     }
 
-    function test_distributeRepo_revert_notAuthorized() public {
+    function test_distributeFromRepo_revert_notAuthorized() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
             amount: DISTRIBUTION_AMOUNT,
@@ -186,10 +186,10 @@ contract DistributeRepo_Test is Base_Test {
         
         expectRevert(Errors.NOT_AUTHORIZED_DISTRIBUTOR);
         vm.prank(unauthorized);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeRepo_revert_insufficientBalance() public {
+    function test_distributeFromRepo_revert_insufficientBalance() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
             amount: FUND_AMOUNT + 1, // More than available
@@ -200,10 +200,10 @@ contract DistributeRepo_Test is Base_Test {
 
         expectRevert(Errors.INSUFFICIENT_BALANCE);
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeRepo_revert_batchLimitExceeded() public {
+    function test_distributeFromRepo_revert_batchLimitExceeded() public {
         uint256 batchLimit = escrow.batchLimit();
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](batchLimit + 1);
         
@@ -218,10 +218,10 @@ contract DistributeRepo_Test is Base_Test {
 
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeRepo_revert_zeroAmount() public {
+    function test_distributeFromRepo_revert_zeroAmount() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
             amount: 0,
@@ -232,10 +232,10 @@ contract DistributeRepo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeRepo_revert_invalidRecipient() public {
+    function test_distributeFromRepo_revert_invalidRecipient() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
             amount: DISTRIBUTION_AMOUNT,
@@ -246,10 +246,10 @@ contract DistributeRepo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_ADDRESS);
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeRepo_revert_zeroClaimPeriod() public {
+    function test_distributeFromRepo_revert_zeroClaimPeriod() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
             amount: DISTRIBUTION_AMOUNT,
@@ -260,10 +260,10 @@ contract DistributeRepo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_CLAIM_PERIOD);
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeRepo_revert_insufficientBalanceNonWhitelistedToken() public {
+    function test_distributeFromRepo_revert_insufficientBalanceNonWhitelistedToken() public {
         MockERC20 nonWhitelistedToken = new MockERC20("Non-Whitelisted", "NWT", 18);
         
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
@@ -278,10 +278,10 @@ contract DistributeRepo_Test is Base_Test {
         // The balance check happens before token validation in the execution flow
         expectRevert(Errors.INSUFFICIENT_BALANCE);
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeRepo_hasDistributionsFlag() public {
+    function test_distributeFromRepo_hasDistributionsFlag() public {
         assertFalse(escrow.getAccountHasDistributions(REPO_ID, ACCOUNT_ID));
 
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
@@ -293,12 +293,12 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         assertTrue(escrow.getAccountHasDistributions(REPO_ID, ACCOUNT_ID));
     }
 
-    function test_distributeRepo_batchEvents() public {
+    function test_distributeFromRepo_batchEvents() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](2);
         distributions[0] = Escrow.DistributionParams({
             amount: 500e18,
@@ -322,10 +322,10 @@ contract DistributeRepo_Test is Base_Test {
         emit DistributedRepoBatch(0, REPO_ID, ACCOUNT_ID, expectedDistributionIds, "test batch");
 
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "test batch");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "test batch");
     }
 
-    function test_distributeRepo_fuzz_amounts(uint256 amount1, uint256 amount2) public {
+    function test_distributeFromRepo_fuzz_amounts(uint256 amount1, uint256 amount2) public {
         vm.assume(amount1 > 0 && amount1 <= FUND_AMOUNT / 2);
         vm.assume(amount2 > 0 && amount2 <= FUND_AMOUNT / 2);
         vm.assume(amount1 + amount2 <= FUND_AMOUNT);
@@ -356,7 +356,7 @@ contract DistributeRepo_Test is Base_Test {
         uint256 initialBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         assertEq(distributionIds.length, 2);
         assertEq(
@@ -371,7 +371,7 @@ contract DistributeRepo_Test is Base_Test {
         assertEq(dist2.amount, amount2);
     }
 
-    function test_distributeRepo_fuzz_claimPeriods(uint32 claimPeriod) public {
+    function test_distributeFromRepo_fuzz_claimPeriods(uint32 claimPeriod) public {
         vm.assume(claimPeriod > 0 && claimPeriod <= 365 days);
 
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
@@ -383,13 +383,13 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
         assertEq(distribution.claimDeadline, block.timestamp + claimPeriod);
     }
 
-    function test_distributeRepo_distributionCounter() public {
+    function test_distributeFromRepo_distributionCounter() public {
         uint256 initialCount = escrow.distributionCount();
 
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](3);
@@ -403,7 +403,7 @@ contract DistributeRepo_Test is Base_Test {
         }
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         assertEq(escrow.distributionCount(), initialCount + 3);
         assertEq(distributionIds[0], initialCount);
@@ -411,7 +411,7 @@ contract DistributeRepo_Test is Base_Test {
         assertEq(distributionIds[2], initialCount + 2);
     }
 
-    function test_distributeRepo_batchCounter() public {
+    function test_distributeFromRepo_batchCounter() public {
         uint256 initialBatchCount = escrow.distributionBatchCount();
 
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
@@ -423,7 +423,7 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         assertEq(escrow.distributionBatchCount(), initialBatchCount + 1);
     }
@@ -432,7 +432,7 @@ contract DistributeRepo_Test is Base_Test {
     /*                             FEE EDGE CASE TESTS                           */
     /* -------------------------------------------------------------------------- */
 
-    function test_distributeRepo_revert_feeExceedsAmount_maxFee() public {
+    function test_distributeFromRepo_revert_feeExceedsAmount_maxFee() public {
         // Set fee to maximum (10%)
         vm.prank(owner);
         escrow.setFee(1000); // 10%
@@ -448,11 +448,11 @@ contract DistributeRepo_Test is Base_Test {
 
         // This should succeed as 9 > 1 (fee)
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
         assertEq(distributionIds.length, 1);
     }
 
-    function test_distributeRepo_revert_feeEqualsAmount() public {
+    function test_distributeFromRepo_revert_feeEqualsAmount() public {
         // Set fee to maximum (10%)
         vm.prank(owner);
         escrow.setFee(1000); // 10%
@@ -469,10 +469,10 @@ contract DistributeRepo_Test is Base_Test {
 
         // This should succeed as 10 > 1 (fee)
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeRepo_revert_feeExceedsAmount_edgeCase() public {
+    function test_distributeFromRepo_revert_feeExceedsAmount_edgeCase() public {
         // Set fee to maximum (10%)
         vm.prank(owner);
         escrow.setFee(1000); // 10%
@@ -490,10 +490,10 @@ contract DistributeRepo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeRepo_revert_feeExceedsAmount_smallAmounts() public {
+    function test_distributeFromRepo_revert_feeExceedsAmount_smallAmounts() public {
         // Set moderate fee (5%)
         vm.prank(owner);
         escrow.setFee(500); // 5%
@@ -515,7 +515,7 @@ contract DistributeRepo_Test is Base_Test {
 
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(repoAdmin);
-        escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions1, "");
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions1, "");
 
         // Test amount = 19 (should succeed)
         Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
@@ -527,11 +527,11 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions2, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions2, "");
         assertEq(distributionIds.length, 1);
     }
 
-    function test_distributeRepo_fuzz_feeValidation(uint256 amount, uint256 feeRate) public {
+    function test_distributeFromRepo_fuzz_feeValidation(uint256 amount, uint256 feeRate) public {
         // Bound inputs to reasonable ranges
         vm.assume(amount > 0 && amount <= 1000e18);
         vm.assume(feeRate <= 1000); // Max 10% fee
@@ -555,11 +555,11 @@ contract DistributeRepo_Test is Base_Test {
             // Should revert if fee would consume entire amount
             expectRevert(Errors.INVALID_AMOUNT);
             vm.prank(repoAdmin);
-            escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+            escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
         } else {
             // Should succeed if recipient gets at least 1 wei
             vm.prank(repoAdmin);
-            uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+            uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
             assertEq(distributionIds.length, 1);
             
             Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
@@ -567,7 +567,7 @@ contract DistributeRepo_Test is Base_Test {
         }
     }
 
-    function test_distributeRepo_feeSnapshotAtCreation() public {
+    function test_distributeFromRepo_feeSnapshotAtCreation() public {
         // Test that fee is correctly snapshotted at distribution creation time
         vm.prank(owner);
         escrow.setFee(500); // 5%
@@ -581,14 +581,14 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         // Check that the distribution stores the correct fee
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
         assertEq(distribution.fee, 500, "Fee should be snapshotted at creation time");
     }
 
-    function test_distributeRepo_differentFeesForDifferentDistributions() public {
+    function test_distributeFromRepo_differentFeesForDifferentDistributions() public {
         // Test that distributions created at different times can have different fees
 
         // Create first distribution with 2% fee
@@ -604,7 +604,7 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds1 = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions1, "");
+        uint[] memory distributionIds1 = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions1, "");
 
         // Change fee and create second distribution with 8% fee
         vm.prank(owner);
@@ -619,7 +619,7 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds2 = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions2, "");
+        uint[] memory distributionIds2 = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions2, "");
 
         // Check that each distribution has its respective fee
         Escrow.Distribution memory dist1 = escrow.getDistribution(distributionIds1[0]);
@@ -629,7 +629,7 @@ contract DistributeRepo_Test is Base_Test {
         assertEq(dist2.fee, 800, "Second distribution should have 8% fee");
     }
 
-    function test_distributeRepo_zeroFeeSnapshot() public {
+    function test_distributeFromRepo_zeroFeeSnapshot() public {
         // Test that zero fees are correctly snapshotted
         vm.prank(owner);
         escrow.setFee(0); // 0% fee
@@ -643,13 +643,13 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
         assertEq(distribution.fee, 0, "Zero fee should be correctly snapshotted");
     }
 
-    function test_distributeRepo_maxFeeSnapshot() public {
+    function test_distributeFromRepo_maxFeeSnapshot() public {
         // Test that maximum fees are correctly snapshotted
         vm.prank(owner);
         escrow.setFee(1000); // 10% (maximum) fee
@@ -663,13 +663,13 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
         assertEq(distribution.fee, 1000, "Maximum fee should be correctly snapshotted");
     }
 
-    function test_distributeRepo_batchDistributionsSameFeeSnapshot() public {
+    function test_distributeFromRepo_batchDistributionsSameFeeSnapshot() public {
         // Test that all distributions in a batch get the same fee snapshot
         vm.prank(owner);
         escrow.setFee(300); // 3%
@@ -695,7 +695,7 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         // All distributions should have the same fee
         for (uint i = 0; i < distributionIds.length; i++) {
@@ -704,7 +704,7 @@ contract DistributeRepo_Test is Base_Test {
         }
     }
 
-    function test_distributeRepo_feeChangeAfterCreationDoesNotAffect() public {
+    function test_distributeFromRepo_feeChangeAfterCreationDoesNotAffect() public {
         // Test that changing fee after creation doesn't affect existing distributions
         vm.prank(owner);
         escrow.setFee(250); // 2.5%
@@ -718,7 +718,7 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
         // Change fee after creation
         vm.prank(owner);
@@ -732,8 +732,8 @@ contract DistributeRepo_Test is Base_Test {
         assertEq(escrow.fee(), 750, "Global fee should have changed");
     }
 
-    function test_distributeSolo_revert_invalidToken() public {
-        // Test token validation through distributeSolo which calls _createDistribution directly
+    function test_distributeFromSender_revert_invalidToken() public {
+        // Test token validation through distributeFromSender which calls _createDistribution directly
         // This bypasses the repo balance check and tests the actual token validation
         MockERC20 nonWhitelistedToken = new MockERC20("Non-Whitelisted", "NWT", 18);
         nonWhitelistedToken.mint(address(this), DISTRIBUTION_AMOUNT);
@@ -748,7 +748,7 @@ contract DistributeRepo_Test is Base_Test {
         });
 
         expectRevert(Errors.INVALID_TOKEN);
-        escrow.distributeSolo(distributions, "");
+        escrow.distributeFromSender(distributions, "");
     }
 
     // Events for testing

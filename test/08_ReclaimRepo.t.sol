@@ -63,7 +63,7 @@ contract ReclaimRepo_Test is Base_Test {
         });
 
         vm.prank(repoAdmin);
-        uint[] memory distributionIds = escrow.distributeRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
         return distributionIds[0];
     }
 
@@ -82,7 +82,7 @@ contract ReclaimRepo_Test is Base_Test {
         });
 
         vm.prank(soloPayer);
-        uint[] memory distributionIds = escrow.distributeSolo(distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromSender(distributions, "");
         return distributionIds[0];
     }
 

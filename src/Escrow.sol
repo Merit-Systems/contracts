@@ -196,7 +196,7 @@ contract Escrow is Owned, IEscrow {
     /* -------------------------------------------------------------------------- */
     /*                              DISTRIBUTE REPO / SOLO                        */
     /* -------------------------------------------------------------------------- */
-    function distributeRepo(
+    function distributeFromRepo(
         uint                          repoId,
         uint                          accountId,
         DistributionParams[] calldata _distributions,
@@ -245,7 +245,7 @@ contract Escrow is Owned, IEscrow {
     }
 
     ///
-    function distributeSolo(
+    function distributeFromSender(
         DistributionParams[] calldata _distributions,
         bytes                calldata data
     ) 

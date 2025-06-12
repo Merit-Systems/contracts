@@ -520,7 +520,7 @@ contract OnlyOwner_Test is Base_Test {
         });
 
         vm.prank(admin);
-        escrow.distributeRepo(repoId, accountId, distributions, "");
+        escrow.distributeFromRepo(repoId, accountId, distributions, "");
     }
 
     function _createSingleDistribution(address recipient, uint256 amount) internal {
@@ -536,7 +536,7 @@ contract OnlyOwner_Test is Base_Test {
             token: wETH
         });
 
-        escrow.distributeSolo(distributions, "");
+        escrow.distributeFromSender(distributions, "");
     }
 
     function _verifyDistributionFeesUnchanged(uint256 expectedFee) internal view {
