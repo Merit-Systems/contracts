@@ -1,343 +1,596 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import {Owned}             from "solmate/auth/Owned.sol";
 import {ERC20}             from "solmate/tokens/ERC20.sol";
 import {SafeTransferLib}   from "solmate/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
-import {Owned}             from "solmate/auth/Owned.sol";
-import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EnumerableSet}     from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import {IEscrow, DepositParams, Status} from "../interface/IEscrow.sol";
-import {Errors}                         from "../libraries/EscrowErrors.sol";
+import {IEscrow} from "../interface/IEscrow.sol";
+import {Errors}  from "../libraries/Errors.sol";
 
 contract Escrow is Owned, IEscrow {
     using SafeTransferLib   for ERC20;
     using EnumerableSet     for EnumerableSet.AddressSet;
-    using FixedPointMathLib for uint256;
+    using FixedPointMathLib for uint;
 
-    uint    public constant MAX_FEE_BPS    = 1000; // 10%
-    bytes32 public constant CLAIM_TYPEHASH = keccak256("Claim(address recipient,bool status,uint256 nonce,uint256 deadline)");
+    /* -------------------------------------------------------------------------- */
+    /*                                   CONSTANTS                                */
+    /* -------------------------------------------------------------------------- */
+    uint16 public constant MAX_FEE_BPS = 1_000; // 10 %
 
-    uint256 internal immutable CLAIM_INITIAL_CHAIN_ID;
-    bytes32 internal immutable CLAIM_INITIAL_DOMAIN_SEPARATOR;
+    bytes32 public constant SET_ADMIN_TYPEHASH =
+        keccak256("SetAdmin(uint repoId,uint accountId,address admin,uint nonce,uint deadline)");
+    bytes32 public constant CLAIM_TYPEHASH =
+        keccak256("Claim(uint[] distributionIds,address recipient,uint nonce,uint deadline)");
+
+    /* -------------------------------------------------------------------------- */
+    /*                                     TYPES                                  */
+    /* -------------------------------------------------------------------------- */
+    struct Account {
+        mapping(address => uint) balance;          // token → balance
+        bool                     hasDistributions; // whether any distributions have occurred
+        address                  admin;            // admin
+        mapping(address => bool) distributors;     // distributor → authorized?
+    }
+
+    struct Distribution {
+        uint               amount;
+        ERC20              token;
+        address            recipient;
+        uint               claimDeadline;      // unix seconds
+        bool               exists;             // whether this distribution exists
+        DistributionStatus distributionStatus; // Distributed → Claimed / Reclaimed
+        DistributionType   distributionType;   // Repo or Solo
+        address            payer;              // who paid for this distribution (only used for Solo)
+    }
+
+    enum DistributionType {
+        Repo,
+        Solo
+    }
+
+    enum DistributionStatus { 
+        Distributed,
+        Claimed,
+        Reclaimed
+    }
+
+    struct DistributionParams {
+        uint256 amount;
+        address recipient;
+        uint32  claimPeriod; // seconds
+        ERC20   token;
+    }
+
+    struct RepoAccount {
+        uint repoId;
+        uint accountId;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                STATE VARIABLES                             */
+    /* -------------------------------------------------------------------------- */
+    mapping(uint => mapping(uint => Account)) public accounts; // repoId → accountId → Account
+
+    mapping(uint => Distribution) public distributions;         // distributionId → Distribution
+    mapping(uint => RepoAccount)  public distributionToRepo;    // distributionId → RepoAccount (for repo distributions)
+
+    mapping(address => uint) public recipientNonce;             // recipient → nonce
+    uint                     public ownerNonce;    
+
+    uint16  public protocolFeeBps;
+    address public feeRecipient;
 
     EnumerableSet.AddressSet private _whitelistedTokens;
 
-    mapping(address => bool) public canClaim;
-    mapping(address => uint) public recipientNonces;
-
     address public signer;
 
-    struct Deposit {
-        uint    amount;
-        ERC20   token;
-        address sender;
-        address recipient;
-        uint    claimDeadline;
-        Status  status;
+    uint public distributionBatchCount;
+    uint public distributionCount;
+
+    /* -------------------------------------------------------------------------- */
+    /*                               EIP‑712 DOMAIN                               */
+    /* -------------------------------------------------------------------------- */
+    uint    internal immutable INITIAL_CHAIN_ID;
+    bytes32 internal immutable INITIAL_DOMAIN_SEPARATOR;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                 MODIFIERS                                  */
+    /* -------------------------------------------------------------------------- */
+    modifier onlyRepoAdmin(uint repoId, uint accountId) {
+        require(msg.sender == accounts[repoId][accountId].admin, Errors.NOT_REPO_ADMIN);
+        _;
     }
 
-    mapping(uint    => Deposit) public deposits;
-    mapping(address => uint[])  public senderDeposits;
-    mapping(address => uint[])  public recipientDeposits;
-
-    uint    public depositCount;
-    uint    public batchCount;
-    uint    public protocolFeeBps;
-    address public feeRecipient;
-    uint    public batchDepositLimit;
-
+    /* -------------------------------------------------------------------------- */
+    /*                                 CONSTRUCTOR                                */
+    /* -------------------------------------------------------------------------- */
     constructor(
         address          _owner,
         address          _signer,
-        address[] memory _initialWhitelistedTokens,
-        uint             _initialFeeBps,
-        uint             _initialBatchDepositLimit
+        address[] memory _initialWhitelist,
+        uint16           _initialFeeBps
     ) Owned(_owner) {
-        require(_initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
-        feeRecipient                   = _owner;
-        protocolFeeBps                 = _initialFeeBps;
-        CLAIM_INITIAL_CHAIN_ID         = block.chainid;
-        CLAIM_INITIAL_DOMAIN_SEPARATOR = _computeClaimDomainSeparator();
-        signer                         = _signer;
-        batchDepositLimit              = _initialBatchDepositLimit;
+        require(_initialFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
 
-        for (uint256 i = 0; i < _initialWhitelistedTokens.length; i++) {
-            _whitelistedTokens.add(_initialWhitelistedTokens[i]);
-            emit TokenWhitelisted(_initialWhitelistedTokens[i]);
+        signer                   = _signer;
+        feeRecipient             = _owner;
+        protocolFeeBps           = _initialFeeBps;
+        INITIAL_CHAIN_ID         = block.chainid;
+        INITIAL_DOMAIN_SEPARATOR = _domainSeparator();
+
+        for (uint i; i < _initialWhitelist.length; ++i) {
+            _whitelistedTokens.add(_initialWhitelist[i]);
+            emit TokenWhitelisted(_initialWhitelist[i]);
         }
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                DEPOSIT
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc IEscrow
-    function deposit(DepositParams calldata param)
-        public
-        returns (uint depositId)
-    {
-        require(param.token      != ERC20(address(0)),             Errors.INVALID_ADDRESS);
-        require(param.sender     != address(0),                    Errors.INVALID_ADDRESS);
-        require(param.recipient  != address(0),                    Errors.INVALID_ADDRESS);
-        require(param.amount      > 0,                             Errors.INVALID_AMOUNT);
-        require(param.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
-        require(_whitelistedTokens.contains(address(param.token)), Errors.INVALID_TOKEN);
-
-        uint feeAmount;
-        uint netAmount = param.amount;
-        if (protocolFeeBps > 0) {
-            feeAmount = param.amount.mulDivUp(protocolFeeBps, 10_000);
-            netAmount = param.amount - feeAmount;
-            require(netAmount > 0, Errors.INVALID_AMOUNT_AFTER_FEE);
-        }
-
-        param.token.safeTransferFrom(msg.sender, address(this), param.amount);
-
-        if (feeAmount > 0) {
-            param.token.safeTransfer(feeRecipient, feeAmount);
-        }
-
-        deposits[depositCount] = Deposit({
-            amount:        netAmount,
-            token:         param.token,
-            recipient:     param.recipient,
-            sender:        param.sender,
-            claimDeadline: block.timestamp + param.claimPeriod,
-            status:        Status.Deposited
-        });
-
-        senderDeposits   [param.sender]   .push(depositCount);
-        recipientDeposits[param.recipient].push(depositCount);
-
-        emit Deposited(
-            depositCount,
-            address(param.token),
-            param.recipient,
-            param.sender,
-            netAmount,
-            feeAmount,
-            block.timestamp + param.claimPeriod
-        );
-
-        return depositCount++;
-    }
-
-    /// @inheritdoc IEscrow
-    function batchDeposit(
-        DepositParams[] calldata params,
-        bytes memory data
-    ) 
-        external 
-        returns (uint[] memory depositIds) 
-    {
-        require(params.length > 0,                  Errors.EMPTY_BATCH);
-        require(params.length <= batchDepositLimit, Errors.BATCH_DEPOSIT_LIMIT_EXCEEDED);
-        depositIds = new uint[](params.length);
-
-        for (uint256 i = 0; i < params.length; i++) {
-            depositIds[i] = deposit(params[i]);
-        }
-
-        emit BatchDeposited(batchCount++, depositIds, data);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                                CLAIM
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc IEscrow
-    function claim(
-        uint    depositId,
-        address recipient,
-        bool    status,
-        uint256 deadline,
+    /* -------------------------------------------------------------------------- */
+    /*                              INIT REPO ADMIN                               */
+    /* -------------------------------------------------------------------------- */
+    function initRepo(
+        uint    repoId,
+        uint    accountId,
+        address admin,
+        uint    deadline,
         uint8   v,
         bytes32 r,
         bytes32 s
     ) external {
-        setCanClaim(recipient, status, deadline, v, r, s);
-        require(canClaim[recipient], Errors.NO_CLAIM_PERMISSION);
-        _claim(depositId, recipient);
-    }
-
-    /// @inheritdoc IEscrow
-    function batchClaim(
-        uint[] calldata depositIds,
-        address         recipient,
-        bool            status,
-        uint256         deadline,
-        uint8           v,
-        bytes32         r,
-        bytes32         s
-    ) external {
-        setCanClaim(recipient, status, deadline, v, r, s);
-        require(canClaim[recipient], Errors.NO_CLAIM_PERMISSION);
-
-        for (uint256 i = 0; i < depositIds.length; i++) {
-            _claim(depositIds[i], recipient);
-        }
-    }
-
-    function _claim(uint depositId, address recipient) internal {
-        require(depositId < depositCount, Errors.INVALID_DEPOSIT_ID);
-        Deposit storage _deposit = deposits[depositId];
-
-        require(_deposit.recipient == recipient,     Errors.INVALID_RECIPIENT);
-        require(_deposit.status == Status.Deposited, Errors.ALREADY_CLAIMED);
-        
-        _deposit.status = Status.Claimed;
-        _deposit.token.safeTransfer(_deposit.recipient, _deposit.amount);
-
-        emit Claimed(depositId, _deposit.recipient, _deposit.amount);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                                RECLAIM
-    //////////////////////////////////////////////////////////////*/
-    /// @inheritdoc IEscrow
-    function reclaim(uint depositId) external {
-        _reclaim(depositId);
-    }
-
-    /// @inheritdoc IEscrow
-    function batchReclaim(uint[] calldata depositIds) external {
-        for (uint256 i = 0; i < depositIds.length; i++) {
-            _reclaim(depositIds[i]);
-        }
-    }
-
-    function _reclaim(uint depositId) internal {
-        require(depositId < depositCount, Errors.INVALID_DEPOSIT_ID);
-        Deposit storage _deposit = deposits[depositId];
-
-        require(_deposit.status == Status.Deposited,      Errors.ALREADY_CLAIMED);
-        require(block.timestamp > _deposit.claimDeadline, Errors.STILL_CLAIMABLE);
-        
-        _deposit.status = Status.Reclaimed;
-        _deposit.token.safeTransfer(_deposit.sender, _deposit.amount);
-
-        emit Reclaimed(depositId, _deposit.sender, _deposit.amount);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                               SIGNATURE
-    //////////////////////////////////////////////////////////////*/
-    function setCanClaim(
-        address recipient,
-        bool    status,
-        uint256 deadline,
-        uint8   v,
-        bytes32 r,
-        bytes32 s
-    ) public {
-        if (canClaim[recipient] == status) return;
-        
-        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                CLAIM_TYPEHASH,
-                recipient,
-                status,
-                recipientNonces[recipient],
-                deadline
-            )
-        );
+        require(accounts[repoId][accountId].admin == address(0), Errors.REPO_ALREADY_INITIALIZED);
+        require(admin != address(0),                             Errors.INVALID_ADDRESS);
+        require(block.timestamp <= deadline,                     Errors.SIGNATURE_EXPIRED);
 
         bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", CLAIM_DOMAIN_SEPARATOR(), structHash)
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    SET_ADMIN_TYPEHASH,
+                    repoId,
+                    accountId,
+                    admin,
+                    ownerNonce,
+                    deadline
+                ))
+            )
         );
+        require(ECDSA.recover(digest, v, r, s) == owner, Errors.INVALID_SIGNATURE);
 
-        address recoveredSigner = ECDSA.recover(digest, v, r, s);
-        require(recoveredSigner == signer, Errors.INVALID_SIGNATURE);
-
-        recipientNonces[recipient]++;
-
-        canClaim[recipient] = status;
-
-        emit CanClaimSet(recipient, status);
+        ownerNonce++;
+        address oldAdmin = accounts[repoId][accountId].admin;
+        accounts[repoId][accountId].admin = admin;
+        emit AdminSet(repoId, accountId, oldAdmin, admin);
     }
 
-    function _computeClaimDomainSeparator() internal view returns (bytes32) {
+    /* -------------------------------------------------------------------------- */
+    /*                                   FUND REPO                                */
+    /* -------------------------------------------------------------------------- */
+    function fundRepo(
+        uint  repoId,
+        uint  accountId,
+        ERC20 token,
+        uint  amount
+    ) external {
+        require(_whitelistedTokens.contains(address(token)), Errors.INVALID_TOKEN);
+        require(amount > 0,                                  Errors.INVALID_AMOUNT);
+
+        token.safeTransferFrom(msg.sender, address(this), amount);
+
+        accounts[repoId][accountId].balance[address(token)] += amount;
+
+        emit Funded(repoId, address(token), msg.sender, amount);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              DISTRIBUTE REPO / SOLO                        */
+    /* -------------------------------------------------------------------------- */
+    function distributeRepo(
+        uint                          repoId,
+        uint                          accountId,
+        DistributionParams[] calldata _distributions,
+        bytes                memory   data
+    ) 
+        external 
+        returns (uint[] memory distributionIds)
+    {
+        Account storage account = accounts[repoId][accountId];
+
+        bool isAdmin       = msg.sender == account.admin;
+        bool isDistributor = account.distributors[msg.sender];
+        require(isAdmin || isDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        
+        distributionIds          = new uint[](_distributions.length);
+        uint distributionBatchId = distributionBatchCount++;
+
+        for (uint i; i < _distributions.length; ++i) {
+            DistributionParams calldata distribution = _distributions[i];
+            
+            uint balance = account.balance[address(distribution.token)];
+            require(balance >= distribution.amount, Errors.INSUFFICIENT_BALANCE);
+            account.balance[address(distribution.token)] = balance - distribution.amount;
+
+            uint distributionId = _createDistribution(distribution, DistributionType.Repo);
+            distributionIds[i]  = distributionId;
+
+            distributionToRepo[distributionId] = RepoAccount({
+                repoId:    repoId,
+                accountId: accountId
+            });
+            account.hasDistributions = true;
+
+            emit DistributedRepo(
+                distributionBatchId,
+                distributionId,
+                distribution.recipient,
+                address(distribution.token),
+                distribution.amount,
+                block.timestamp + distribution.claimPeriod
+            );
+        } 
+        emit DistributedRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
+    }
+
+    ///
+    function distributeSolo(
+        DistributionParams[] calldata _distributions
+    ) 
+        external 
+        returns (uint[] memory distributionIds)
+    {
+        distributionIds          = new uint[](_distributions.length);
+        uint distributionBatchId = distributionBatchCount++;
+        
+        for (uint i; i < _distributions.length; ++i) {
+            DistributionParams calldata distribution = _distributions[i];
+            distribution.token.safeTransferFrom(msg.sender, address(this), distribution.amount);
+            uint distributionId = _createDistribution(distribution, DistributionType.Solo);
+            distributionIds[i]  = distributionId;
+
+            emit DistributedSolo(
+                distributionId,
+                msg.sender,
+                distribution.recipient,
+                address(distribution.token),
+                distribution.amount,
+                block.timestamp + distribution.claimPeriod
+            );
+        } 
+        emit DistributedSoloBatch(distributionBatchId, distributionIds);
+    }
+
+    ///
+    function _createDistribution(
+        DistributionParams calldata distribution,
+        DistributionType            distributionType
+    ) 
+        internal 
+        returns (uint distributionId) 
+    {
+        require(distribution.recipient  != address(0),                    Errors.INVALID_ADDRESS);
+        require(distribution.amount      > 0,                             Errors.INVALID_AMOUNT);
+        require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
+        require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
+
+        uint claimDeadline = block.timestamp + distribution.claimPeriod;
+        
+        distributionId = distributionCount++;
+
+        distributions[distributionId] = Distribution({
+            amount:             distribution.amount,
+            token:              distribution.token,
+            recipient:          distribution.recipient,
+            claimDeadline:      claimDeadline,
+            distributionStatus: DistributionStatus.Distributed,
+            exists:             true,
+            distributionType:   distributionType,
+            payer:              distributionType == DistributionType.Solo ? msg.sender : address(0)
+        });
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   CLAIM                                    */
+    /* -------------------------------------------------------------------------- */
+    function claim(
+        uint[] memory distributionIds,
+        uint256       deadline,
+        uint8         v,
+        bytes32       r,
+        bytes32       s
+    ) external {
+        require(block.timestamp <= deadline, Errors.SIGNATURE_EXPIRED);
+        require(distributionIds.length > 0,  Errors.INVALID_AMOUNT);
+
+        require(ECDSA.recover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    DOMAIN_SEPARATOR(),
+                    keccak256(abi.encode(
+                        CLAIM_TYPEHASH,
+                        keccak256(abi.encode(distributionIds)),
+                        msg.sender,
+                        recipientNonce[msg.sender],
+                        deadline
+                    ))
+                )
+            ), v, r, s) == signer, Errors.INVALID_SIGNATURE);
+
+        recipientNonce[msg.sender]++;
+
+        for (uint i; i < distributionIds.length; ++i) {
+            uint distributionId = distributionIds[i];
+            Distribution storage distribution = distributions[distributionId];
+
+            require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(distribution.recipient          == msg.sender,                     Errors.INVALID_RECIPIENT);
+            require(block.timestamp                 <= distribution.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
+
+            distribution.distributionStatus = DistributionStatus.Claimed;
+             
+            uint fee       = distribution.amount.mulDivUp(protocolFeeBps, 10_000);
+            uint netAmount = distribution.amount - fee;
+            require(netAmount > 0, Errors.INVALID_AMOUNT);
+            
+            if (fee > 0) distribution.token.safeTransfer(feeRecipient, fee);
+            distribution.token.safeTransfer(msg.sender, netAmount);
+            
+            emit Claimed(distributionId, msg.sender, netAmount, fee);
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                RECLAIM FUND                                */
+    /* -------------------------------------------------------------------------- */
+    function reclaimFund(
+        uint    repoId,
+        uint    accountId,
+        address token,
+        uint    amount
+    ) 
+        external 
+        onlyRepoAdmin(repoId, accountId) 
+    {
+        require(_whitelistedTokens.contains(token),            Errors.INVALID_TOKEN);
+        require(amount > 0,                                    Errors.INVALID_AMOUNT);
+        require(!accounts[repoId][accountId].hasDistributions, Errors.REPO_HAS_DISTRIBUTIONS);
+        
+        uint balance = accounts[repoId][accountId].balance[token];
+        require(balance >= amount, Errors.INSUFFICIENT_BALANCE);
+        
+        accounts[repoId][accountId].balance[token] = balance - amount;
+        ERC20(token).safeTransfer(msg.sender, amount);
+        
+        emit ReclaimedFund(repoId, msg.sender, amount);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               RECLAIM REPO                                 */
+    /* -------------------------------------------------------------------------- */
+    function reclaimRepo(uint[] calldata distributionIds) external {
+        for (uint i; i < distributionIds.length; ++i) {
+            uint distributionId = distributionIds[i];
+            Distribution storage distribution = distributions[distributionId];
+            
+            require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution.distributionType   == DistributionType.Repo,          Errors.NOT_REPO_DISTRIBUTION);
+            require(distribution.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(block.timestamp      >  distribution.claimDeadline,                Errors.STILL_CLAIMABLE);
+
+            distribution.distributionStatus = DistributionStatus.Reclaimed;
+            
+            RepoAccount memory repoAccount = distributionToRepo[distributionId];
+            accounts[repoAccount.repoId][repoAccount.accountId].balance[address(distribution.token)] += distribution.amount;
+            
+            emit ReclaimedRepo(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               RECLAIM SOLO                                 */
+    /* -------------------------------------------------------------------------- */
+    function reclaimSolo(uint[] calldata distributionIds) external {
+        for (uint i; i < distributionIds.length; ++i) {
+            uint              distributionId = distributionIds[i];
+            Distribution storage distribution   = distributions[distributionId];
+            
+            require(distribution.exists,                                               Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution.distributionType   == DistributionType.Solo,          Errors.NOT_DIRECT_DISTRIBUTION);
+            require(distribution.distributionStatus == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
+            require(block.timestamp                 >  distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
+            
+            distribution.distributionStatus = DistributionStatus.Reclaimed;
+            distribution.token.safeTransfer(distribution.payer, distribution.amount);
+            
+            emit ReclaimedSolo(distributionId, distribution.payer, distribution.amount);
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              ONLY OWNER                                    */
+    /* -------------------------------------------------------------------------- */
+    function addWhitelistedToken(address token) 
+        external 
+        onlyOwner 
+    {
+        require(_whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
+        emit TokenWhitelisted(token);
+    }
+
+    function setProtocolFee(uint16 newFeeBps) 
+        external 
+        onlyOwner 
+    {
+        require(newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE_BPS);
+        protocolFeeBps = newFeeBps;
+    }
+
+    function setFeeRecipient(address newRec) 
+        external 
+        onlyOwner 
+    {
+        feeRecipient = newRec;
+    }
+
+    function setSigner(address newSigner) 
+        external 
+        onlyOwner 
+    {
+        signer = newSigner;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              ONLY REPO ADMIN                              */
+    /* -------------------------------------------------------------------------- */
+    function transferRepoAdmin(uint repoId, uint accountId, address newAdmin) 
+        external 
+        onlyRepoAdmin(repoId, accountId) 
+    {
+        require(newAdmin != address(0), Errors.INVALID_ADDRESS);
+
+        address oldAdmin = accounts[repoId][accountId].admin;
+        accounts[repoId][accountId].admin = newAdmin;
+        emit RepoAdminChanged(repoId, oldAdmin, newAdmin);
+    }
+
+    function addDistributor(uint repoId, uint accountId, address[] calldata distributors) 
+        external 
+        onlyRepoAdmin(repoId, accountId) 
+    {
+        Account storage account = accounts[repoId][accountId];
+        for (uint i; i < distributors.length; ++i) {
+            address distributor = distributors[i];
+            require(distributor != address(0), Errors.INVALID_ADDRESS);
+            if (!account.distributors[distributor]) {
+                account.distributors[distributor] = true;
+                emit AddedDistributor(repoId, accountId, distributor);
+            }
+        }
+    }
+
+    function removeDistributor(uint repoId, uint accountId, address[] calldata distributors) 
+        external 
+        onlyRepoAdmin(repoId, accountId) 
+    {
+        Account storage account = accounts[repoId][accountId];
+        for (uint i; i < distributors.length; ++i) {
+            address distributor = distributors[i];
+            if (account.distributors[distributor]) {
+                account.distributors[distributor] = false;
+                emit RemovedDistributor(repoId, accountId, distributor);
+            }
+        }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                           DOMAIN‑SEPARATOR LOGIC                           */
+    /* -------------------------------------------------------------------------- */
+    function _domainSeparator() private view returns (bytes32) {
         return keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes("Escrow")), 
+                keccak256("EIP712Domain(string name,string version,uint chainId,address verifyingContract)"),
+                keccak256(bytes("EscrowRepo")),
                 keccak256(bytes("1")),
                 block.chainid,
                 address(this)
             )
         );
     }
-
-    function CLAIM_DOMAIN_SEPARATOR() public view returns (bytes32) {
-        if (block.chainid == CLAIM_INITIAL_CHAIN_ID) {
-            return CLAIM_INITIAL_DOMAIN_SEPARATOR;
-        }
-        return _computeClaimDomainSeparator();
+    function DOMAIN_SEPARATOR() public view returns (bytes32) {
+        return block.chainid == INITIAL_CHAIN_ID ? INITIAL_DOMAIN_SEPARATOR : _domainSeparator();
     }
 
-    /*//////////////////////////////////////////////////////////////
-                           OWNER OPERATIONS
-    //////////////////////////////////////////////////////////////*/
-    function addWhitelistedToken(address token) external onlyOwner {
-        require(token != address(0), Errors.INVALID_ADDRESS);
-        require(_whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
-        emit TokenWhitelisted(token);
+    /* -------------------------------------------------------------------------- */
+    /*                                   GETTERS                                  */
+    /* -------------------------------------------------------------------------- */
+    function getAccountAdmin(uint repoId, uint accountId) 
+        external 
+        view 
+        returns (address) 
+    {
+        return accounts[repoId][accountId].admin;
     }
 
-    function removeWhitelistedToken(address token) external onlyOwner {
-        require(_whitelistedTokens.remove(token), Errors.TOKEN_NOT_WHITELISTED);
-        emit TokenRemovedFromWhitelist(token);
+    function getIsAuthorizedDistributor(uint repoId, uint accountId, address distributor) 
+        external 
+        view 
+        returns (bool) 
+    {
+        return accounts[repoId][accountId].distributors[distributor];
     }
 
-    function isTokenWhitelisted(address token) public view returns (bool) {
+    function canDistribute(uint repoId, uint accountId, address caller) 
+        external 
+        view 
+        returns (bool) 
+    {
+        return caller == accounts[repoId][accountId].admin || accounts[repoId][accountId].distributors[caller];
+    }
+
+    function getAccountBalance(uint repoId, uint accountId, address token) 
+        external 
+        view 
+        returns (uint) 
+    {
+        return accounts[repoId][accountId].balance[token];
+    }
+
+    function getAccountHasDistributions(uint repoId, uint accountId) 
+        external 
+        view 
+        returns (bool) 
+    {
+        return accounts[repoId][accountId].hasDistributions;
+    }
+
+    function getDistribution(uint distributionId) 
+        external 
+        view 
+        returns (Distribution memory) 
+    {
+        Distribution memory distribution = distributions[distributionId];
+        require(distribution.exists, Errors.INVALID_DISTRIBUTION_ID);
+        return distribution;
+    }
+
+    function getDistributionRepo(uint distributionId) 
+        external 
+        view 
+        returns (RepoAccount memory) 
+    {
+        require(distributions[distributionId].exists, Errors.INVALID_DISTRIBUTION_ID);
+        require(distributions[distributionId].distributionType == DistributionType.Repo, Errors.NOT_REPO_DISTRIBUTION);
+        return distributionToRepo[distributionId];
+    }
+
+    function isSoloDistribution(uint distributionId) 
+        external 
+        view 
+        returns (bool) 
+    {
+        return distributions[distributionId].exists && 
+               distributions[distributionId].distributionType == DistributionType.Solo;
+    }
+
+    function getAllWhitelistedTokens() 
+        external 
+        view 
+        returns (address[] memory tokens) 
+    {
+        uint len = _whitelistedTokens.length();
+        tokens   = new address[](len);
+        for (uint i; i < len; ++i) tokens[i] = _whitelistedTokens.at(i);
+    }
+
+    function isTokenWhitelisted(address token) 
+        external 
+        view 
+        returns (bool) 
+    {
         return _whitelistedTokens.contains(token);
-    }
-
-    function setProtocolFeeBps(uint _newFeeBps) external onlyOwner {
-        require(_newFeeBps <= MAX_FEE_BPS, Errors.INVALID_FEE);
-        protocolFeeBps = _newFeeBps;
-        emit ProtocolFeeSet(_newFeeBps);
-    }
-
-    function setFeeRecipient(address _newFeeRecipient) external onlyOwner {
-        require(_newFeeRecipient != address(0), Errors.INVALID_ADDRESS);
-        feeRecipient = _newFeeRecipient;
-        emit FeeRecipientSet(_newFeeRecipient);
-    }
-
-    function setSigner(address _newSigner) external onlyOwner {
-        require(_newSigner != address(0), Errors.INVALID_ADDRESS);
-        signer = _newSigner;
-        emit SignerSet(_newSigner);
-    }
-
-    function setBatchDepositLimit(uint _newLimit) external onlyOwner {
-        require(_newLimit > 0, Errors.INVALID_BATCH_DEPOSIT_LIMIT);
-        batchDepositLimit = _newLimit;
-        emit BatchDepositLimitSet(_newLimit);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                                GETTERS
-    //////////////////////////////////////////////////////////////*/
-    function getDepositsBySender(address sender) external view returns (uint[] memory) {
-        return senderDeposits[sender];
-    }
-
-    function getDepositsByRecipient(address recipient) external view returns (uint[] memory) {
-        return recipientDeposits[recipient];
-    }
-
-    function getWhitelistedTokens() external view returns (address[] memory) {
-        uint256 length = _whitelistedTokens.length();
-        address[] memory tokens = new address[](length);
-        
-        for (uint256 i = 0; i < length; i++) {
-            tokens[i] = _whitelistedTokens.at(i);
-        }
-        
-        return tokens;
     }
 }
