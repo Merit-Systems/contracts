@@ -87,7 +87,7 @@ contract Escrow is Owned, IEscrow {
     address public feeRecipient;
     uint    public batchLimit; 
 
-    EnumerableSet.AddressSet private _whitelistedTokens;
+    EnumerableSet.AddressSet private whitelistedTokens;
 
     address public signer;
 
@@ -114,22 +114,22 @@ contract Escrow is Owned, IEscrow {
     constructor(
         address          _owner,
         address          _signer,
-        address[] memory _initialWhitelist,
-        uint             _initialFee,
+        address[] memory _whitelistedTokens,
+        uint             _fee,
         uint             _batchLimit
     ) Owned(_owner) {
-        require(_initialFee <= MAX_FEE, Errors.INVALID_FEE);
+        require(_fee <= MAX_FEE, Errors.INVALID_FEE);
 
         signer                   = _signer;
         feeRecipient             = _owner;
-        fee                      = _initialFee;
+        fee                      = _fee;
         batchLimit               = _batchLimit;
         INITIAL_CHAIN_ID         = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = _domainSeparator();
 
-        for (uint i; i < _initialWhitelist.length; ++i) {
-            require(_whitelistedTokens.add(_initialWhitelist[i]), Errors.TOKEN_ALREADY_WHITELISTED);
-            emit TokenWhitelisted(_initialWhitelist[i]);
+        for (uint i; i < _whitelistedTokens.length; ++i) {
+            require(whitelistedTokens.add(_whitelistedTokens[i]), Errors.TOKEN_ALREADY_WHITELISTED);
+            emit TokenWhitelisted(_whitelistedTokens[i]);
         }
     }
 
@@ -188,8 +188,8 @@ contract Escrow is Owned, IEscrow {
         uint  amount,
         bytes calldata data
     ) external {
-        require(_whitelistedTokens.contains(address(token)), Errors.INVALID_TOKEN);
-        require(amount > 0,                                  Errors.INVALID_AMOUNT);
+        require(whitelistedTokens.contains(address(token)), Errors.INVALID_TOKEN);
+        require(amount > 0,                                 Errors.INVALID_AMOUNT);
 
         token.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -288,10 +288,10 @@ contract Escrow is Owned, IEscrow {
         internal 
         returns (uint distributionId) 
     {
-        require(distribution.recipient  != address(0),                    Errors.INVALID_ADDRESS);
-        require(distribution.amount      > 0,                             Errors.INVALID_AMOUNT);
-        require(distribution.claimPeriod > 0,                             Errors.INVALID_CLAIM_PERIOD);
-        require(_whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
+        require(distribution.recipient  != address(0),                   Errors.INVALID_ADDRESS);
+        require(distribution.amount      > 0,                            Errors.INVALID_AMOUNT);
+        require(distribution.claimPeriod > 0,                            Errors.INVALID_CLAIM_PERIOD);
+        require(whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
 
         // Validate that after fees, recipient will receive at least 1 wei
         uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
@@ -381,7 +381,7 @@ contract Escrow is Owned, IEscrow {
         external 
         onlyRepoAdmin(repoId, accountId) 
     {
-        require(_whitelistedTokens.contains(token),            Errors.INVALID_TOKEN);
+        require(whitelistedTokens.contains(token),             Errors.INVALID_TOKEN);
         require(amount > 0,                                    Errors.INVALID_AMOUNT);
         require(!accounts[repoId][accountId].hasDistributions, Errors.REPO_HAS_DISTRIBUTIONS);
         
@@ -449,7 +449,7 @@ contract Escrow is Owned, IEscrow {
         external 
         onlyOwner 
     {
-        require(_whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
+        require(whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
         emit TokenWhitelisted(token);
     }
 
@@ -685,9 +685,9 @@ contract Escrow is Owned, IEscrow {
         view 
         returns (address[] memory tokens) 
     {
-        uint len = _whitelistedTokens.length();
+        uint len = whitelistedTokens.length();
         tokens   = new address[](len);
-        for (uint i; i < len; ++i) tokens[i] = _whitelistedTokens.at(i);
+        for (uint i; i < len; ++i) tokens[i] = whitelistedTokens.at(i);
     }
 
     function isTokenWhitelisted(address token) 
@@ -695,6 +695,6 @@ contract Escrow is Owned, IEscrow {
         view 
         returns (bool) 
     {
-        return _whitelistedTokens.contains(token);
+        return whitelistedTokens.contains(token);
     }
 }
