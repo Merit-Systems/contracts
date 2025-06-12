@@ -120,7 +120,7 @@ contract ReclaimSolo_Test is Base_Test {
 
         // Check distribution status
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
-        assertTrue(uint8(distribution.distributionStatus) == 2); // Reclaimed
+        assertTrue(uint8(distribution.status) == 2); // Reclaimed
     }
 
     function test_reclaimSolo_multipleDistributions() public {
@@ -146,8 +146,8 @@ contract ReclaimSolo_Test is Base_Test {
         // Check both distributions are reclaimed
         Escrow.Distribution memory distribution1 = escrow.getDistribution(distributionId1);
         Escrow.Distribution memory distribution2 = escrow.getDistribution(distributionId2);
-        assertTrue(uint8(distribution1.distributionStatus) == 2); // Reclaimed
-        assertTrue(uint8(distribution2.distributionStatus) == 2); // Reclaimed
+        assertTrue(uint8(distribution1.status) == 2); // Reclaimed
+        assertTrue(uint8(distribution2.status) == 2); // Reclaimed
     }
 
     function test_reclaimSolo_multiplePayers() public {
@@ -233,7 +233,7 @@ contract ReclaimSolo_Test is Base_Test {
 
         // Check distribution was reclaimed
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
-        assertTrue(uint8(distribution.distributionStatus) == 2); // Reclaimed
+        assertTrue(uint8(distribution.status) == 2); // Reclaimed
     }
 
     function test_reclaimSolo_afterPartialClaim() public {
@@ -390,8 +390,8 @@ contract ReclaimSolo_Test is Base_Test {
         assertEq(distributionBefore.amount, DISTRIBUTION_AMOUNT);
         assertEq(distributionBefore.recipient, recipient);
         assertEq(distributionBefore.payer, soloPayer);
-        assertTrue(uint8(distributionBefore.distributionStatus) == 0); // Distributed
-        assertTrue(uint8(distributionBefore.distributionType) == 1); // Solo
+        assertTrue(uint8(distributionBefore.status) == 0); // Distributed
+        assertTrue(uint8(distributionBefore._type) == 1); // Solo
 
         // Move past claim deadline and reclaim
         vm.warp(block.timestamp + CLAIM_PERIOD + 1);
@@ -406,8 +406,8 @@ contract ReclaimSolo_Test is Base_Test {
         assertEq(distributionAfter.amount, DISTRIBUTION_AMOUNT);
         assertEq(distributionAfter.recipient, recipient);
         assertEq(distributionAfter.payer, soloPayer);
-        assertTrue(uint8(distributionAfter.distributionStatus) == 2); // Reclaimed
-        assertTrue(uint8(distributionAfter.distributionType) == 1); // Solo
+        assertTrue(uint8(distributionAfter.status) == 2); // Reclaimed
+        assertTrue(uint8(distributionAfter._type) == 1); // Solo
     }
 
     function test_reclaimSolo_fuzz_amounts(uint256 amount1, uint256 amount2) public {
