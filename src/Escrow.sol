@@ -45,6 +45,7 @@ contract Escrow is Owned, IEscrow {
         DistributionStatus distributionStatus; // Distributed → Claimed / Reclaimed
         DistributionType   distributionType;   // Repo or Solo
         address            payer;              // who paid for this distribution (only used for Solo)
+        uint               fee;                // fee rate at creation time (basis points)
     }
 
     enum DistributionType {
@@ -298,7 +299,8 @@ contract Escrow is Owned, IEscrow {
             distributionStatus: DistributionStatus.Distributed,
             exists:             true,
             distributionType:   distributionType,
-            payer:              distributionType == DistributionType.Solo ? msg.sender : address(0)
+            payer:              distributionType == DistributionType.Solo ? msg.sender : address(0),
+            fee:                fee
         });
     }
 
@@ -344,7 +346,7 @@ contract Escrow is Owned, IEscrow {
 
             distribution.distributionStatus = DistributionStatus.Claimed;
              
-            uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
+            uint feeAmount = distribution.amount.mulDivUp(distribution.fee, 10_000);
             // Cap fee to ensure recipient gets at least 1 wei
             if (feeAmount >= distribution.amount) {
                 feeAmount = distribution.amount - 1;
@@ -354,7 +356,7 @@ contract Escrow is Owned, IEscrow {
             if (feeAmount > 0) distribution.token.safeTransfer(feeRecipient, feeAmount);
             distribution.token.safeTransfer(msg.sender, netAmount);
             
-            emit Claimed(distributionId, msg.sender, netAmount, fee);
+            emit Claimed(distributionId, msg.sender, netAmount, distribution.fee);
         }
     }
 
