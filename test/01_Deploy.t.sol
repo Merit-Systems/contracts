@@ -191,25 +191,20 @@ contract Deploy_Test is Base_Test {
     }
 
     function test_deploy_duplicateTokensInWhitelist() public {
-        // Test with duplicate tokens (should only add once)
+        // Test with duplicate tokens (should revert)
         address[] memory initialWhitelist = new address[](3);
         initialWhitelist[0] = testToken1;
         initialWhitelist[1] = testToken2;
         initialWhitelist[2] = testToken1; // Duplicate
         
-        Escrow deployedEscrow = new Escrow(
+        expectRevert(Errors.TOKEN_ALREADY_WHITELISTED);
+        new Escrow(
             testOwner,
             testSigner,
             initialWhitelist,
             250,
             100
         );
-
-        // Should only have 2 unique tokens
-        address[] memory whitelistedTokens = deployedEscrow.getAllWhitelistedTokens();
-        assertEq(whitelistedTokens.length, 2);
-        assertTrue(deployedEscrow.isTokenWhitelisted(testToken1));
-        assertTrue(deployedEscrow.isTokenWhitelisted(testToken2));
     }
 
     function test_deploy_domainSeparator() public {

@@ -127,7 +127,7 @@ contract Escrow is Owned, IEscrow {
         INITIAL_DOMAIN_SEPARATOR = _domainSeparator();
 
         for (uint i; i < _initialWhitelist.length; ++i) {
-            _whitelistedTokens.add(_initialWhitelist[i]);
+            require(_whitelistedTokens.add(_initialWhitelist[i]), Errors.TOKEN_ALREADY_WHITELISTED);
             emit TokenWhitelisted(_initialWhitelist[i]);
         }
     }
