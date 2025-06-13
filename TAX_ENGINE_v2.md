@@ -35,6 +35,17 @@ What do we need:
 
 Tables:
 
+Batches:
+
+- batchId (primary key)
+- batchType (DistributedFromRepo, DistributedFromSender, Claimed, ReclaimedRepoDistributions)
+- repoId (nullable - only for repo batches)
+- accountId (nullable - only for repo batches)
+- initiator (address who created the batch)
+- recipient (nullable - only for claim batches)
+- timestamp
+- data
+
 FundedRepo:
 
 - repoId
@@ -140,218 +151,169 @@ Notes on the Indexer:
 
 2. Query Routes:
 
-   **User/Account Data:**
+   **Contract-Based Routes (Current State):**
 
-   - `GET /balance/merit/:githubId`
+   - `GET /repo/:repoId/:accountId/admins`
 
-     - Returns Merit Balance (claimed + claimable incoming payments)
+     - Returns list of repo admins (from contract)
 
-   - `GET /balance/repo/:repoId/:githubId`
+   - `GET /repo/:repoId/:accountId/distributors`
 
-     - Returns Merit Repo Balance (funded - outgoing + reclaimed)
+     - Returns list of repo distributors (from contract)
 
-   - `GET /payments/incoming/:githubId`
+   - `GET /repo/:repoId/:accountId/exists`
 
-     - Returns all incoming payments (claimed and claimable)
+     - Returns whether repo account is initialized (from contract)
 
-   - `GET /payments/outgoing/:githubId`
-     - Returns all outgoing payments (claimed and reclaimed)
+   - `GET /repo/:repoId/:accountId/balance/:token`
 
-   **Repo Management:**
+     - Returns repo balance for specific token (from contract)
 
-   - `GET /repo/:repoId/:githubId/admins`
+   - `GET /repo/:repoId/:accountId/can-distribute/:address`
 
-     - Returns list of repo admins
-
-   - `GET /repo/:repoId/:githubId/distributors`
-
-     - Returns list of repo distributors
-
-   - `GET /repo/:repoId/:githubId/exists`
-
-     - Returns whether repo account is initialized
-
-   - `GET /repo/:repoId/:githubId/balance/:token`
-
-     - Returns repo balance for specific token
-
-   - `GET /repo/:repoId/:githubId/can-distribute/:address`
-
-     - Returns whether address can distribute from repo
-
-   - `GET /admin/repo/:repoId/:githubId/overview`
-
-     - Returns complete repo overview (balances, admin count, distributor count, total distributions)
-
-   - `GET /admin/repo/:repoId/:githubId/distributors/activity`
-
-     - Returns activity summary for each distributor (total distributed, batch count, etc.)
-
-   - `GET /admin/repo/:repoId/:githubId/distributor/:address/payments`
-
-     - Returns all payments/distributions made by specific distributor
-
-   - `GET /admin/repo/:repoId/:githubId/distributor/:address/batches`
-
-     - Returns all batches created by specific distributor
-
-   - `GET /batch/:batchId`
-
-     - Returns batch details with all items
-
-   - `GET /batch/:batchId/items`
-
-     - Returns all distributions in a batch with their status
-
-   - `GET /batches/repo/:repoId/:githubId`
-
-     - Returns all batches for a repo (DistributedFromRepo, ReclaimedRepo)
-
-   - `GET /batches/sender/:address`
-
-     - Returns all batches for a sender (DistributedFromSender, ReclaimedSender)
-
-   - `GET /batches/recipient/:githubId`
-
-     - Returns all claim batches for a recipient
-
-   - `GET /batches/recent/:limit?`
-
-     - Returns recent batches across the system
-
-   - `GET /batches/paid-to/:githubId`
-
-     - Returns all batches containing distributions paid TO this recipient
-     - Includes DistributedFromRepo and DistributedFromSender batches
-
-   - `GET /batches/paid-to/:githubId/unclaimed`
-
-     - Returns batches with unclaimed distributions for this recipient
-
-   - `GET /batches/paid-to/:githubId/claimed`
-
-     - Returns batches where this recipient has claimed distributions
+     - Returns whether address can distribute from repo (from contract)
 
    - `GET /distribution/:distributionId`
 
-     - Returns full distribution details
-
-   - `GET /distributions/claimable/:githubId`
-
-     - Returns all claimable distributions for recipient
-
-   - `GET /distributions/expired/:githubId`
-
-     - Returns all expired (unclaimable) distributions for recipient
-
-   - `GET /distributions/to/:githubId`
-
-     - Returns ALL distributions sent to this recipient (claimed, unclaimed, expired)
-
-   - `GET /distributions/to/:githubId/claimed`
-
-     - Returns all claimed distributions for this recipient
-
-   - `GET /distributions/to/:githubId/unclaimed`
-
-     - Returns all unclaimed (still claimable) distributions for this recipient
-
-   - `GET /distributions/repo/:repoId/:githubId`
-
-     - Returns all distributions from a specific repo
-
-   - `GET /distributions/repo/:repoId/:githubId/by-distributor`
-
-     - Returns distributions grouped by distributor address
-
-   - `GET /distributions/sender/:address`
-     - Returns all distributions from a specific sender
-
-   **Reclaim Data:**
-
-   - `GET /reclaim/repo-funds/:repoId/:githubId`
-
-     - Returns reclaimable repo funds (only if no distributions exist)
-
-   - `GET /reclaim/repo-distributions/:repoId/:githubId`
-
-     - Returns expired repo distributions that can be reclaimed
-
-   - `GET /reclaim/repo-distributions/:repoId/:githubId/by-distributor`
-
-     - Returns expired repo distributions grouped by distributor
-
-   - `GET /reclaim/sender-distributions/:address`
-     - Returns expired sender distributions that can be reclaimed
-
-   **System Data:**
+     - Returns full distribution details (from contract)
 
    - `GET /tokens/whitelisted`
 
-     - Returns list of whitelisted tokens
+     - Returns list of whitelisted tokens (from contract)
 
    - `GET /config`
 
-     - Returns system config (fee, batchLimit, feeRecipient, etc.)
+     - Returns system config (fee, batchLimit, feeRecipient, etc.) (from contract)
 
    - `GET /nonce/recipient/:address`
-     - Returns current nonce for recipient (for claim signatures)
+     - Returns current nonce for recipient (from contract)
 
-   **Funding/Deposits:**
+   **Indexer-Based Routes (Historical Events):**
 
-   - `GET /funding/repo/:repoId/:githubId`
+   - `GET /funding/repo/:repoId/:accountId`
 
-     - Returns all funding transactions for a repo
+     - Returns all funding transactions for a repo (from FundedRepo table)
 
    - `GET /funding/by-sender/:address`
 
-     - Returns all funding transactions made by a specific sender
+     - Returns all funding transactions made by a specific sender (from FundedRepo table)
 
-   - `GET /funding/recent/:limit?`
-     - Returns recent funding transactions across all repos
+   - `GET /funding/recent`
 
-   **Transaction History (Complete Flow):**
+     - Returns recent funding transactions across all repos (from FundedRepo table)
 
-   - `GET /transactions/user/:githubId`
+   - `GET /batch/:batchId`
 
-     - Returns complete transaction history: funded repos, distributions sent/received, claims, reclaims
+     - Returns batch details with all items (from batch tables)
 
-   - `GET /transactions/repo/:repoId/:githubId`
+   - `GET /batches/repo/:repoId/:accountId`
 
-     - Returns complete repo transaction history: funding, distributions, claims, reclaims
+     - Returns all batches for a repo (from DistributedFromRepoBatch, ReclaimedRepoDistributionsBatch)
 
-   - `GET /transactions/recent/:limit?`
-     - Returns recent transactions across the entire system
+   - `GET /batches/sender/:address`
 
-   **Missing Reclaim Data:**
+     - Returns all batches for a sender (from DistributedFromSenderBatch by payer)
 
-   - `GET /reclaims/repo-funds/:repoId/:githubId`
+   - `GET /batches/recipient/:githubId`
 
-     - Returns history of repo fund reclaims
+     - Returns all claim batches for a recipient (from ClaimedBatch)
 
-   - `GET /reclaims/repo-distributions/:repoId/:githubId`
+   - `GET /batches/recent`
 
-     - Returns history of repo distribution reclaims
+     - Returns recent batches across the system (from all batch tables)
 
-   - `GET /reclaims/sender-distributions/:address`
+   - `GET /reclaims/repo-funds/:repoId/:accountId`
 
-     - Returns history of sender distribution reclaims
+     - Returns history of repo fund reclaims (from ReclaimedRepoFunds)
+
+   - `GET /reclaims/repo-distributions/:repoId/:accountId`
+
+     - Returns history of repo distribution reclaims (from ReclaimedRepoDistributionsBatch)
 
    - `GET /reclaims/by-admin/:address`
-     - Returns all reclaims performed by a specific admin
 
-   **Fee Tracking:**
+     - Returns all reclaims performed by a specific admin (from ReclaimedRepoFunds, ReclaimedRepoDistribution)
 
    - `GET /fees/collected`
 
-     - Returns total fees collected by the system
+     - Returns total fees collected by the system (from Claimed table)
 
    - `GET /fees/by-token/:token`
 
-     - Returns fees collected for a specific token
+     - Returns fees collected for a specific token (from Claimed table)
 
    - `GET /fees/from-user/:githubId`
-     - Returns total fees paid by a specific user through claims
+     - Returns total fees paid by a specific user through claims (from Claimed table)
+
+   **Hybrid Routes (Contract + Indexer):**
+
+   - `GET /balance/merit/:githubId`
+
+     - Returns Merit Balance (claimed from indexer + claimable from contract)
+
+   - `GET /payments/incoming/:githubId`
+
+     - Returns all incoming payments (from DistributedFromRepo/DistributedFromSender tables)
+
+   - `GET /payments/outgoing/:githubId`
+
+     - Returns all outgoing payments (from DistributedFromSender by payer + repo distributions where user is admin)
+
+   - `GET /distributions/claimable/:githubId`
+
+     - Returns all claimable distributions for recipient (contract state filtered by recipient)
+
+   - `GET /distributions/expired/:githubId`
+
+     - Returns all expired distributions for recipient (contract state filtered by recipient + deadline)
+
+   - `GET /distributions/to/:githubId`
+
+     - Returns ALL distributions sent to recipient (from DistributedFromRepo/DistributedFromSender tables)
+
+   - `GET /distributions/to/:githubId/claimed`
+
+     - Returns claimed distributions for recipient (from Claimed table)
+
+   - `GET /distributions/to/:githubId/unclaimed`
+
+     - Returns unclaimed distributions for recipient (contract state - claimed)
+
+   - `GET /distributions/repo/:repoId/:accountId`
+
+     - Returns all distributions from a repo (from DistributedFromRepo table)
+
+   - `GET /distributions/sender/:address`
+
+     - Returns all distributions from a sender (from DistributedFromSender by payer)
+
+   - `GET /batches/paid-to/:githubId`
+
+     - Returns all batches containing distributions paid TO recipient (from DistributedFromRepo/DistributedFromSender tables)
+
+   - `GET /batches/paid-to/:githubId/unclaimed`
+
+     - Returns batches with unclaimed distributions (indexer + contract state)
+
+   - `GET /batches/paid-to/:githubId/claimed`
+
+     - Returns batches where recipient has claimed distributions (from ClaimedBatch)
+
+   - `GET /transactions/user/:githubId`
+
+     - Returns complete transaction history (all relevant tables + contract state)
+
+   - `GET /transactions/repo/:repoId/:accountId`
+
+     - Returns complete repo transaction history (all relevant tables for the repo)
+
+   - `GET /transactions/recent`
+     - Returns recent transactions across the entire system (all tables)
+
+   **Admin Dashboard Routes:**
+
+   - `GET /admin/repo/:repoId/:accountId/overview`
+     - Returns complete repo overview (contract state + indexer summaries)
 
 Each signature route will:
 
