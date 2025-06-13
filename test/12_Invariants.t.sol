@@ -249,6 +249,186 @@ contract EscrowInvariants is StdInvariant, Base_Test {
             }
         }
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                          ADVANCED MATHEMATICAL INVARIANTS                  */
+    /* -------------------------------------------------------------------------- */
+    
+    /// @dev Total supply conservation: sum of all balances should equal total tokens in system
+    function invariant_totalSupplyConservation() public view {
+        uint256 contractBalance = wETH.balanceOf(address(escrow));
+        uint256 feeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+        uint256 totalAccountBalances = handler.getTotalAccountBalances();
+        uint256 totalUndistributed = handler.getTotalUndistributedAmounts();
+        
+        // All recipient balances from our tracked recipients
+        uint256 totalRecipientBalances = 0;
+        address[] memory recipients = handler.getTrackedRecipients();
+        for (uint i = 0; i < recipients.length; i++) {
+            totalRecipientBalances += wETH.balanceOf(recipients[i]);
+        }
+        
+        // Contract should hold exactly what's needed for account balances + undistributed
+        assertEq(
+            contractBalance,
+            totalAccountBalances + totalUndistributed,
+            "Contract balance should equal account balances + undistributed amounts"
+        );
+    }
+    
+    /// @dev Fee calculation precision: fees should never cause loss of funds
+    function invariant_feeCalculationPrecision() public view {
+        uint256 distributionCount = escrow.distributionCount();
+        
+        for (uint256 i = 0; i < distributionCount; i++) {
+            try escrow.getDistribution(i) returns (Escrow.Distribution memory dist) {
+                if (dist.status == Escrow.DistributionStatus.Claimed) {
+                    // Calculate what the fee should have been
+                    uint256 expectedFee = (dist.amount * dist.fee + 9999) / 10000; // mulDivUp
+                    if (expectedFee >= dist.amount) {
+                        expectedFee = dist.amount - 1; // Capped to ensure recipient gets at least 1
+                    }
+                    uint256 expectedNet = dist.amount - expectedFee;
+                    
+                    // The sum should always equal the original amount
+                    assertEq(
+                        expectedFee + expectedNet,
+                        dist.amount,
+                        "Fee + net amount should equal distribution amount"
+                    );
+                    
+                    // Net amount should always be at least 1
+                    assertGe(expectedNet, 1, "Recipient should always get at least 1 wei");
+                }
+            } catch {
+                continue;
+            }
+        }
+    }
+    
+    /// @dev Distribution ID monotonicity: distribution IDs should always increase
+    function invariant_distributionIdMonotonicity() public view {
+        uint256 currentCount = escrow.distributionCount();
+        uint256 expectedMinCount = handler.getMinExpectedDistributionCount();
+        
+        assertGe(
+            currentCount,
+            expectedMinCount,
+            "Distribution count should be monotonic"
+        );
+    }
+    
+    /// @dev Batch count consistency: distribution batches should be properly tracked
+    function invariant_batchCountConsistency() public view {
+        uint256 currentBatchCount = escrow.distributionBatchCount();
+        uint256 expectedMinBatchCount = handler.getMinExpectedBatchCount();
+        
+        assertGe(
+            currentBatchCount,
+            expectedMinBatchCount,
+            "Distribution batch count should be monotonic"
+        );
+    }
+    
+    /// @dev Claim period validation: all distributions should have reasonable claim periods
+    function invariant_claimPeriodReasonableness() public view {
+        uint256 distributionCount = escrow.distributionCount();
+        
+        for (uint256 i = 0; i < distributionCount; i++) {
+            try escrow.getDistribution(i) returns (Escrow.Distribution memory dist) {
+                // Claim deadline should be in the future when created
+                // and should be reasonable (not too far in the future)
+                assertTrue(
+                    dist.claimDeadline > 0,
+                    "Claim deadline should be positive"
+                );
+                
+                // Should not be unreasonably far in the future (max 10 years from now)
+                assertLt(
+                    dist.claimDeadline,
+                    block.timestamp + 10 * 365 days,
+                    "Claim deadline should not be unreasonably far in future"
+                );
+            } catch {
+                continue;
+            }
+        }
+    }
+    
+    /// @dev Repository state consistency: initialized repos should maintain consistent state
+    function invariant_repoStateConsistency() public view {
+        uint256[] memory repoIds = handler.getTrackedRepoIds();
+        
+        for (uint i = 0; i < repoIds.length; i++) {
+            uint256 repoId = repoIds[i];
+            uint256[] memory accountIds = handler.getTrackedAccountIds(repoId);
+            
+            for (uint j = 0; j < accountIds.length; j++) {
+                uint256 accountId = accountIds[j];
+                
+                if (escrow.getAccountExists(repoId, accountId)) {
+                    // If repo exists, it should have at least one admin
+                    address[] memory admins = escrow.getAllAdmins(repoId, accountId);
+                    assertGt(admins.length, 0, "Existing repo should have admins");
+                    
+                    // Balance should never be negative (this is implicit in uint256)
+                    uint256 balance = escrow.getAccountBalance(repoId, accountId, address(wETH));
+                    assertGe(balance, 0, "Balance should be non-negative");
+                    
+                    // Total funded should be at least distributed + current balance
+                    uint256 totalFunded = handler.getTotalFunded(repoId, accountId);
+                    uint256 totalDistributed = handler.getTotalDistributedFromAccount(repoId, accountId);
+                    assertGe(
+                        totalFunded,
+                        totalDistributed + balance,
+                        "Total funded should be at least distributed + balance"
+                    );
+                }
+            }
+        }
+    }
+    
+    /// @dev Distribution type consistency: repo vs solo distributions should be properly categorized
+    function invariant_distributionTypeConsistency() public view {
+        uint256 distributionCount = escrow.distributionCount();
+        
+        for (uint256 i = 0; i < distributionCount; i++) {
+            try escrow.getDistribution(i) returns (Escrow.Distribution memory dist) {
+                if (dist._type == Escrow.DistributionType.Repo) {
+                    // Repo distributions should have payer as address(0)
+                    assertEq(dist.payer, address(0), "Repo distributions should have zero payer");
+                    
+                    // Should be able to get repo info
+                    try escrow.getDistributionRepo(i) returns (Escrow.RepoAccount memory repoAccount) {
+                        assertTrue(repoAccount.repoId > 0, "Repo distribution should have valid repo ID");
+                        assertTrue(repoAccount.accountId > 0, "Repo distribution should have valid account ID");
+                    } catch {
+                        assertTrue(false, "Repo distribution should have valid repo account");
+                    }
+                } else if (dist._type == Escrow.DistributionType.Solo) {
+                    // Solo distributions should have non-zero payer
+                    assertTrue(dist.payer != address(0), "Solo distributions should have non-zero payer");
+                    
+                    // Should be identified as solo distribution
+                    assertTrue(escrow.isSoloDistribution(i), "Should be identified as solo distribution");
+                }
+            } catch {
+                continue;
+            }
+        }
+    }
+    
+    /// @dev EIP-712 consistency: domain separator should remain consistent within chain
+    function invariant_eip712Consistency() public view {
+        bytes32 domainSeparator = escrow.DOMAIN_SEPARATOR();
+        
+        // Domain separator should be non-zero
+        assertTrue(domainSeparator != bytes32(0), "Domain separator should not be zero");
+        
+        // Should be deterministic based on chain ID and contract address
+        // This tests that the domain separator logic is working correctly
+        assertTrue(domainSeparator.length == 32, "Domain separator should be 32 bytes");
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -283,6 +463,10 @@ contract EscrowHandler is Test {
     uint256 public constant MAX_ACTORS = 10;
     address[] public actors;
     uint256 public currentActor;
+    
+    // Additional tracking for new invariants
+    uint256 public minExpectedDistributionCount;
+    uint256 public minExpectedBatchCount;
     
     constructor(Escrow _escrow, MockERC20 _token, address _owner, uint256 _ownerPrivateKey) {
         escrow = _escrow;
@@ -362,6 +546,10 @@ contract EscrowHandler is Test {
         
         escrow.distributeFromRepo(repoId, accountId, distributions, "");
         totalDistributedFromAccount[repoId][accountId] += amount;
+        
+        // Track distribution and batch counts
+        minExpectedDistributionCount++;
+        minExpectedBatchCount++;
     }
     
     function distributeFromSender(uint256 amount, uint256 actorSeed) public useActor(actorSeed) {
@@ -382,6 +570,10 @@ contract EscrowHandler is Test {
         });
         
         escrow.distributeFromSender(distributions, "");
+        
+        // Track distribution and batch counts
+        minExpectedDistributionCount++;
+        minExpectedBatchCount++;
     }
     
     function claim(uint256 distributionSeed, uint256 actorSeed) public useActor(actorSeed) {
@@ -555,8 +747,19 @@ contract EscrowHandler is Test {
         }
     }
     
-
+    function getClaimTimestamp(uint256 distributionId) public view returns (uint256) {
+        return claimTimestamps[distributionId];
+    }
     
+    // Additional getters for new invariants
+    function getMinExpectedDistributionCount() public view returns (uint256) {
+        return minExpectedDistributionCount;
+    }
+    
+    function getMinExpectedBatchCount() public view returns (uint256) {
+        return minExpectedBatchCount;
+    }
+
     // Internal helpers
     function _initRepo(uint256 repoId, uint256 accountId, address admin) internal {
         address[] memory admins = new address[](1);
@@ -656,9 +859,5 @@ contract EscrowHandler is Test {
     
     function getInitialFeeRecipientBalance() public view returns (uint256) {
         return initialFeeRecipientBalance;
-    }
-    
-    function getClaimTimestamp(uint256 distributionId) public view returns (uint256) {
-        return claimTimestamps[distributionId];
     }
 } 

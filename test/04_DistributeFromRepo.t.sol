@@ -815,4 +815,315 @@ contract DistributeFromRepo_Test is Base_Test {
         uint256[] distributionIds,
         bytes data
     );
+
+    /* -------------------------------------------------------------------------- */
+    /*                          ADVANCED FUZZ TESTS                               */
+    /* -------------------------------------------------------------------------- */
+
+    /// @dev Fuzz test for distribution with extreme batch sizes and amounts
+    function testFuzz_distributeFromRepo_extremeBatchScenarios(
+        uint8 batchSize,
+        uint256[20] memory amounts,
+        uint32[20] memory claimPeriods
+    ) public {
+        uint256 batchLimit = escrow.batchLimit();
+        batchSize = uint8(bound(batchSize, 1, batchLimit > 20 ? 20 : batchLimit));
+        
+        // Fund repo with sufficient funds
+        uint256 totalFunds = 0;
+        for (uint256 i = 0; i < batchSize; i++) {
+            amounts[i] = bound(amounts[i], 1e18, 100e18);
+            claimPeriods[i] = uint32(bound(claimPeriods[i], 1 hours, 365 days));
+            totalFunds += amounts[i];
+        }
+        
+        // Fund repo with extra buffer
+        wETH.mint(address(this), totalFunds * 2);
+        wETH.approve(address(escrow), totalFunds * 2);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, totalFunds * 2, "");
+        
+        // Create distribution params
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](batchSize);
+        for (uint256 i = 0; i < batchSize; i++) {
+            distributions[i] = Escrow.DistributionParams({
+                amount: amounts[i],
+                recipient: makeAddr(string(abi.encodePacked("recipient", i))),
+                claimPeriod: claimPeriods[i],
+                token: wETH
+            });
+        }
+        
+        uint256 initialBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        
+        vm.prank(repoAdmin);
+        uint256[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        // Verify distributions were created correctly
+        assertEq(distributionIds.length, batchSize);
+        for (uint256 i = 0; i < batchSize; i++) {
+            Escrow.Distribution memory dist = escrow.getDistribution(distributionIds[i]);
+            assertEq(dist.amount, amounts[i]);
+            assertEq(dist.recipient, distributions[i].recipient);
+            assertEq(dist.claimDeadline, block.timestamp + claimPeriods[i]);
+            assertEq(uint8(dist.status), uint8(Escrow.DistributionStatus.Distributed));
+        }
+        
+        // Verify account balance was decreased correctly
+        uint256 finalBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        assertEq(finalBalance, initialBalance - totalFunds);
+    }
+
+    /// @dev Fuzz test for authorization edge cases
+    function testFuzz_distributeFromRepo_authorizationEdgeCases(
+        uint256 repoId,
+        uint256 accountId,
+        uint256 actorSeed,
+        bool isAdmin,
+        bool isDistributor
+    ) public {
+        repoId = bound(repoId, 1, 1000);
+        accountId = bound(accountId, 1, 1000);
+        actorSeed = bound(actorSeed, 0, type(uint256).max);
+        
+        address actor = vm.addr(actorSeed % 1000 + 1); // Avoid address(0)
+        
+        // Initialize repo if needed
+        if (!escrow.getAccountExists(repoId, accountId)) {
+            address[] memory initialAdmins = new address[](1);
+            initialAdmins[0] = repoAdmin;
+            
+            uint256 deadline = block.timestamp + 1 hours;
+            bytes32 digest = keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    escrow.DOMAIN_SEPARATOR(),
+                    keccak256(abi.encode(
+                        escrow.SET_ADMIN_TYPEHASH(),
+                        repoId,
+                        accountId,
+                        keccak256(abi.encode(initialAdmins)),
+                        escrow.ownerNonce(),
+                        deadline
+                    ))
+                )
+            );
+            
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+            escrow.initRepo(repoId, accountId, initialAdmins, deadline, v, r, s);
+            
+            // Fund the repo
+            wETH.mint(address(this), 1000e18);
+            wETH.approve(address(escrow), 1000e18);
+            escrow.fundRepo(repoId, accountId, wETH, 1000e18, "");
+        }
+        
+        // Set up actor permissions
+        if (isAdmin && !escrow.getIsAuthorizedAdmin(repoId, accountId, actor)) {
+            address[] memory adminsToAdd = new address[](1);
+            adminsToAdd[0] = actor;
+            vm.prank(repoAdmin);
+            escrow.addAdmins(repoId, accountId, adminsToAdd);
+        }
+        
+        if (isDistributor && !escrow.getIsAuthorizedDistributor(repoId, accountId, actor)) {
+            address[] memory distributorsToAdd = new address[](1);
+            distributorsToAdd[0] = actor;
+            vm.prank(repoAdmin);
+            escrow.addDistributors(repoId, accountId, distributorsToAdd);
+        }
+        
+        // Try to distribute
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 1e18,
+            recipient: makeAddr("recipient"),
+            claimPeriod: 7 days,
+            token: wETH
+        });
+        
+        bool shouldSucceed = isAdmin || isDistributor;
+        
+        if (shouldSucceed) {
+            vm.prank(actor);
+            uint256[] memory distributionIds = escrow.distributeFromRepo(repoId, accountId, distributions, "");
+            assertEq(distributionIds.length, 1);
+        } else {
+            vm.expectRevert(bytes(Errors.NOT_AUTHORIZED_DISTRIBUTOR));
+            vm.prank(actor);
+            escrow.distributeFromRepo(repoId, accountId, distributions, "");
+        }
+    }
+
+    /// @dev Fuzz test for balance edge cases and underflow protection
+    function testFuzz_distributeFromRepo_balanceEdgeCases(
+        uint256 availableBalance,
+        uint256 distributionAmount,
+        uint8 numDistributions
+    ) public {
+        // Use more conservative bounds to prevent overflow issues
+        availableBalance = bound(availableBalance, 1000, 100e18); // Reduced upper bound
+        numDistributions = uint8(bound(numDistributions, 1, 3)); // Keep it simple
+        
+        // Ensure distributionAmount is reasonable and non-zero
+        distributionAmount = bound(distributionAmount, 100, availableBalance / 10); // Conservative bound
+        
+        // Skip test if inputs are invalid
+        if (distributionAmount == 0 || numDistributions == 0) {
+            return;
+        }
+        
+        // Get initial balance (should be FUND_AMOUNT from setUp)
+        uint256 initialBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        
+        // Fund repo with additional available balance
+        wETH.mint(address(this), availableBalance);
+        wETH.approve(address(escrow), availableBalance);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, availableBalance, "");
+        
+        // Total available balance is now initialBalance + availableBalance
+        uint256 totalAvailableBalance = initialBalance + availableBalance;
+        uint256 totalDistributionAmount = distributionAmount * numDistributions;
+        
+        // Skip if total distribution amount would overflow or be invalid
+        if (totalDistributionAmount < distributionAmount || totalDistributionAmount == 0) {
+            return;
+        }
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](numDistributions);
+        for (uint256 i = 0; i < numDistributions; i++) {
+            distributions[i] = Escrow.DistributionParams({
+                amount: distributionAmount,
+                recipient: makeAddr(string(abi.encodePacked("recipient", i))),
+                claimPeriod: 7 days,
+                token: wETH
+            });
+        }
+        
+        if (totalDistributionAmount <= totalAvailableBalance) {
+            // Should succeed
+            vm.prank(repoAdmin);
+            uint256[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+            assertEq(distributionIds.length, numDistributions);
+            
+            // Verify balance was updated correctly
+            uint256 finalBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+            assertEq(finalBalance, totalAvailableBalance - totalDistributionAmount);
+        } else {
+            // Should fail with insufficient balance
+            vm.expectRevert(bytes(Errors.INSUFFICIENT_BALANCE));
+            vm.prank(repoAdmin);
+            escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        }
+    }
+
+    /// @dev Test gas optimization for large batch distributions
+    function test_distributeFromRepo_gasOptimization() public {
+        uint256 batchLimit = escrow.batchLimit();
+        
+        // Use a smaller batch size for gas testing to keep it reasonable
+        uint256 testBatchSize = batchLimit > 100 ? 100 : batchLimit;
+        
+        // Fund repo with sufficient balance
+        uint256 totalAmount = testBatchSize * 1e18;
+        wETH.mint(address(this), totalAmount);
+        wETH.approve(address(escrow), totalAmount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, totalAmount, "");
+        
+        // Create test batch size distribution
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](testBatchSize);
+        for (uint256 i = 0; i < testBatchSize; i++) {
+            distributions[i] = Escrow.DistributionParams({
+                amount: 1e18,
+                recipient: makeAddr(string(abi.encodePacked("recipient", i))),
+                claimPeriod: 7 days,
+                token: wETH
+            });
+        }
+        
+        uint256 gasBefore = gasleft();
+        vm.prank(repoAdmin);
+        uint256[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint256 gasUsed = gasBefore - gasleft();
+        
+        // Verify all distributions were created
+        assertEq(distributionIds.length, testBatchSize);
+        
+        // Gas usage should be reasonable (this is a sanity check)
+        // Adjust expectation based on batch size - approximately 100k gas per distribution
+        uint256 expectedMaxGas = testBatchSize * 200_000; // 200k gas per distribution
+        assertTrue(gasUsed < expectedMaxGas, "Gas usage should be reasonable for batch");
+    }
+
+    /// @dev Test distribution with different token types and edge cases
+    function testFuzz_distributeFromRepo_tokenEdgeCases(uint256 tokenSeed) public {
+        // For now, we only test with whitelisted tokens since that's what the contract accepts
+        // In a real scenario, you might want to test with different ERC20 tokens
+        
+        // Test with minimum distribution amount that works with fees
+        // Use a larger amount to ensure recipient gets at least 1 wei after fees
+        uint256 minAmount = 1000; // 1000 wei (enough to handle fees)
+        
+        wETH.mint(address(this), minAmount * 2);
+        wETH.approve(address(escrow), minAmount * 2);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, minAmount * 2, "");
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: minAmount,
+            recipient: makeAddr("recipient"),
+            claimPeriod: 1 hours, // Minimum claim period
+            token: wETH
+        });
+        
+        vm.prank(repoAdmin);
+        uint256[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        // Verify distribution was created with minimum values
+        Escrow.Distribution memory dist = escrow.getDistribution(distributionIds[0]);
+        assertEq(dist.amount, minAmount);
+        assertEq(dist.claimDeadline, block.timestamp + 1 hours);
+    }
+
+    /// @dev Test fee calculation edge cases during distribution creation
+    function testFuzz_distributeFromRepo_feeValidationEdgeCases(
+        uint256 amount,
+        uint16 feeRate
+    ) public {
+        amount = bound(amount, 2, 1000e18); // Ensure amount is at least 2 wei
+        feeRate = uint16(bound(feeRate, 0, 1000)); // 0-10%
+        
+        // Set fee rate
+        vm.prank(owner);
+        escrow.setFee(feeRate);
+        
+        // Fund repo
+        wETH.mint(address(this), amount);
+        wETH.approve(address(escrow), amount);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, "");
+        
+        // Calculate expected fee (using same logic as contract)
+        uint256 expectedFee = (amount * feeRate + 9999) / 10000; // mulDivUp equivalent
+        bool shouldSucceed = amount > expectedFee; // Recipient must get at least 1 wei
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: amount,
+            recipient: makeAddr("recipient"),
+            claimPeriod: 7 days,
+            token: wETH
+        });
+        
+        if (shouldSucceed) {
+            vm.prank(repoAdmin);
+            uint256[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+            
+            // Verify distribution was created with correct fee stored
+            Escrow.Distribution memory dist = escrow.getDistribution(distributionIds[0]);
+            assertEq(dist.fee, feeRate); // Fee should be stored as it was at creation time
+        } else {
+            vm.expectRevert(bytes(Errors.INVALID_AMOUNT));
+            vm.prank(repoAdmin);
+            escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        }
+    }
 } 
