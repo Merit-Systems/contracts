@@ -109,7 +109,7 @@ contract ReclaimRepo_Test is Base_Test {
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
 
         vm.expectEmit(true, true, true, true);
-        emit ReclaimedRepo(REPO_ID, distributionId, address(this), DISTRIBUTION_AMOUNT);
+        emit ReclaimedRepoDistribution(REPO_ID, distributionId, address(this), DISTRIBUTION_AMOUNT);
 
         escrow.reclaimRepoDistributions(distributionIds, "");
 
@@ -411,5 +411,5 @@ contract ReclaimRepo_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event ReclaimedRepo(uint256 indexed repoId, uint256 indexed distributionId, address indexed admin, uint256 amount);
+    event ReclaimedRepoDistribution(uint256 indexed repoId, uint256 indexed distributionId, address indexed admin, uint256 amount);
 } 

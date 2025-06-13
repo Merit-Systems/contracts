@@ -394,7 +394,7 @@ contract Escrow is Owned, IEscrow {
         accounts[repoId][accountId].balance[token] = balance - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
         
-        emit ReclaimedFund(repoId, msg.sender, amount);
+        emit ReclaimedRepoFunds(repoId, msg.sender, amount);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -420,9 +420,9 @@ contract Escrow is Owned, IEscrow {
             RepoAccount memory repoAccount = distributionToRepo[distributionId];
             accounts[repoAccount.repoId][repoAccount.accountId].balance[address(distribution.token)] += distribution.amount;
             
-            emit ReclaimedRepo(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
+            emit ReclaimedRepoDistribution(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
         }
-        emit ReclaimedRepoBatch(distributionIds, data);
+        emit ReclaimedRepoDistributionsBatch(distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -446,9 +446,9 @@ contract Escrow is Owned, IEscrow {
             distribution.status = DistributionStatus.Reclaimed;
             distribution.token.safeTransfer(distribution.payer, distribution.amount);
             
-            emit ReclaimedSolo(distributionId, distribution.payer, distribution.amount);
+            emit ReclaimedSenderDistribution(distributionId, distribution.payer, distribution.amount);
         }
-        emit ReclaimedSoloBatch(distributionIds, data);
+        emit ReclaimedSenderDistributionsBatch(distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */

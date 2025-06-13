@@ -41,20 +41,20 @@ interface IEscrow {
         bytes data
     );
 
-    event ReclaimedFund(
+    event ReclaimedRepoFunds(
         uint256 indexed repoId,
         address indexed admin,
         uint256 amount
     );
 
-    event ReclaimedRepo(
+    event ReclaimedRepoDistribution(
         uint256 indexed repoId,
         uint256 indexed distributionId,
         address indexed admin,
         uint256 amount
     );
 
-    event ReclaimedRepoBatch(
+    event ReclaimedRepoDistributionsBatch(
         uint256[] distributionIds,
         bytes data
     );
@@ -69,12 +69,12 @@ interface IEscrow {
         uint256 claimDeadline
     );
 
-    event ReclaimedSoloBatch(
+    event ReclaimedSenderDistributionsBatch(
         uint256[] distributionIds,
         bytes data
     );
 
-    event ReclaimedSolo(
+    event ReclaimedSenderDistribution(
         uint256 indexed distributionId,
         address indexed payer,
         uint256 amount

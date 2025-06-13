@@ -117,7 +117,7 @@ contract ReclaimSolo_Test is Base_Test {
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
 
         vm.expectEmit(true, true, true, true);
-        emit ReclaimedSolo(distributionId, soloPayer, DISTRIBUTION_AMOUNT);
+        emit ReclaimedSenderDistribution(distributionId, soloPayer, DISTRIBUTION_AMOUNT);
 
         escrow.reclaimSenderDistributions(distributionIds, "");
 
@@ -486,5 +486,5 @@ contract ReclaimSolo_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event ReclaimedSolo(uint256 indexed distributionId, address indexed payer, uint256 amount);
+    event ReclaimedSenderDistribution(uint256 indexed distributionId, address indexed payer, uint256 amount);
 } 
