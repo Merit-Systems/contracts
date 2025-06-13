@@ -4,8 +4,9 @@ pragma solidity ^0.8.26;
 interface IEscrow {
     event FundedRepo(
         uint256 indexed repoId,
+        uint256 indexed accountId,
         address indexed token,
-        address indexed sender,
+        address sender,
         uint256 amount,
         bytes data
     );

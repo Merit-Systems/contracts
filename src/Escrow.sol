@@ -196,7 +196,7 @@ contract Escrow is Owned, IEscrow {
 
         accounts[repoId][accountId].balance[address(token)] += amount;
 
-        emit FundedRepo(repoId, address(token), msg.sender, amount, data);
+        emit FundedRepo(repoId, accountId, address(token), msg.sender, amount, data);
     }
 
     /* -------------------------------------------------------------------------- */
