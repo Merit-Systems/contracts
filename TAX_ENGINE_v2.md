@@ -142,56 +142,56 @@ Notes on the Indexer:
 
    **User/Account Data:**
 
-   - `GET /balance/merit/:accountId`
+   - `GET /balance/merit/:githubId`
 
      - Returns Merit Balance (claimed + claimable incoming payments)
 
-   - `GET /balance/repo/:repoId/:accountId`
+   - `GET /balance/repo/:repoId/:githubId`
 
      - Returns Merit Repo Balance (funded - outgoing + reclaimed)
 
-   - `GET /payments/incoming/:accountId`
+   - `GET /payments/incoming/:githubId`
 
      - Returns all incoming payments (claimed and claimable)
 
-   - `GET /payments/outgoing/:accountId`
+   - `GET /payments/outgoing/:githubId`
      - Returns all outgoing payments (claimed and reclaimed)
 
    **Repo Management:**
 
-   - `GET /repo/:repoId/:accountId/admins`
+   - `GET /repo/:repoId/:githubId/admins`
 
      - Returns list of repo admins
 
-   - `GET /repo/:repoId/:accountId/distributors`
+   - `GET /repo/:repoId/:githubId/distributors`
 
      - Returns list of repo distributors
 
-   - `GET /repo/:repoId/:accountId/exists`
+   - `GET /repo/:repoId/:githubId/exists`
 
      - Returns whether repo account is initialized
 
-   - `GET /repo/:repoId/:accountId/balance/:token`
+   - `GET /repo/:repoId/:githubId/balance/:token`
 
      - Returns repo balance for specific token
 
-   - `GET /repo/:repoId/:accountId/can-distribute/:address`
+   - `GET /repo/:repoId/:githubId/can-distribute/:address`
 
      - Returns whether address can distribute from repo
 
-   - `GET /admin/repo/:repoId/:accountId/overview`
+   - `GET /admin/repo/:repoId/:githubId/overview`
 
      - Returns complete repo overview (balances, admin count, distributor count, total distributions)
 
-   - `GET /admin/repo/:repoId/:accountId/distributors/activity`
+   - `GET /admin/repo/:repoId/:githubId/distributors/activity`
 
      - Returns activity summary for each distributor (total distributed, batch count, etc.)
 
-   - `GET /admin/repo/:repoId/:accountId/distributor/:address/payments`
+   - `GET /admin/repo/:repoId/:githubId/distributor/:address/payments`
 
      - Returns all payments/distributions made by specific distributor
 
-   - `GET /admin/repo/:repoId/:accountId/distributor/:address/batches`
+   - `GET /admin/repo/:repoId/:githubId/distributor/:address/batches`
 
      - Returns all batches created by specific distributor
 
@@ -203,7 +203,7 @@ Notes on the Indexer:
 
      - Returns all distributions in a batch with their status
 
-   - `GET /batches/repo/:repoId/:accountId`
+   - `GET /batches/repo/:repoId/:githubId`
 
      - Returns all batches for a repo (DistributedFromRepo, ReclaimedRepo)
 
@@ -211,7 +211,7 @@ Notes on the Indexer:
 
      - Returns all batches for a sender (DistributedFromSender, ReclaimedSender)
 
-   - `GET /batches/recipient/:address`
+   - `GET /batches/recipient/:githubId`
 
      - Returns all claim batches for a recipient
 
@@ -219,16 +219,16 @@ Notes on the Indexer:
 
      - Returns recent batches across the system
 
-   - `GET /batches/paid-to/:recipient`
+   - `GET /batches/paid-to/:githubId`
 
      - Returns all batches containing distributions paid TO this recipient
      - Includes DistributedFromRepo and DistributedFromSender batches
 
-   - `GET /batches/paid-to/:recipient/unclaimed`
+   - `GET /batches/paid-to/:githubId/unclaimed`
 
      - Returns batches with unclaimed distributions for this recipient
 
-   - `GET /batches/paid-to/:recipient/claimed`
+   - `GET /batches/paid-to/:githubId/claimed`
 
      - Returns batches where this recipient has claimed distributions
 
@@ -236,31 +236,31 @@ Notes on the Indexer:
 
      - Returns full distribution details
 
-   - `GET /distributions/claimable/:recipient`
+   - `GET /distributions/claimable/:githubId`
 
      - Returns all claimable distributions for recipient
 
-   - `GET /distributions/expired/:recipient`
+   - `GET /distributions/expired/:githubId`
 
      - Returns all expired (unclaimable) distributions for recipient
 
-   - `GET /distributions/to/:recipient`
+   - `GET /distributions/to/:githubId`
 
      - Returns ALL distributions sent to this recipient (claimed, unclaimed, expired)
 
-   - `GET /distributions/to/:recipient/claimed`
+   - `GET /distributions/to/:githubId/claimed`
 
      - Returns all claimed distributions for this recipient
 
-   - `GET /distributions/to/:recipient/unclaimed`
+   - `GET /distributions/to/:githubId/unclaimed`
 
      - Returns all unclaimed (still claimable) distributions for this recipient
 
-   - `GET /distributions/repo/:repoId/:accountId`
+   - `GET /distributions/repo/:repoId/:githubId`
 
      - Returns all distributions from a specific repo
 
-   - `GET /distributions/repo/:repoId/:accountId/by-distributor`
+   - `GET /distributions/repo/:repoId/:githubId/by-distributor`
 
      - Returns distributions grouped by distributor address
 
@@ -269,15 +269,15 @@ Notes on the Indexer:
 
    **Reclaim Data:**
 
-   - `GET /reclaim/repo-funds/:repoId/:accountId`
+   - `GET /reclaim/repo-funds/:repoId/:githubId`
 
      - Returns reclaimable repo funds (only if no distributions exist)
 
-   - `GET /reclaim/repo-distributions/:repoId/:accountId`
+   - `GET /reclaim/repo-distributions/:repoId/:githubId`
 
      - Returns expired repo distributions that can be reclaimed
 
-   - `GET /reclaim/repo-distributions/:repoId/:accountId/by-distributor`
+   - `GET /reclaim/repo-distributions/:repoId/:githubId/by-distributor`
 
      - Returns expired repo distributions grouped by distributor
 
@@ -299,7 +299,7 @@ Notes on the Indexer:
 
    **Funding/Deposits:**
 
-   - `GET /funding/repo/:repoId/:accountId`
+   - `GET /funding/repo/:repoId/:githubId`
 
      - Returns all funding transactions for a repo
 
@@ -312,11 +312,11 @@ Notes on the Indexer:
 
    **Transaction History (Complete Flow):**
 
-   - `GET /transactions/user/:address`
+   - `GET /transactions/user/:githubId`
 
      - Returns complete transaction history: funded repos, distributions sent/received, claims, reclaims
 
-   - `GET /transactions/repo/:repoId/:accountId`
+   - `GET /transactions/repo/:repoId/:githubId`
 
      - Returns complete repo transaction history: funding, distributions, claims, reclaims
 
@@ -325,11 +325,11 @@ Notes on the Indexer:
 
    **Missing Reclaim Data:**
 
-   - `GET /reclaims/repo-funds/:repoId/:accountId`
+   - `GET /reclaims/repo-funds/:repoId/:githubId`
 
      - Returns history of repo fund reclaims
 
-   - `GET /reclaims/repo-distributions/:repoId/:accountId`
+   - `GET /reclaims/repo-distributions/:repoId/:githubId`
 
      - Returns history of repo distribution reclaims
 
@@ -350,7 +350,7 @@ Notes on the Indexer:
 
      - Returns fees collected for a specific token
 
-   - `GET /fees/from-user/:address`
+   - `GET /fees/from-user/:githubId`
      - Returns total fees paid by a specific user through claims
 
 Each signature route will:
