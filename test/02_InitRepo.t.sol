@@ -26,7 +26,7 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -37,7 +37,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -47,7 +47,7 @@ contract InitRepo_Test is Base_Test {
         vm.expectEmit(true, true, true, true);
         emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), repoAdmin);
 
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
 
         // Verify admin was set
         address[] memory retrievedAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
@@ -69,7 +69,7 @@ contract InitRepo_Test is Base_Test {
         admins[1] = admin2;
         admins[2] = admin3;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -80,7 +80,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -95,7 +95,7 @@ contract InitRepo_Test is Base_Test {
         vm.expectEmit(true, true, true, true);
         emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin3);
 
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
 
         // Verify all admins were set
         address[] memory retrievedAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
@@ -119,7 +119,7 @@ contract InitRepo_Test is Base_Test {
         _initializeRepo(REPO_ID, ACCOUNT_ID, admins);
 
         // Try to initialize again
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -130,7 +130,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -138,13 +138,13 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.REPO_ALREADY_INITIALIZED);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_revert_emptyAdminsArray() public {
         address[] memory admins = new address[](0); // Empty array
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -155,7 +155,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -163,7 +163,7 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.INVALID_AMOUNT);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_revert_invalidAddress() public {
@@ -171,7 +171,7 @@ contract InitRepo_Test is Base_Test {
         admins[0] = repoAdmin;
         admins[1] = address(0); // Invalid address
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -182,7 +182,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -190,14 +190,14 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.INVALID_ADDRESS);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_revert_expiredSignature() public {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp - 1; // Expired deadline
+        uint256 signatureDeadline = block.timestamp - 1; // Expired deadline
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -208,7 +208,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -216,14 +216,14 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.SIGNATURE_EXPIRED);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_revert_invalidSignature() public {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         uint256 wrongPrivateKey = 0x2222222222222222222222222222222222222222222222222222222222222222;
         
         bytes32 digest = keccak256(
@@ -236,7 +236,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -244,7 +244,7 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongPrivateKey, digest);
 
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_differentReposAndAccounts() public {
@@ -306,7 +306,7 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         
         // Create digest with correct domain separator
         bytes32 correctDigest = keccak256(
@@ -319,7 +319,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -336,7 +336,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -345,14 +345,14 @@ contract InitRepo_Test is Base_Test {
         (uint8 vWrong, bytes32 rWrong, bytes32 sWrong) = vm.sign(ownerPrivateKey, wrongDigest);
         
         // Correct signature should work
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
         
         address[] memory admins2 = new address[](1);
         admins2[0] = repoAdmin;
         
         // Wrong signature should fail
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(2, 200, admins2, deadline, vWrong, rWrong, sWrong);
+        escrow.initRepo(2, 200, admins2, signatureDeadline, vWrong, rWrong, sWrong);
     }
 
     function test_initRepo_zeroRepoAndAccountIds() public {
@@ -393,7 +393,7 @@ contract InitRepo_Test is Base_Test {
             admins[i] = address(uint160(i + 1));
         }
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -404,7 +404,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -412,7 +412,7 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_duplicateAdmins() public {
@@ -423,7 +423,7 @@ contract InitRepo_Test is Base_Test {
         admins[1] = admin1; // Duplicate
         admins[2] = admin1; // Another duplicate
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -434,7 +434,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -445,7 +445,7 @@ contract InitRepo_Test is Base_Test {
         vm.expectEmit(true, true, true, true);
         emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin1);
 
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
 
         // Verify only one admin is in the set despite duplicates
         address[] memory retrievedAdmins = escrow.getAllAdmins(REPO_ID, ACCOUNT_ID);
@@ -462,7 +462,7 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         
         // Create signature with wrong nonce
         bytes32 digest = keccak256(
@@ -475,7 +475,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce() + 1, // Wrong nonce
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -483,14 +483,14 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_signature_wrongRepoId() public {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         
         // Create signature with wrong repo ID
         bytes32 digest = keccak256(
@@ -503,7 +503,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -511,14 +511,14 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_signature_wrongAccountId() public {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         
         // Create signature with wrong account ID
         bytes32 digest = keccak256(
@@ -531,7 +531,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID + 1, // Wrong account ID
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -539,7 +539,7 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_signature_wrongAdmins() public {
@@ -549,7 +549,7 @@ contract InitRepo_Test is Base_Test {
         address[] memory wrongAdmins = new address[](1);
         wrongAdmins[0] = makeAddr("wrongAdmin");
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         
         // Create signature with wrong admins array
         bytes32 digest = keccak256(
@@ -562,7 +562,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(wrongAdmins)), // Wrong admins
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -570,15 +570,15 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_signature_wrongDeadline() public {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
-        uint256 wrongDeadline = deadline + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        uint256 wrongDeadline = signatureDeadline + 1 hours;
         
         // Create signature with wrong deadline
         bytes32 digest = keccak256(
@@ -599,14 +599,14 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_signature_wrongTypehash() public {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 wrongTypehash = keccak256("WrongTypehash(uint repoId,uint accountId,address[] admins,uint nonce,uint deadline)");
         
         // Create signature with wrong typehash
@@ -620,7 +620,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -628,14 +628,14 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
 
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_signature_malformedSignature() public {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         
         // Use malformed signature components
         uint8 v = 27;
@@ -643,14 +643,14 @@ contract InitRepo_Test is Base_Test {
         bytes32 s = bytes32(0);
 
         vm.expectRevert(); // Expect any revert, not specific error message
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
     }
 
     function test_initRepo_signature_invalidRecoveryId() public {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -661,7 +661,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -672,7 +672,7 @@ contract InitRepo_Test is Base_Test {
         uint8 invalidV = v == 27 ? 26 : 29; // Invalid recovery ID
 
         vm.expectRevert(); // Expect any revert, not specific error message
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, invalidV, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, invalidV, r, s);
     }
 
     function test_initRepo_signature_replayAttack() public {
@@ -682,7 +682,7 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins2 = new address[](1);
         admins2[0] = makeAddr("admin2");
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         
         // Create signature for first repo
         bytes32 digest1 = keccak256(
@@ -695,7 +695,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins1)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -703,11 +703,11 @@ contract InitRepo_Test is Base_Test {
         (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(ownerPrivateKey, digest1);
         
         // Initialize first repo
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins1, deadline, v1, r1, s1);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins1, signatureDeadline, v1, r1, s1);
         
         // Try to reuse signature for second repo (should fail due to nonce increment)
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(REPO_ID + 1, ACCOUNT_ID + 1, admins2, deadline, v1, r1, s1);
+        escrow.initRepo(REPO_ID + 1, ACCOUNT_ID + 1, admins2, signatureDeadline, v1, r1, s1);
         
         // Proper second initialization should work
         bytes32 digest2 = keccak256(
@@ -720,13 +720,13 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID + 1,
                     keccak256(abi.encode(admins2)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
         
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(ownerPrivateKey, digest2);
-        escrow.initRepo(REPO_ID + 1, ACCOUNT_ID + 1, admins2, deadline, v2, r2, s2);
+        escrow.initRepo(REPO_ID + 1, ACCOUNT_ID + 1, admins2, signatureDeadline, v2, r2, s2);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -744,7 +744,7 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         
         // Old owner signature should fail
         bytes32 digest = keccak256(
@@ -757,18 +757,18 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
         
         (uint8 vOld, bytes32 rOld, bytes32 sOld) = vm.sign(ownerPrivateKey, digest);
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, vOld, rOld, sOld);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, vOld, rOld, sOld);
         
         // New owner signature should work
         (uint8 vNew, bytes32 rNew, bytes32 sNew) = vm.sign(newOwnerPrivateKey, digest);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, vNew, rNew, sNew);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, vNew, rNew, sNew);
         
         assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin));
     }
@@ -846,9 +846,9 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + timeOffset;
+        uint256 signatureDeadline = block.timestamp + timeOffset;
         
-        uint256 deadline_param = deadline;
+        uint256 signatureDeadline_param = signatureDeadline;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -859,13 +859,13 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline_param
+                    signatureDeadline_param
                 ))
             )
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline_param, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline_param, v, r, s);
         
         assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin));
     }
@@ -875,7 +875,7 @@ contract InitRepo_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     function _initializeRepo(uint256 repoId, uint256 accountId, address[] memory admins) internal {
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -886,13 +886,13 @@ contract InitRepo_Test is Base_Test {
                     accountId,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
+        escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
     }
 
     function test_getAccountExists() public {
@@ -974,7 +974,7 @@ contract InitRepo_Test is Base_Test {
         
         uint256 repoId = 888;
         uint256 accountId = 888;
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -986,7 +986,7 @@ contract InitRepo_Test is Base_Test {
                     accountId,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -995,7 +995,7 @@ contract InitRepo_Test is Base_Test {
         
         if (numAdmins <= batchLimit) {
             // Should succeed if within batch limit
-            escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
+            escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
             
             // Verify all admins were added
             for (uint i = 0; i < numAdmins; i++) {
@@ -1007,7 +1007,7 @@ contract InitRepo_Test is Base_Test {
         } else {
             // Should fail if exceeds batch limit
             expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
-            escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
+            escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
         }
     }
 
@@ -1018,7 +1018,7 @@ contract InitRepo_Test is Base_Test {
         admins[0] = repoAdmin;
         uint256 repoId = 777;
         uint256 accountId = 777;
-        uint256 deadline = block.timestamp + timeOffset;
+        uint256 signatureDeadline = block.timestamp + timeOffset;
         
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -1030,7 +1030,7 @@ contract InitRepo_Test is Base_Test {
                     accountId,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -1038,7 +1038,7 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
         
         // Should work with any reasonable future deadline
-        escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
+        escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
         assertTrue(escrow.getIsAuthorizedAdmin(repoId, accountId, repoAdmin));
         assertTrue(escrow.getAccountExists(repoId, accountId));
     }
@@ -1048,12 +1048,7 @@ contract InitRepo_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     /// @dev Fuzz test for initialization with various admin configurations
-    function testFuzz_initRepo_adminConfigurations(
-        uint8 numAdmins,
-        uint256[50] memory adminSeeds,
-        uint256 repoId,
-        uint256 accountId
-    ) public {
+    function testFuzz_initRepo_adminConfigurations(uint8 numAdmins, uint256[50] memory /*adminSeeds*/, uint256 repoId, uint256 accountId) public {
         uint256 batchLimit = escrow.batchLimit();
         numAdmins = uint8(bound(numAdmins, 1, batchLimit > 50 ? 50 : batchLimit));
         repoId = bound(repoId, 1, type(uint32).max);
@@ -1066,7 +1061,7 @@ contract InitRepo_Test is Base_Test {
             admins[i] = makeAddr(string(abi.encodePacked("fuzzAdmin", i, repoId, accountId)));
         }
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -1077,13 +1072,13 @@ contract InitRepo_Test is Base_Test {
                     accountId,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
+        escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
         
         // Verify repo was initialized correctly
         assertTrue(escrow.getAccountExists(repoId, accountId));
@@ -1112,7 +1107,7 @@ contract InitRepo_Test is Base_Test {
         // Set time to signature time
         vm.warp(signatureTime);
         
-        uint256 deadline = signatureTime + validity;
+        uint256 signatureDeadline = signatureTime + validity;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -1123,7 +1118,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -1131,17 +1126,17 @@ contract InitRepo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
         
         // Try to initialize at different times relative to deadline
-        uint256 attemptTime = bound(signatureTime, signatureTime, deadline);
+        uint256 attemptTime = bound(signatureTime, signatureTime, signatureDeadline);
         vm.warp(attemptTime);
         
-        if (attemptTime <= deadline) {
+        if (attemptTime <= signatureDeadline) {
             // Should succeed
-            escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+            escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
             assertTrue(escrow.getAccountExists(REPO_ID, ACCOUNT_ID));
         } else {
             // Should fail with expired signature
             expectRevert(Errors.SIGNATURE_EXPIRED);
-            escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+            escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
         }
     }
 
@@ -1159,7 +1154,7 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -1170,7 +1165,7 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -1185,7 +1180,7 @@ contract InitRepo_Test is Base_Test {
         // Should fail with invalid signature (unless we got lucky with the wrong key being owner)
         if (vm.addr(wrongPrivateKey) != owner || flipV || flipR || flipS) {
             vm.expectRevert(); // Expect any revert (could be ECDSA error or INVALID_SIGNATURE)
-            escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, deadline, v, r, s);
+            escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
         }
     }
 
@@ -1197,7 +1192,7 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -1208,13 +1203,13 @@ contract InitRepo_Test is Base_Test {
                     accountId,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
+        escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
         
         // Should work with any valid uint256 values
         assertTrue(escrow.getAccountExists(repoId, accountId));
@@ -1241,7 +1236,7 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -1252,14 +1247,14 @@ contract InitRepo_Test is Base_Test {
                     3,
                     keccak256(abi.encode(admins)),
                     initialNonce, // Old nonce
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
         expectRevert(Errors.INVALID_SIGNATURE);
-        escrow.initRepo(1, 3, admins, deadline, v, r, s);
+        escrow.initRepo(1, 3, admins, signatureDeadline, v, r, s);
     }
 
     /// @dev Test maximum batch limit edge cases
@@ -1272,7 +1267,7 @@ contract InitRepo_Test is Base_Test {
             maxAdmins[i] = makeAddr(string(abi.encodePacked("admin", i)));
         }
         
-        uint256 deadline = block.timestamp + 1 hours;
+        uint256 signatureDeadline = block.timestamp + 1 hours;
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -1283,13 +1278,13 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(maxAdmins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(REPO_ID, ACCOUNT_ID, maxAdmins, deadline, v, r, s);
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, maxAdmins, signatureDeadline, v, r, s);
         
         // Should succeed with max admins
         assertTrue(escrow.getAccountExists(REPO_ID, ACCOUNT_ID));
@@ -1312,14 +1307,14 @@ contract InitRepo_Test is Base_Test {
                     ACCOUNT_ID,
                     keccak256(abi.encode(tooManyAdmins)),
                     escrow.ownerNonce(),
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
         
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(ownerPrivateKey, digest2);
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
-        escrow.initRepo(2, ACCOUNT_ID, tooManyAdmins, deadline, v2, r2, s2);
+        escrow.initRepo(2, ACCOUNT_ID, tooManyAdmins, signatureDeadline, v2, r2, s2);
     }
 
     /* -------------------------------------------------------------------------- */

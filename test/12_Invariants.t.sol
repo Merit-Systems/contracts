@@ -257,7 +257,6 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     /// @dev Total supply conservation: sum of all balances should equal total tokens in system
     function invariant_totalSupplyConservation() public view {
         uint256 contractBalance = wETH.balanceOf(address(escrow));
-        uint256 feeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
         uint256 totalAccountBalances = handler.getTotalAccountBalances();
         uint256 totalUndistributed = handler.getTotalUndistributedAmounts();
         
@@ -644,11 +643,16 @@ contract EscrowHandler is Test {
                 return;
             }
             
-            uint256[] memory distributionIds = new uint256[](1);
-            distributionIds[0] = distributionId;
-            
-            escrow.reclaimRepoDistributions(distributionIds, "");
-            reclaimedDistributionIds.push(distributionId);
+            // Get the repo account for this distribution
+            try escrow.getDistributionRepo(distributionId) returns (Escrow.RepoAccount memory repoAccount) {
+                uint256[] memory distributionIds = new uint256[](1);
+                distributionIds[0] = distributionId;
+                
+                escrow.reclaimRepoDistributions(repoAccount.repoId, repoAccount.accountId, distributionIds, "");
+                reclaimedDistributionIds.push(distributionId);
+            } catch {
+                return; // Skip if can't get repo account
+            }
         } catch {
             return; // Skip invalid distributions
         }

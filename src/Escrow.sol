@@ -23,7 +23,7 @@ contract Escrow is Owned, IEscrow {
     uint16 public constant MAX_FEE = 1_000; // 10 %
 
     bytes32 public constant SET_ADMIN_TYPEHASH =
-        keccak256("SetAdmin(uint repoId,uint accountId,address[] admins,uint nonce,uint deadline)");
+        keccak256("SetAdmin(uint repoId,uint accountId,address[] admins,uint nonce,uint signatureDeadline)");
     bytes32 public constant CLAIM_TYPEHASH =
         keccak256("Claim(uint[] distributionIds,address recipient,uint nonce,uint deadline)");
 
@@ -141,17 +141,17 @@ contract Escrow is Owned, IEscrow {
         uint      repoId,
         uint      accountId,
         address[] calldata admins,
-        uint      deadline,
+        uint      signatureDeadline,
         uint8     v,
         bytes32   r,
         bytes32   s
     ) external {
         Account storage account = accounts[repoId][accountId];
 
-        require(!account.exists,               Errors.REPO_ALREADY_INITIALIZED);
-        require(admins.length   >  0,          Errors.INVALID_AMOUNT);
-        require(admins.length   <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
-        require(block.timestamp <= deadline,   Errors.SIGNATURE_EXPIRED);
+        require(!account.exists,                      Errors.REPO_ALREADY_INITIALIZED);
+        require(admins.length   >  0,                 Errors.INVALID_AMOUNT);
+        require(admins.length   <= batchLimit,        Errors.BATCH_LIMIT_EXCEEDED);
+        require(block.timestamp <= signatureDeadline, Errors.SIGNATURE_EXPIRED);
 
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -163,7 +163,7 @@ contract Escrow is Owned, IEscrow {
                     accountId,
                     keccak256(abi.encode(admins)),
                     ownerNonce,
-                    deadline
+                    signatureDeadline
                 ))
             )
         );
@@ -319,15 +319,15 @@ contract Escrow is Owned, IEscrow {
     /* -------------------------------------------------------------------------- */
     function claim(
         uint[] memory  distributionIds,
-        uint256        deadline,
+        uint256        signatureDeadline,
         uint8          v,
         bytes32        r,
         bytes32        s,
         bytes calldata data
     ) external {
-        require(block.timestamp <= deadline,          Errors.SIGNATURE_EXPIRED);
-        require(distributionIds.length > 0,           Errors.INVALID_AMOUNT);
-        require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+        require(block.timestamp        <= signatureDeadline, Errors.SIGNATURE_EXPIRED);
+        require(distributionIds.length >  0,                 Errors.INVALID_AMOUNT);
+        require(distributionIds.length <= batchLimit,        Errors.BATCH_LIMIT_EXCEEDED);
 
         require(ECDSA.recover(
             keccak256(
@@ -339,7 +339,7 @@ contract Escrow is Owned, IEscrow {
                         keccak256(abi.encode(distributionIds)),
                         msg.sender,
                         recipientNonce[msg.sender],
-                        deadline
+                        signatureDeadline
                     ))
                 )
             ), v, r, s) == signer, Errors.INVALID_SIGNATURE);
@@ -369,7 +369,7 @@ contract Escrow is Owned, IEscrow {
             
             emit Claimed(distributionId, msg.sender, netAmount, distribution.fee);
         }
-        emit ClaimedBatch(distributionIds, msg.sender, deadline, data);
+        emit ClaimedBatch(distributionIds, msg.sender, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -394,35 +394,40 @@ contract Escrow is Owned, IEscrow {
         accounts[repoId][accountId].balance[token] = balance - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
         
-        emit ReclaimedRepoFunds(repoId, msg.sender, amount);
+        emit ReclaimedRepoFunds(repoId, accountId, msg.sender, amount);
     }
 
     /* -------------------------------------------------------------------------- */
     /*                               RECLAIM REPO DISTRIBUTIONS                   */
     /* -------------------------------------------------------------------------- */
     function reclaimRepoDistributions(
+        uint            repoId,
+        uint            accountId,
         uint[] calldata distributionIds,
         bytes  calldata data
     ) external {
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+
+        uint distributionBatchId = distributionBatchCount++;
         
         for (uint i; i < distributionIds.length; ++i) {
             uint distributionId = distributionIds[i];
-            Distribution storage distribution = distributions[distributionId];
+            Distribution storage distribution = distributions     [distributionId];
+            RepoAccount  memory repoAccount   = distributionToRepo[distributionId];
             
-            require(distribution.exists,                                   Errors.INVALID_DISTRIBUTION_ID);
-            require(distribution._type  == DistributionType.Repo,          Errors.NOT_REPO_DISTRIBUTION);
-            require(distribution.status == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
-            require(block.timestamp      > distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
+            require(distribution.exists,                                                Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution._type  == DistributionType.Repo,                       Errors.NOT_REPO_DISTRIBUTION);
+            require(distribution.status == DistributionStatus.Distributed,              Errors.ALREADY_CLAIMED);
+            require(block.timestamp      > distribution.claimDeadline,                  Errors.STILL_CLAIMABLE);
+            require(repoAccount.repoId == repoId && repoAccount.accountId == accountId, Errors.DISTRIBUTION_NOT_FROM_REPO);
 
             distribution.status = DistributionStatus.Reclaimed;
             
-            RepoAccount memory repoAccount = distributionToRepo[distributionId];
             accounts[repoAccount.repoId][repoAccount.accountId].balance[address(distribution.token)] += distribution.amount;
             
-            emit ReclaimedRepoDistribution(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
+            emit ReclaimedRepoDistribution(distributionBatchId, distributionId, msg.sender, distribution.amount);
         }
-        emit ReclaimedRepoDistributionsBatch(distributionIds, data);
+        emit ReclaimedRepoDistributionsBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */

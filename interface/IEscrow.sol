@@ -38,24 +38,27 @@ interface IEscrow {
     event ClaimedBatch(
         uint256[] distributionIds,
         address indexed recipient,
-        uint256 deadline,
         bytes data
     );
 
     event ReclaimedRepoFunds(
         uint256 indexed repoId,
+        uint256 indexed accountId,
         address indexed admin,
         uint256 amount
     );
 
     event ReclaimedRepoDistribution(
-        uint256 indexed repoId,
+        uint256 indexed distributionBatchId,
         uint256 indexed distributionId,
         address indexed admin,
         uint256 amount
     );
 
     event ReclaimedRepoDistributionsBatch(
+        uint256 indexed distributionBatchId,
+        uint256 indexed repoId,
+        uint256 indexed accountId,
         uint256[] distributionIds,
         bytes data
     );
