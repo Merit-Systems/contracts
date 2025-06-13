@@ -10,7 +10,7 @@ interface IEscrow {
         bytes data
     );
 
-    event DistributedRepo(
+    event DistributedFromRepo(
         uint256 indexed distributionBatchId,
         uint256 indexed distributionId,
         address indexed recipient,
@@ -19,7 +19,7 @@ interface IEscrow {
         uint256 claimDeadline
     );
 
-    event DistributedRepoBatch(
+    event DistributedFromRepoBatch(
         uint256 indexed distributionBatchId,
         uint256 indexed repoId,
         uint256 indexed accountId,
@@ -57,7 +57,7 @@ interface IEscrow {
         uint256[] distributionIds
     );
 
-    event DistributedSolo(
+    event DistributedFromSender(
         uint256 indexed distributionId,
         address indexed payer,
         address indexed recipient,
@@ -76,7 +76,7 @@ interface IEscrow {
         uint256 amount
     );
 
-    event DistributedSoloBatch(
+    event DistributedFromSenderBatch(
         uint256 indexed distributionBatchId,
         uint256[] distributionIds,
         bytes data

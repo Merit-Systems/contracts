@@ -94,7 +94,7 @@ contract DistributeFromRepo_Test is Base_Test {
         uint256 expectedDeadline = block.timestamp + CLAIM_PERIOD;
 
         vm.expectEmit(true, true, true, true);
-        emit DistributedRepo(0, 0, recipient1, address(wETH), DISTRIBUTION_AMOUNT, expectedDeadline);
+        emit DistributedFromRepo(0, 0, recipient1, address(wETH), DISTRIBUTION_AMOUNT, expectedDeadline);
 
         vm.prank(repoAdmin);
         uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
@@ -325,7 +325,7 @@ contract DistributeFromRepo_Test is Base_Test {
         expectedDistributionIds[1] = escrow.distributionCount() + 1;
 
         vm.expectEmit(true, true, true, true);
-        emit DistributedRepoBatch(0, REPO_ID, ACCOUNT_ID, expectedDistributionIds, "test batch");
+        emit DistributedFromRepoBatch(0, REPO_ID, ACCOUNT_ID, expectedDistributionIds, "test batch");
 
         vm.prank(repoAdmin);
         escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "test batch");
@@ -799,7 +799,7 @@ contract DistributeFromRepo_Test is Base_Test {
     }
 
     // Events for testing
-    event DistributedRepo(
+    event DistributedFromRepo(
         uint256 indexed distributionBatchId,
         uint256 indexed distributionId,
         address indexed recipient,
@@ -808,7 +808,7 @@ contract DistributeFromRepo_Test is Base_Test {
         uint256 claimDeadline
     );
 
-    event DistributedRepoBatch(
+    event DistributedFromRepoBatch(
         uint256 indexed distributionBatchId,
         uint256 indexed repoId,
         uint256 indexed accountId,

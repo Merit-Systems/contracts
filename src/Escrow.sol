@@ -238,7 +238,7 @@ contract Escrow is Owned, IEscrow {
             });
             account.hasDistributions = true;
 
-            emit DistributedRepo(
+            emit DistributedFromRepo(
                 distributionBatchId,
                 distributionId,
                 distribution.recipient,
@@ -247,7 +247,7 @@ contract Escrow is Owned, IEscrow {
                 block.timestamp + distribution.claimPeriod
             );
         } 
-        emit DistributedRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
+        emit DistributedFromRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
 
     ///
@@ -269,7 +269,7 @@ contract Escrow is Owned, IEscrow {
             uint distributionId = _createDistribution(distribution, DistributionType.Solo);
             distributionIds[i]  = distributionId;
 
-            emit DistributedSolo(
+            emit DistributedFromSender(
                 distributionId,
                 msg.sender,
                 distribution.recipient,
@@ -278,7 +278,7 @@ contract Escrow is Owned, IEscrow {
                 block.timestamp + distribution.claimPeriod
             );
         } 
-        emit DistributedSoloBatch(distributionBatchId, distributionIds, data);
+        emit DistributedFromSenderBatch(distributionBatchId, distributionIds, data);
     }
 
     ///

@@ -43,7 +43,7 @@ contract DistributeFromSender_Test is Base_Test {
         uint256 expectedDeadline = block.timestamp + CLAIM_PERIOD;
 
         vm.expectEmit(true, true, true, true);
-        emit DistributedSolo(0, distributor, recipient1, address(wETH), DISTRIBUTION_AMOUNT, expectedDeadline);
+        emit DistributedFromSender(0, distributor, recipient1, address(wETH), DISTRIBUTION_AMOUNT, expectedDeadline);
 
         vm.prank(distributor);
         uint[] memory distributionIds = escrow.distributeFromSender(distributions, "");
@@ -282,7 +282,7 @@ contract DistributeFromSender_Test is Base_Test {
         expectedDistributionIds[1] = escrow.distributionCount() + 1;
 
         vm.expectEmit(true, true, true, true);
-        emit DistributedSoloBatch(0, expectedDistributionIds, "");
+        emit DistributedFromSenderBatch(0, expectedDistributionIds, "");
 
         vm.prank(distributor);
         escrow.distributeFromSender(distributions, "");
@@ -817,7 +817,7 @@ contract DistributeFromSender_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
     
-    event DistributedSolo(
+    event DistributedFromSender(
         uint256 indexed distributionId,
         address indexed payer,
         address indexed recipient,
@@ -826,7 +826,7 @@ contract DistributeFromSender_Test is Base_Test {
         uint256 claimDeadline
     );
 
-    event DistributedSoloBatch(
+    event DistributedFromSenderBatch(
         uint256 indexed distributionBatchId,
         uint256[] distributionIds,
         bytes data
