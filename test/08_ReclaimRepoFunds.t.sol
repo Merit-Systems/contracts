@@ -47,10 +47,37 @@ contract ReclaimRepo_Test is Base_Test {
         escrow.initRepo(REPO_ID, ACCOUNT_ID, _toArray(repoAdmin), deadline, v, r, s);
     }
 
+    function _initializeSecondRepo(uint256 repoId, uint256 accountId, address admin) internal {
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    accountId,
+                    keccak256(abi.encode(_toArray(admin))),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        escrow.initRepo(repoId, accountId, _toArray(admin), deadline, v, r, s);
+    }
+
     function _fundRepo(uint256 amount) internal {
         wETH.mint(address(this), amount);
         wETH.approve(address(escrow), amount);
         escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, "");
+    }
+
+    function _fundSpecificRepo(uint256 repoId, uint256 accountId, uint256 amount) internal {
+        wETH.mint(address(this), amount);
+        wETH.approve(address(escrow), amount);
+        escrow.fundRepo(repoId, accountId, wETH, amount, "");
     }
 
     function _createRepoDistribution(address _recipient, uint256 amount) internal returns (uint256 distributionId) {
@@ -64,6 +91,20 @@ contract ReclaimRepo_Test is Base_Test {
 
         vm.prank(repoAdmin);
         uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        return distributionIds[0];
+    }
+
+    function _createSpecificRepoDistribution(uint256 repoId, uint256 accountId, address admin, address _recipient, uint256 amount) internal returns (uint256 distributionId) {
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: amount,
+            recipient: _recipient,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(admin);
+        uint[] memory distributionIds = escrow.distributeFromRepo(repoId, accountId, distributions, "");
         return distributionIds[0];
     }
 
@@ -108,10 +149,14 @@ contract ReclaimRepo_Test is Base_Test {
 
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
 
+        // Expect the updated event with distributionBatchId
         vm.expectEmit(true, true, true, true);
-        emit ReclaimedRepoDistribution(REPO_ID, distributionId, address(this), DISTRIBUTION_AMOUNT);
+        emit ReclaimedRepoDistribution(escrow.distributionBatchCount(), distributionId, address(this), DISTRIBUTION_AMOUNT);
 
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        vm.expectEmit(true, true, true, true);
+        emit ReclaimedRepoDistributionsBatch(escrow.distributionBatchCount(), REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
 
         // Check repo balance increased
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + DISTRIBUTION_AMOUNT);
@@ -138,7 +183,7 @@ contract ReclaimRepo_Test is Base_Test {
 
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
 
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
 
         // Check repo balance increased by total amount
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + amount1 + amount2);
@@ -164,11 +209,151 @@ contract ReclaimRepo_Test is Base_Test {
 
         // Random user should be able to reclaim expired repo distributions
         vm.prank(randomUser);
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
 
         // Check distribution was reclaimed
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
         assertTrue(uint8(distribution.status) == 2); // Reclaimed
+    }
+
+    function test_reclaimToRepo_revert_wrongRepoId() public {
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        // Try to reclaim with wrong repo ID
+        expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
+        escrow.reclaimRepoDistributions(999, ACCOUNT_ID, distributionIds, "");
+    }
+
+    function test_reclaimToRepo_revert_wrongAccountId() public {
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        // Try to reclaim with wrong account ID
+        expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
+        escrow.reclaimRepoDistributions(REPO_ID, 999, distributionIds, "");
+    }
+
+    function test_reclaimToRepo_revert_wrongRepoAndAccountId() public {
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        // Try to reclaim with wrong repo and account ID
+        expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
+        escrow.reclaimRepoDistributions(999, 888, distributionIds, "");
+    }
+
+    function test_reclaimToRepo_crossRepoValidation() public {
+        // Setup second repo
+        uint256 repo2Id = 2;
+        uint256 account2Id = 200;
+        address admin2 = makeAddr("admin2");
+        _initializeSecondRepo(repo2Id, account2Id, admin2);
+
+        // Fund both repos
+        _fundRepo(FUND_AMOUNT);
+        _fundSpecificRepo(repo2Id, account2Id, FUND_AMOUNT);
+
+        // Create distributions from both repos
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId2 = _createSpecificRepoDistribution(repo2Id, account2Id, admin2, recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds1 = new uint[](1);
+        distributionIds1[0] = distributionId1;
+
+        uint[] memory distributionIds2 = new uint[](1);
+        distributionIds2[0] = distributionId2;
+
+        // Try to reclaim repo1 distribution with repo2 parameters - should fail
+        expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
+        escrow.reclaimRepoDistributions(repo2Id, account2Id, distributionIds1, "");
+
+        // Try to reclaim repo2 distribution with repo1 parameters - should fail
+        expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds2, "");
+
+        // Reclaim with correct parameters should work
+        uint256 initialBalance1 = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        uint256 initialBalance2 = escrow.getAccountBalance(repo2Id, account2Id, address(wETH));
+
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds1, "");
+        escrow.reclaimRepoDistributions(repo2Id, account2Id, distributionIds2, "");
+
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialBalance1 + DISTRIBUTION_AMOUNT);
+        assertEq(escrow.getAccountBalance(repo2Id, account2Id, address(wETH)), initialBalance2 + DISTRIBUTION_AMOUNT);
+    }
+
+    function test_reclaimToRepo_mixedDistributionsFromDifferentRepos() public {
+        // Setup second repo
+        uint256 repo2Id = 2;
+        uint256 account2Id = 200;
+        address admin2 = makeAddr("admin2");
+        _initializeSecondRepo(repo2Id, account2Id, admin2);
+
+        // Fund both repos
+        _fundRepo(FUND_AMOUNT);
+        _fundSpecificRepo(repo2Id, account2Id, FUND_AMOUNT);
+
+        // Create distributions from both repos
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId2 = _createSpecificRepoDistribution(repo2Id, account2Id, admin2, recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        // Try to reclaim mixed distributions - should fail
+        uint[] memory mixedDistributionIds = new uint[](2);
+        mixedDistributionIds[0] = distributionId1;
+        mixedDistributionIds[1] = distributionId2;
+
+        expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, mixedDistributionIds, "");
+    }
+
+    function test_reclaimToRepo_batchIdIncrement() public {
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId2 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds1 = new uint[](1);
+        distributionIds1[0] = distributionId1;
+
+        uint[] memory distributionIds2 = new uint[](1);
+        distributionIds2[0] = distributionId2;
+
+        uint256 initialBatchCount = escrow.distributionBatchCount();
+
+        // First reclaim
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds1, "");
+        assertEq(escrow.distributionBatchCount(), initialBatchCount + 1);
+
+        // Second reclaim
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds2, "");
+        assertEq(escrow.distributionBatchCount(), initialBatchCount + 2);
     }
 
     function test_reclaimToRepo_revert_batchLimitExceeded() public {
@@ -176,7 +361,7 @@ contract ReclaimRepo_Test is Base_Test {
         uint[] memory distributionIds = new uint[](batchLimit + 1);
 
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
     }
 
     function test_reclaimToRepo_revert_invalidDistributionId() public {
@@ -184,7 +369,7 @@ contract ReclaimRepo_Test is Base_Test {
         distributionIds[0] = 999; // Non-existent
 
         expectRevert(Errors.INVALID_DISTRIBUTION_ID);
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
     }
 
     function test_reclaimToRepo_revert_notRepoDistribution() public {
@@ -197,7 +382,7 @@ contract ReclaimRepo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         expectRevert(Errors.NOT_REPO_DISTRIBUTION);
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
     }
 
     function test_reclaimToRepo_revert_alreadyClaimed() public {
@@ -232,7 +417,7 @@ contract ReclaimRepo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         expectRevert(Errors.ALREADY_CLAIMED);
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
     }
 
     function test_reclaimToRepo_revert_stillClaimable() public {
@@ -244,7 +429,7 @@ contract ReclaimRepo_Test is Base_Test {
 
         // Still within claim period
         expectRevert(Errors.STILL_CLAIMABLE);
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
     }
 
     function test_reclaimToRepo_fuzz_amounts(uint256 amount1, uint256 amount2) public {
@@ -264,7 +449,7 @@ contract ReclaimRepo_Test is Base_Test {
         distributionIds[1] = distributionId2;
 
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
         
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + amount1 + amount2);
     }
@@ -293,7 +478,7 @@ contract ReclaimRepo_Test is Base_Test {
         
         if (numDistributions <= batchLimit) {
             // Should succeed
-            escrow.reclaimRepoDistributions(distributionIds, "");
+            escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
             
             // Verify all distributions were reclaimed
             for (uint i = 0; i < numDistributions; i++) {
@@ -309,7 +494,7 @@ contract ReclaimRepo_Test is Base_Test {
         } else {
             // Should fail if exceeds batch limit
             expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
-            escrow.reclaimRepoDistributions(distributionIds, "");
+            escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
         }
     }
 
@@ -326,7 +511,7 @@ contract ReclaimRepo_Test is Base_Test {
         distributionIds[0] = distributionId;
         
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
         
         // Should work regardless of how much time has passed after deadline
         assertEq(
@@ -354,7 +539,7 @@ contract ReclaimRepo_Test is Base_Test {
         
         // Anyone should be able to reclaim expired repo distributions
         vm.prank(caller);
-        escrow.reclaimRepoDistributions(distributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
         
         assertEq(
             escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), 
@@ -395,11 +580,11 @@ contract ReclaimRepo_Test is Base_Test {
         
         // Try to reclaim all (should fail because of solo distributions)
         expectRevert(Errors.NOT_REPO_DISTRIBUTION);
-        escrow.reclaimRepoDistributions(mixedIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, mixedIds, "");
         
         // Reclaiming only repo distributions should work
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
-        escrow.reclaimRepoDistributions(repoDistributionIds, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, repoDistributionIds, "");
         
         assertEq(
             escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), 
@@ -407,9 +592,38 @@ contract ReclaimRepo_Test is Base_Test {
         );
     }
 
+    function test_reclaimToRepo_fuzz_repoAndAccountIds(uint256 repoId, uint256 accountId, uint256 wrongRepoId) public {
+        vm.assume(repoId != 0 && repoId <= type(uint128).max);
+        vm.assume(accountId != 0 && accountId <= type(uint128).max);
+        vm.assume(wrongRepoId != repoId && wrongRepoId != 0 && wrongRepoId <= type(uint128).max);
+        
+        // Setup repo with fuzzed IDs
+        address admin = makeAddr("fuzzAdmin");
+        _initializeSecondRepo(repoId, accountId, admin);
+        _fundSpecificRepo(repoId, accountId, FUND_AMOUNT);
+        
+        uint256 distributionId = _createSpecificRepoDistribution(repoId, accountId, admin, recipient, DISTRIBUTION_AMOUNT);
+        
+        // Move past deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+        
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+        
+        // Should fail with wrong repo ID
+        expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
+        escrow.reclaimRepoDistributions(wrongRepoId, accountId, distributionIds, "");
+        
+        // Should succeed with correct IDs
+        uint256 initialBalance = escrow.getAccountBalance(repoId, accountId, address(wETH));
+        escrow.reclaimRepoDistributions(repoId, accountId, distributionIds, "");
+        assertEq(escrow.getAccountBalance(repoId, accountId, address(wETH)), initialBalance + DISTRIBUTION_AMOUNT);
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event ReclaimedRepoDistribution(uint256 indexed repoId, uint256 indexed distributionId, address indexed admin, uint256 amount);
+    event ReclaimedRepoDistribution(uint256 indexed distributionBatchId, uint256 indexed distributionId, address indexed admin, uint256 amount);
+    event ReclaimedRepoDistributionsBatch(uint256 indexed distributionBatchId, uint256 indexed repoId, uint256 indexed accountId, uint256[] distributionIds, bytes data);
 } 

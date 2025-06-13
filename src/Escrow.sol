@@ -394,35 +394,40 @@ contract Escrow is Owned, IEscrow {
         accounts[repoId][accountId].balance[token] = balance - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
         
-        emit ReclaimedRepoFunds(repoId, msg.sender, amount);
+        emit ReclaimedRepoFunds(repoId, accountId, msg.sender, amount);
     }
 
     /* -------------------------------------------------------------------------- */
     /*                               RECLAIM REPO DISTRIBUTIONS                   */
     /* -------------------------------------------------------------------------- */
     function reclaimRepoDistributions(
+        uint            repoId,
+        uint            accountId,
         uint[] calldata distributionIds,
         bytes  calldata data
     ) external {
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+
+        uint distributionBatchId = distributionBatchCount++;
         
         for (uint i; i < distributionIds.length; ++i) {
             uint distributionId = distributionIds[i];
-            Distribution storage distribution = distributions[distributionId];
+            Distribution storage distribution = distributions     [distributionId];
+            RepoAccount  memory repoAccount   = distributionToRepo[distributionId];
             
-            require(distribution.exists,                                   Errors.INVALID_DISTRIBUTION_ID);
-            require(distribution._type  == DistributionType.Repo,          Errors.NOT_REPO_DISTRIBUTION);
-            require(distribution.status == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
-            require(block.timestamp      > distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
+            require(distribution.exists,                                                Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution._type  == DistributionType.Repo,                       Errors.NOT_REPO_DISTRIBUTION);
+            require(distribution.status == DistributionStatus.Distributed,              Errors.ALREADY_CLAIMED);
+            require(block.timestamp      > distribution.claimDeadline,                  Errors.STILL_CLAIMABLE);
+            require(repoAccount.repoId == repoId && repoAccount.accountId == accountId, Errors.DISTRIBUTION_NOT_FROM_REPO);
 
             distribution.status = DistributionStatus.Reclaimed;
             
-            RepoAccount memory repoAccount = distributionToRepo[distributionId];
             accounts[repoAccount.repoId][repoAccount.accountId].balance[address(distribution.token)] += distribution.amount;
             
-            emit ReclaimedRepoDistribution(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
+            emit ReclaimedRepoDistribution(distributionBatchId, distributionId, msg.sender, distribution.amount);
         }
-        emit ReclaimedRepoDistributionsBatch(distributionIds, data);
+        emit ReclaimedRepoDistributionsBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */

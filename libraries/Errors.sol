@@ -34,4 +34,5 @@ library Errors {
     string internal constant REPO_ALREADY_INITIALIZED       = "Repo Already Initialized";
     string internal constant BATCH_LIMIT_EXCEEDED           = "Batch Limit Exceeded";
     string internal constant CANNOT_REMOVE_ALL_ADMINS       = "Cannot Remove All Admins";
+    string internal constant DISTRIBUTION_NOT_FROM_REPO     = "Distribution Not From Repo";
 } 

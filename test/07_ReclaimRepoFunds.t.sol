@@ -78,7 +78,7 @@ contract ReclaimFund_Test is Base_Test {
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
 
         vm.expectEmit(true, true, true, true);
-        emit ReclaimedRepoFunds(REPO_ID, repoAdmin, reclaimAmount);
+        emit ReclaimedRepoFunds(REPO_ID, ACCOUNT_ID, repoAdmin, reclaimAmount);
 
         vm.prank(repoAdmin);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
@@ -335,7 +335,7 @@ contract ReclaimFund_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event ReclaimedRepoFunds(uint256 indexed repoId, address indexed admin, uint256 amount);
+    event ReclaimedRepoFunds(uint256 indexed repoId, uint256 indexed accountId, address indexed admin, uint256 amount);
 
     function _toArray(address addr) internal pure returns (address[] memory) {
         address[] memory arr = new address[](1);
