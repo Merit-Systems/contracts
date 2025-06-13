@@ -219,8 +219,8 @@ contract Escrow is Owned, IEscrow {
         bool isDistributor = account.distributors.contains(msg.sender);
         require(isAdmin || isDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
         
-        distributionIds          = new uint[](_distributions.length);
-        uint batchId = batchCount++;
+        distributionIds = new uint[](_distributions.length);
+        uint batchId    = batchCount++;
 
         for (uint i; i < _distributions.length; ++i) {
             DistributionParams calldata distribution = _distributions[i];
