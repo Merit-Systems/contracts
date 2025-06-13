@@ -11,6 +11,7 @@ import {ECDSA}             from "@openzeppelin/contracts/utils/cryptography/ECDS
 import {IEscrow} from "../interface/IEscrow.sol";
 import {Errors}  from "../libraries/Errors.sol";
 
+/// @author shafu
 contract Escrow is Owned, IEscrow {
     using SafeTransferLib   for ERC20;
     using EnumerableSet     for EnumerableSet.AddressSet;
