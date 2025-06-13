@@ -41,12 +41,12 @@ contract Escrow is Owned, IEscrow {
     struct Distribution {
         uint               amount;
         ERC20              token;
+        address            payer;
         address            recipient;
         uint               claimDeadline; // unix seconds
+        uint               fee;           // fee rate at creation time (basis points)
         DistributionStatus status;        // Distributed → Claimed / Reclaimed
         DistributionType   _type;         // Repo or Solo
-        address            payer;
-        uint               fee;           // fee rate at creation time (basis points)
         bool               exists;
     }
 

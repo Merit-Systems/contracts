@@ -11,8 +11,8 @@ interface IEscrow {
     );
 
     event DistributedRepo(
-        uint256 indexed repoId,
-        uint256 indexed claimId,
+        uint256 indexed distributionBatchId,
+        uint256 indexed distributionId,
         address indexed recipient,
         address token,
         uint256 amount,
@@ -83,9 +83,8 @@ interface IEscrow {
     );
 
     event AddedAdmin(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
-    event RemovedAdmin(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
+    event RemovedAdmin(uint256 indexed repoId, uint256 indexed accountId, address indexed oldAdmin, address indexed newAdmin);
     event TokenWhitelisted(address indexed token);
-    event TokenRemovedFromWhitelist(address indexed token);
     event AddedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
     event RemovedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
     event BatchLimitSet(uint256 newBatchLimit);
