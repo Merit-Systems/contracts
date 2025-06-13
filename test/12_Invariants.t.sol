@@ -142,11 +142,11 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev Fee recipient balance should never decrease (fees only accumulate)
     function invariant_feeRecipientBalanceMonotonic() public view {
-        uint256 _feeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
+        uint256 currentBalance = wETH.balanceOf(escrow.feeRecipient());
         uint256 expectedMinimum = handler.getInitialFeeRecipientBalance() + handler.getTotalFeesCollectedByHandler();
         
         assertGe(
-            _feeRecipientBalance,
+            currentBalance,
             expectedMinimum,
             "Fee recipient balance should never decrease"
         );
@@ -257,7 +257,6 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     /// @dev Total supply conservation: sum of all balances should equal total tokens in system
     function invariant_totalSupplyConservation() public view {
         uint256 contractBalance = wETH.balanceOf(address(escrow));
-        uint256 _feeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
         uint256 totalAccountBalances = handler.getTotalAccountBalances();
         uint256 totalUndistributed = handler.getTotalUndistributedAmounts();
         
