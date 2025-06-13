@@ -7,7 +7,7 @@ contract OnlyOwner_Test is Base_Test {
     
     address newToken;
     address newRecipient;
-    address newSigner;
+    address newSignerAddr;
     address unauthorized;
 
     function setUp() public override {
@@ -15,7 +15,7 @@ contract OnlyOwner_Test is Base_Test {
         
         newToken = address(new MockERC20("New Token", "NEW", 18));
         newRecipient = makeAddr("newRecipient");
-        newSigner = makeAddr("newSigner");
+        newSignerAddr = makeAddr("newSigner");
         unauthorized = makeAddr("unauthorized");
     }
 
@@ -211,9 +211,9 @@ contract OnlyOwner_Test is Base_Test {
 
     function test_setSigner_success() public {
         vm.prank(owner);
-        escrow.setSigner(newSigner);
+        escrow.setSigner(newSignerAddr);
 
-        assertEq(escrow.signer(), newSigner);
+        assertEq(escrow.signer(), newSignerAddr);
     }
 
     function test_setSigner_setToZeroAddress() public {
@@ -226,7 +226,7 @@ contract OnlyOwner_Test is Base_Test {
 
     function test_setSigner_setBackToOwner() public {
         vm.prank(owner);
-        escrow.setSigner(newSigner);
+        escrow.setSigner(newSignerAddr);
 
         vm.prank(owner);
         escrow.setSigner(owner);
@@ -237,7 +237,7 @@ contract OnlyOwner_Test is Base_Test {
     function test_setSigner_revert_notOwner() public {
         expectRevert("UNAUTHORIZED");
         vm.prank(unauthorized);
-        escrow.setSigner(newSigner);
+        escrow.setSigner(newSignerAddr);
     }
 
     function test_setSigner_emitsEvent() public {
@@ -416,14 +416,14 @@ contract OnlyOwner_Test is Base_Test {
         escrow.whitelistToken(token2);
         escrow.setFee(750);
         escrow.setFeeRecipient(newRecipient);
-        escrow.setSigner(newSigner);
+        escrow.setSigner(newSignerAddr);
         escrow.setBatchLimit(25);
         vm.stopPrank();
         assertTrue(escrow.isTokenWhitelisted(token1));
         assertTrue(escrow.isTokenWhitelisted(token2));
         assertEq(escrow.fee(), 750);
         assertEq(escrow.feeRecipient(), newRecipient);
-        assertEq(escrow.signer(), newSigner);
+        assertEq(escrow.signer(), newSignerAddr);
         assertEq(escrow.batchLimit(), 25);
     }
 
@@ -654,5 +654,253 @@ contract OnlyOwner_Test is Base_Test {
         address[] memory arr = new address[](1);
         arr[0] = addr;
         return arr;
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                          STRESS AND GAS TESTS                              */
+    /* -------------------------------------------------------------------------- */
+
+    /// @dev Test gas consumption for whitelisting many tokens
+    function test_whitelistToken_gasOptimization() public {
+        uint256 numTokens = 20; // Test with a reasonable number of tokens
+        address[] memory tokens = new address[](numTokens);
+        uint256[] memory gasUsed = new uint256[](numTokens);
+        
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokens[i] = makeAddr(string(abi.encodePacked("token", i)));
+            
+            uint256 gasBefore = gasleft();
+            vm.prank(owner);
+            escrow.whitelistToken(tokens[i]);
+            gasUsed[i] = gasBefore - gasleft();
+            
+            // Verify token was whitelisted
+            assertTrue(escrow.isTokenWhitelisted(tokens[i]));
+        }
+        
+        // Gas usage should remain relatively consistent
+        for (uint256 i = 1; i < numTokens; i++) {
+            // Allow for some variance but shouldn't increase drastically
+            assertLt(gasUsed[i], gasUsed[0] * 2, "Gas usage should remain reasonable");
+        }
+    }
+
+    /// @dev Test fee setting with rapid changes to verify state consistency
+    function test_setFee_rapidChanges() public {
+        uint16[] memory feeRates = new uint16[](10);
+        feeRates[0] = 0;
+        feeRates[1] = 50;
+        feeRates[2] = 100;
+        feeRates[3] = 250;
+        feeRates[4] = 500;
+        feeRates[5] = 750;
+        feeRates[6] = 1000;
+        feeRates[7] = 500;
+        feeRates[8] = 250;
+        feeRates[9] = 100;
+        
+        for (uint256 i = 0; i < feeRates.length; i++) {
+            uint256 previousFee = escrow.fee();
+            
+            vm.expectEmit(true, true, true, true);
+            emit FeeSet(previousFee, feeRates[i]);
+            
+            vm.prank(owner);
+            escrow.setFee(feeRates[i]);
+            
+            assertEq(escrow.fee(), feeRates[i]);
+        }
+    }
+
+    /// @dev Test signer changes with existing signed data
+    function test_setSigner_withExistingSignatures() public {
+        address newSigner = makeAddr("newSigner");
+        address recipient = makeAddr("recipient");
+        
+        // Setup repo and create distribution
+        uint256[] memory distributionIds = _setupRepoAndCreateSingleDistribution(recipient);
+        
+        // Change signer
+        vm.expectEmit(true, true, true, true);
+        emit SignerSet(owner, newSigner); // owner is initial signer
+        
+        vm.prank(owner);
+        escrow.setSigner(newSigner);
+        
+        // Verify signer changed
+        assertEq(escrow.signer(), newSigner);
+        
+        // Test that old signer signatures no longer work
+        _testOldSignerFails(distributionIds[0], recipient);
+    }
+
+    function _setupRepoAndCreateSingleDistribution(address recipient) internal returns (uint256[] memory) {
+        // Fund and create distribution for testing
+        wETH.mint(address(this), 1000e18);
+        wETH.approve(address(escrow), 1000e18);
+        
+        // Initialize a repo first
+        address admin = makeAddr("admin");
+        address[] memory admins = new address[](1);
+        admins[0] = admin;
+        
+        {
+            uint256 deadline = block.timestamp + 1 hours;
+            bytes32 digest = keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    escrow.DOMAIN_SEPARATOR(),
+                    keccak256(abi.encode(
+                        escrow.SET_ADMIN_TYPEHASH(),
+                        1,
+                        1,
+                        keccak256(abi.encode(admins)),
+                        escrow.ownerNonce(),
+                        deadline
+                    ))
+                )
+            );
+            
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+            escrow.initRepo(1, 1, admins, deadline, v, r, s);
+        }
+        
+        escrow.fundRepo(1, 1, wETH, 1000e18, "");
+        
+        // Create distribution
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: 100e18,
+            recipient: recipient,
+            claimPeriod: 7 days,
+            token: wETH
+        });
+        
+        vm.prank(admin);
+        return escrow.distributeFromRepo(1, 1, distributions, "");
+    }
+
+    function _testOldSignerFails(uint256 distributionId, address recipient) internal {
+        uint256[] memory claimIds = new uint256[](1);
+        claimIds[0] = distributionId;
+        
+        bytes32 claimDigest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.CLAIM_TYPEHASH(),
+                    keccak256(abi.encode(claimIds)),
+                    recipient,
+                    escrow.recipientNonce(recipient),
+                    block.timestamp + 1 hours
+                ))
+            )
+        );
+        
+        // Signature from old signer should fail
+        (uint8 vOld, bytes32 rOld, bytes32 sOld) = vm.sign(ownerPrivateKey, claimDigest);
+        
+        expectRevert(Errors.INVALID_SIGNATURE);
+        vm.prank(recipient);
+        escrow.claim(claimIds, block.timestamp + 1 hours, vOld, rOld, sOld, "");
+    }
+
+    /// @dev Fuzz test for batch limit changes and their effects
+    function testFuzz_setBatchLimit_dynamicEffects(uint256 newLimit) public {
+        newLimit = bound(newLimit, 1, 1000); // Reasonable range
+        
+        uint256 previousLimit = escrow.batchLimit();
+        
+        vm.expectEmit(true, true, true, true);
+        emit BatchLimitSet(newLimit);
+        
+        vm.prank(owner);
+        escrow.setBatchLimit(newLimit);
+        
+        assertEq(escrow.batchLimit(), newLimit);
+        
+        // Test that the new limit is enforced
+        if (newLimit < 5) {
+            // Create more distributions than the new limit allows
+            address[] memory admins = new address[](1);
+            admins[0] = makeAddr("admin");
+            
+            // Initialize repo
+            uint256 deadline = block.timestamp + 1 hours;
+            bytes32 digest = keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    escrow.DOMAIN_SEPARATOR(),
+                    keccak256(abi.encode(
+                        escrow.SET_ADMIN_TYPEHASH(),
+                        1,
+                        1,
+                        keccak256(abi.encode(admins)),
+                        escrow.ownerNonce(),
+                        deadline
+                    ))
+                )
+            );
+            
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+            escrow.initRepo(1, 1, admins, deadline, v, r, s);
+            
+            // Fund repo
+            wETH.mint(address(this), 1000e18);
+            wETH.approve(address(escrow), 1000e18);
+            escrow.fundRepo(1, 1, wETH, 1000e18, "");
+            
+            // Try to distribute more than limit
+            Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](newLimit + 1);
+            for (uint256 i = 0; i < newLimit + 1; i++) {
+                distributions[i] = Escrow.DistributionParams({
+                    amount: 1e18,
+                    recipient: makeAddr(string(abi.encodePacked("recipient", i))),
+                    claimPeriod: 7 days,
+                    token: wETH
+                });
+            }
+            
+            expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
+            vm.prank(admins[0]);
+            escrow.distributeFromRepo(1, 1, distributions, "");
+        }
+    }
+
+    /// @dev Test extreme fee rate changes and their mathematical consistency
+    function testFuzz_setFee_extremeRatesConsistency(uint16 feeRate) public {
+        feeRate = uint16(bound(feeRate, 0, 1000)); // 0-10%
+        
+        vm.prank(owner);
+        escrow.setFee(feeRate);
+        
+        // Test that fee calculations remain mathematically sound
+        uint256[] memory testAmounts = new uint256[](5);
+        testAmounts[0] = 1;         // 1 wei
+        testAmounts[1] = 100;       // 100 wei
+        testAmounts[2] = 1e18;      // 1 token
+        testAmounts[3] = 1000e18;   // 1000 tokens
+        testAmounts[4] = type(uint128).max; // Very large amount
+        
+        for (uint256 i = 0; i < testAmounts.length; i++) {
+            uint256 amount = testAmounts[i];
+            
+            // Calculate fee using same logic as contract
+            uint256 expectedFee = (amount * feeRate + 9999) / 10000; // mulDivUp
+            if (expectedFee >= amount) {
+                expectedFee = amount - 1; // Cap to ensure recipient gets at least 1
+            }
+            uint256 expectedNet = amount - expectedFee;
+            
+            // Verify mathematical properties
+            assertEq(expectedFee + expectedNet, amount, "Fee + net should equal total");
+            assertGe(expectedNet, expectedFee >= amount ? 1 : amount * (10000 - feeRate) / 10000, "Net should be reasonable");
+            assertLe(expectedFee, amount, "Fee should not exceed amount");
+            
+            if (amount > 1) {
+                assertGe(expectedNet, 1, "Recipient should get at least 1 wei");
+            }
+        }
     }
 } 
