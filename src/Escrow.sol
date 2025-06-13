@@ -93,7 +93,7 @@ contract Escrow is Owned, IEscrow {
     address public signer;
 
     uint public batchCount;
-    uint public itemCount;
+    uint public distributionCount;
 
     /* -------------------------------------------------------------------------- */
     /*                               EIP‑712 DOMAIN                               */
@@ -299,7 +299,7 @@ contract Escrow is Owned, IEscrow {
         uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
         require(distribution.amount > feeAmount, Errors.INVALID_AMOUNT);
 
-        distributionId = itemCount++;
+        distributionId = distributionCount++;
 
         distributions[distributionId] = Distribution({
             amount:        distribution.amount,
