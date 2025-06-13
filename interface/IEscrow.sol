@@ -37,7 +37,8 @@ interface IEscrow {
     event ClaimedBatch(
         uint256[] distributionIds,
         address indexed recipient,
-        uint256 deadline
+        uint256 deadline,
+        bytes data
     );
 
     event ReclaimedFund(
@@ -54,7 +55,8 @@ interface IEscrow {
     );
 
     event ReclaimedRepoBatch(
-        uint256[] distributionIds
+        uint256[] distributionIds,
+        bytes data
     );
 
     event DistributedFromSender(
@@ -68,7 +70,8 @@ interface IEscrow {
     );
 
     event ReclaimedSoloBatch(
-        uint256[] distributionIds
+        uint256[] distributionIds,
+        bytes data
     );
 
     event ReclaimedSolo(

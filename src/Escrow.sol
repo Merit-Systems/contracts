@@ -318,11 +318,12 @@ contract Escrow is Owned, IEscrow {
     /*                                   CLAIM                                    */
     /* -------------------------------------------------------------------------- */
     function claim(
-        uint[] memory distributionIds,
-        uint256       deadline,
-        uint8         v,
-        bytes32       r,
-        bytes32       s
+        uint[] memory  distributionIds,
+        uint256        deadline,
+        uint8          v,
+        bytes32        r,
+        bytes32        s,
+        bytes calldata data
     ) external {
         require(block.timestamp <= deadline,          Errors.SIGNATURE_EXPIRED);
         require(distributionIds.length > 0,           Errors.INVALID_AMOUNT);
@@ -368,13 +369,13 @@ contract Escrow is Owned, IEscrow {
             
             emit Claimed(distributionId, msg.sender, netAmount, distribution.fee);
         }
-        emit ClaimedBatch(distributionIds, msg.sender, deadline);
+        emit ClaimedBatch(distributionIds, msg.sender, deadline, data);
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                RECLAIM FUND                                */
+    /*                                RECLAIM FUNDS                                */
     /* -------------------------------------------------------------------------- */
-    function reclaimFund(
+    function reclaimRepoFunds(
         uint    repoId,
         uint    accountId,
         address token,
@@ -397,9 +398,12 @@ contract Escrow is Owned, IEscrow {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               RECLAIM REPO                                 */
+    /*                               RECLAIM REPO DISTRIBUTIONS                   */
     /* -------------------------------------------------------------------------- */
-    function reclaimRepo(uint[] calldata distributionIds) external {
+    function reclaimRepoDistributions(
+        uint[] calldata distributionIds,
+        bytes  calldata data
+    ) external {
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
         for (uint i; i < distributionIds.length; ++i) {
@@ -418,13 +422,16 @@ contract Escrow is Owned, IEscrow {
             
             emit ReclaimedRepo(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
         }
-        emit ReclaimedRepoBatch(distributionIds);
+        emit ReclaimedRepoBatch(distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               RECLAIM SOLO                                 */
+    /*                               RECLAIM SENDER DISTRIBUTIONS                 */
     /* -------------------------------------------------------------------------- */
-    function reclaimSolo(uint[] calldata distributionIds) external {
+    function reclaimSenderDistributions(
+        uint[] calldata distributionIds,
+        bytes  calldata data
+    ) external {
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
         for (uint i; i < distributionIds.length; ++i) {
@@ -441,7 +448,7 @@ contract Escrow is Owned, IEscrow {
             
             emit ReclaimedSolo(distributionId, distribution.payer, distribution.amount);
         }
-        emit ReclaimedSoloBatch(distributionIds);
+        emit ReclaimedSoloBatch(distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */

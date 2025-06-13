@@ -105,7 +105,7 @@ contract ReclaimSolo_Test is Base_Test {
     /*                              RECLAIM SOLO TESTS                            */
     /* -------------------------------------------------------------------------- */
 
-    function test_reclaimSolo_success() public {
+    function test_reclaimSenderDistributions_success() public {
         uint256 distributionId = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
 
         // Move past claim deadline
@@ -119,7 +119,7 @@ contract ReclaimSolo_Test is Base_Test {
         vm.expectEmit(true, true, true, true);
         emit ReclaimedSolo(distributionId, soloPayer, DISTRIBUTION_AMOUNT);
 
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Check payer received funds back
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + DISTRIBUTION_AMOUNT);
@@ -129,7 +129,7 @@ contract ReclaimSolo_Test is Base_Test {
         assertTrue(uint8(distribution.status) == 2); // Reclaimed
     }
 
-    function test_reclaimSolo_multipleDistributions() public {
+    function test_reclaimSenderDistributions_multipleDistributions() public {
         uint256 amount1 = 400e18;
         uint256 amount2 = 600e18;
         uint256 distributionId1 = _createSoloDistribution(soloPayer, recipient, amount1);
@@ -144,7 +144,7 @@ contract ReclaimSolo_Test is Base_Test {
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
 
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Check payer received all funds back
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + amount1 + amount2);
@@ -156,7 +156,7 @@ contract ReclaimSolo_Test is Base_Test {
         assertTrue(uint8(distribution2.status) == 2); // Reclaimed
     }
 
-    function test_reclaimSolo_multiplePayers() public {
+    function test_reclaimSenderDistributions_multiplePayers() public {
         uint256 distributionId1 = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
         uint256 distributionId2 = _createSoloDistribution(soloPayer2, recipient, DISTRIBUTION_AMOUNT);
 
@@ -170,14 +170,14 @@ contract ReclaimSolo_Test is Base_Test {
         uint256 initialPayer1Balance = wETH.balanceOf(soloPayer);
         uint256 initialPayer2Balance = wETH.balanceOf(soloPayer2);
 
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Each payer should get their own distribution back
         assertEq(wETH.balanceOf(soloPayer), initialPayer1Balance + DISTRIBUTION_AMOUNT);
         assertEq(wETH.balanceOf(soloPayer2), initialPayer2Balance + DISTRIBUTION_AMOUNT);
     }
 
-    function test_reclaimSolo_differentRecipients() public {
+    function test_reclaimSenderDistributions_differentRecipients() public {
         address recipient2 = makeAddr("recipient2");
         uint256 distributionId1 = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
         uint256 distributionId2 = _createSoloDistribution(soloPayer, recipient2, DISTRIBUTION_AMOUNT);
@@ -191,13 +191,13 @@ contract ReclaimSolo_Test is Base_Test {
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
 
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Payer should get back both distributions regardless of recipients
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + (DISTRIBUTION_AMOUNT * 2));
     }
 
-    function test_reclaimSolo_maxBatchLimit() public {
+    function test_reclaimSenderDistributions_maxBatchLimit() public {
         uint256 batchLimit = escrow.batchLimit();
         uint256 distributionAmount = 1e18; // Smaller amount to fit within limits
         uint[] memory distributionIds = new uint[](batchLimit);
@@ -212,13 +212,13 @@ contract ReclaimSolo_Test is Base_Test {
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
 
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Check all were reclaimed
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + (distributionAmount * batchLimit));
     }
 
-    function test_reclaimSolo_anyoneCanReclaim() public {
+    function test_reclaimSenderDistributions_anyoneCanReclaim() public {
         uint256 distributionId = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
 
         // Move past claim deadline
@@ -232,7 +232,7 @@ contract ReclaimSolo_Test is Base_Test {
 
         // Random user should be able to reclaim expired solo distributions
         vm.prank(randomUser);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Original payer should still receive the funds
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + DISTRIBUTION_AMOUNT);
@@ -242,7 +242,7 @@ contract ReclaimSolo_Test is Base_Test {
         assertTrue(uint8(distribution.status) == 2); // Reclaimed
     }
 
-    function test_reclaimSolo_afterPartialClaim() public {
+    function test_reclaimSenderDistributions_afterPartialClaim() public {
         uint256 distributionId1 = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
         uint256 distributionId2 = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
 
@@ -267,7 +267,7 @@ contract ReclaimSolo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest); // owner is signer
 
         vm.prank(recipient);
-        escrow.claim(claimIds, block.timestamp + 1 hours, v, r, s);
+        escrow.claim(claimIds, block.timestamp + 1 hours, v, r, s, "");
 
         // Move past deadline and reclaim the other
         vm.warp(block.timestamp + CLAIM_PERIOD + 1);
@@ -276,29 +276,29 @@ contract ReclaimSolo_Test is Base_Test {
         reclaimIds[0] = distributionId2;
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
-        escrow.reclaimSolo(reclaimIds);
+        escrow.reclaimSenderDistributions(reclaimIds, "");
 
         // Should reclaim successfully
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + DISTRIBUTION_AMOUNT);
     }
 
-    function test_reclaimSolo_revert_batchLimitExceeded() public {
+    function test_reclaimSenderDistributions_revert_batchLimitExceeded() public {
         uint256 batchLimit = escrow.batchLimit();
         uint[] memory distributionIds = new uint[](batchLimit + 1);
 
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
-    function test_reclaimSolo_revert_invalidDistributionId() public {
+    function test_reclaimSenderDistributions_revert_invalidDistributionId() public {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = 999; // Non-existent
 
         expectRevert(Errors.INVALID_DISTRIBUTION_ID);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
-    function test_reclaimSolo_revert_notSoloDistribution() public {
+    function test_reclaimSenderDistributions_revert_notSoloDistribution() public {
         uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
         
         // Move past claim deadline
@@ -308,10 +308,10 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         expectRevert(Errors.NOT_DIRECT_DISTRIBUTION);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
-    function test_reclaimSolo_revert_alreadyClaimed() public {
+    function test_reclaimSenderDistributions_revert_alreadyClaimed() public {
         uint256 distributionId = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
 
         // First claim the distribution
@@ -335,17 +335,17 @@ contract ReclaimSolo_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest); // owner is signer
 
         vm.prank(recipient);
-        escrow.claim(claimIds, block.timestamp + 1 hours, v, r, s);
+        escrow.claim(claimIds, block.timestamp + 1 hours, v, r, s, "");
 
         // Now try to reclaim the already claimed distribution
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
 
         expectRevert(Errors.ALREADY_CLAIMED);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
-    function test_reclaimSolo_revert_stillClaimable() public {
+    function test_reclaimSenderDistributions_revert_stillClaimable() public {
         uint256 distributionId = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
 
         uint[] memory distributionIds = new uint[](1);
@@ -353,10 +353,10 @@ contract ReclaimSolo_Test is Base_Test {
 
         // Still within claim period
         expectRevert(Errors.STILL_CLAIMABLE);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
-    function test_reclaimSolo_revert_alreadyReclaimed() public {
+    function test_reclaimSenderDistributions_revert_alreadyReclaimed() public {
         uint256 distributionId = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
 
         // Move past claim deadline
@@ -366,14 +366,14 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         // First reclaim should succeed
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Second reclaim should fail
         expectRevert(Errors.ALREADY_CLAIMED);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
-    function test_reclaimSolo_mixedValidInvalid() public {
+    function test_reclaimSenderDistributions_mixedValidInvalid() public {
         uint256 validDistributionId = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
         uint256 repoDistributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
 
@@ -385,10 +385,10 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[1] = repoDistributionId; // This is a repo distribution, should fail
 
         expectRevert(Errors.NOT_DIRECT_DISTRIBUTION);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
-    function test_reclaimSolo_distributionDataIntegrity() public {
+    function test_reclaimSenderDistributions_distributionDataIntegrity() public {
         uint256 distributionId = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
 
         // Verify distribution data before reclaim
@@ -405,7 +405,7 @@ contract ReclaimSolo_Test is Base_Test {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
 
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Verify distribution data after reclaim (everything same except status)
         Escrow.Distribution memory distributionAfter = escrow.getDistribution(distributionId);
@@ -416,7 +416,7 @@ contract ReclaimSolo_Test is Base_Test {
         assertTrue(uint8(distributionAfter._type) == 1); // Solo
     }
 
-    function test_reclaimSolo_fuzz_amounts(uint256 amount1, uint256 amount2) public {
+    function test_reclaimSenderDistributions_fuzz_amounts(uint256 amount1, uint256 amount2) public {
         vm.assume(amount1 >= 100 && amount1 <= 1000e18); // Ensure minimum size for fees
         vm.assume(amount2 >= 100 && amount2 <= 1000e18);
 
@@ -431,12 +431,12 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[1] = distributionId2;
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
         
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + amount1 + amount2);
     }
 
-    function test_reclaimSolo_fuzz_timeDelays(uint32 timeDelay) public {
+    function test_reclaimSenderDistributions_fuzz_timeDelays(uint32 timeDelay) public {
         vm.assume(timeDelay > CLAIM_PERIOD && timeDelay <= 365 days);
         
         uint256 distributionId = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
@@ -448,12 +448,12 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
         
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + DISTRIBUTION_AMOUNT);
     }
 
-    function test_reclaimSolo_fuzz_multiplePayers(uint8 payerCount) public {
+    function test_reclaimSenderDistributions_fuzz_multiplePayers(uint8 payerCount) public {
         vm.assume(payerCount > 0 && payerCount <= 10); // Reasonable limit
         
         address[] memory payers = new address[](payerCount);
@@ -474,7 +474,7 @@ contract ReclaimSolo_Test is Base_Test {
         // Move past deadline
         vm.warp(block.timestamp + CLAIM_PERIOD + 1);
 
-        escrow.reclaimSolo(distributionIds);
+        escrow.reclaimSenderDistributions(distributionIds, "");
         
         // Verify each payer got their funds back
         for (uint i = 0; i < payerCount; i++) {

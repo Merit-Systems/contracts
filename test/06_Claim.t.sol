@@ -134,7 +134,7 @@ contract Claim_Test is Base_Test {
         emit Claimed(distributionId, recipient, expectedNetAmount, escrow.fee());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Check balances
         assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
@@ -172,7 +172,7 @@ contract Claim_Test is Base_Test {
         uint256 initialRecipientBalance = wETH.balanceOf(recipient);
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Check recipient received correct net amount
         assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
@@ -200,7 +200,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Should receive full amount with no fee
         assertEq(wETH.balanceOf(recipient), initialRecipientBalance + DISTRIBUTION_AMOUNT);
@@ -217,7 +217,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.SIGNATURE_EXPIRED);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_revert_invalidSignature() public {
@@ -246,7 +246,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.INVALID_SIGNATURE);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_revert_emptyDistributions() public {
@@ -256,7 +256,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_revert_batchLimitExceeded() public {
@@ -273,7 +273,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_revert_invalidDistributionId() public {
@@ -285,7 +285,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.INVALID_DISTRIBUTION_ID);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_revert_alreadyClaimed() public {
@@ -298,13 +298,13 @@ contract Claim_Test is Base_Test {
 
         // First claim should succeed
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Second claim should fail
         (uint8 v2, bytes32 r2, bytes32 s2) = _signClaim(distributionIds, recipient, deadline);
         expectRevert(Errors.ALREADY_CLAIMED);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v2, r2, s2);
+        escrow.claim(distributionIds, deadline, v2, r2, s2, "");
     }
 
     function test_claim_revert_invalidRecipient() public {
@@ -317,7 +317,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.INVALID_RECIPIENT);
         vm.prank(claimer); // But distribution is for recipient
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_revert_claimDeadlinePassed() public {
@@ -333,7 +333,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.CLAIM_DEADLINE_PASSED);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_fuzz_amounts(uint256 amount) public {
@@ -357,7 +357,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Check balances
         assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
@@ -379,13 +379,13 @@ contract Claim_Test is Base_Test {
         // First claim
         (uint8 v1, bytes32 r1, bytes32 s1) = _signClaim(distributionIds1, recipient, deadline);
         vm.prank(recipient);
-        escrow.claim(distributionIds1, deadline, v1, r1, s1);
+        escrow.claim(distributionIds1, deadline, v1, r1, s1, "");
         assertEq(escrow.recipientNonce(recipient), 1);
 
         // Second claim (nonce should be incremented)
         (uint8 v2, bytes32 r2, bytes32 s2) = _signClaim(distributionIds2, recipient, deadline);
         vm.prank(recipient);
-        escrow.claim(distributionIds2, deadline, v2, r2, s2);
+        escrow.claim(distributionIds2, deadline, v2, r2, s2, "");
         assertEq(escrow.recipientNonce(recipient), 2);
     }
 
@@ -402,7 +402,7 @@ contract Claim_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // All should be claimed
         for (uint i = 0; i < batchLimit; i++) {
@@ -439,7 +439,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Should use the ORIGINAL fee (10%) from creation time, not the new fee (2.5%)
         uint256 expectedFee = 10; // 10% of 100 wei
@@ -471,7 +471,7 @@ contract Claim_Test is Base_Test {
         uint256 initialRecipientBalance = wETH.balanceOf(recipient);
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Should use original 10% fee: 20 wei - 2 wei fee = 18 wei to recipient
         assertEq(wETH.balanceOf(recipient), initialRecipientBalance + 18);
@@ -507,7 +507,7 @@ contract Claim_Test is Base_Test {
             uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
             vm.prank(recipient);
-            escrow.claim(distributionIds, deadline, v, r, s);
+            escrow.claim(distributionIds, deadline, v, r, s, "");
 
             // Check balances
             assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
@@ -529,7 +529,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Should receive at least 1 wei after fees
         assertTrue(wETH.balanceOf(recipient) > initialRecipientBalance);
@@ -546,7 +546,7 @@ contract Claim_Test is Base_Test {
         initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Should handle large amounts without overflow
         assertTrue(wETH.balanceOf(recipient) > initialRecipientBalance);
@@ -576,7 +576,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Should use original 10% fee: 10 wei - 1 wei fee = 9 wei to recipient
         assertEq(wETH.balanceOf(recipient), initialRecipientBalance + 9);
@@ -601,7 +601,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Normal calculation: fee = mulDivUp(1000e18, 250, 10000) = 25e18
         uint256 expectedFee = 25e18;
@@ -638,7 +638,7 @@ contract Claim_Test is Base_Test {
         uint256 initialRecipientBalance = wETH.balanceOf(recipient);
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // First distribution: 1% fee = 10e18, net = 990e18
         // Second distribution: 10% fee = 5 wei, net = 45 wei
@@ -674,7 +674,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Calculate expected fee using the ORIGINAL fee rate at creation time
         uint256 calculatedFee;
@@ -720,7 +720,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Should use the ORIGINAL 1% fee, not the manipulated 10% fee
         uint256 expectedFee = 10e18; // 1% of 1000e18
@@ -764,7 +764,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.INVALID_SIGNATURE);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_signature_wrongRecipient() public {
@@ -793,7 +793,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.INVALID_SIGNATURE);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_signature_wrongDistributionIds() public {
@@ -813,7 +813,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.INVALID_SIGNATURE);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_signature_replayAttack() public {
@@ -831,17 +831,17 @@ contract Claim_Test is Base_Test {
         // First claim
         (uint8 v1, bytes32 r1, bytes32 s1) = _signClaim(distributionIds1, recipient, deadline);
         vm.prank(recipient);
-        escrow.claim(distributionIds1, deadline, v1, r1, s1);
+        escrow.claim(distributionIds1, deadline, v1, r1, s1, "");
 
         // Try to reuse signature for second claim (should fail due to nonce increment)
         expectRevert(Errors.INVALID_SIGNATURE);
         vm.prank(recipient);
-        escrow.claim(distributionIds2, deadline, v1, r1, s1);
+        escrow.claim(distributionIds2, deadline, v1, r1, s1, "");
 
         // Proper second claim should work
         (uint8 v2, bytes32 r2, bytes32 s2) = _signClaim(distributionIds2, recipient, deadline);
         vm.prank(recipient);
-        escrow.claim(distributionIds2, deadline, v2, r2, s2);
+        escrow.claim(distributionIds2, deadline, v2, r2, s2, "");
     }
 
     /* -------------------------------------------------------------------------- */
@@ -859,7 +859,7 @@ contract Claim_Test is Base_Test {
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v1, bytes32 r1, bytes32 s1) = _signClaim(singleDistribution, recipient, deadline);
         vm.prank(recipient);
-        escrow.claim(singleDistribution, deadline, v1, r1, s1);
+        escrow.claim(singleDistribution, deadline, v1, r1, s1, "");
 
         // Try to claim all three in batch (should fail because first is already claimed)
         uint[] memory allDistributions = new uint[](3);
@@ -870,7 +870,7 @@ contract Claim_Test is Base_Test {
         (uint8 v2, bytes32 r2, bytes32 s2) = _signClaim(allDistributions, recipient, deadline);
         expectRevert(Errors.ALREADY_CLAIMED);
         vm.prank(recipient);
-        escrow.claim(allDistributions, deadline, v2, r2, s2);
+        escrow.claim(allDistributions, deadline, v2, r2, s2, "");
 
         // Claim remaining two should work
         uint[] memory remainingDistributions = new uint[](2);
@@ -879,7 +879,7 @@ contract Claim_Test is Base_Test {
 
         (uint8 v3, bytes32 r3, bytes32 s3) = _signClaim(remainingDistributions, recipient, deadline);
         vm.prank(recipient);
-        escrow.claim(remainingDistributions, deadline, v3, r3, s3);
+        escrow.claim(remainingDistributions, deadline, v3, r3, s3, "");
     }
 
     function test_claim_batchOperations_mixedRecipients() public {
@@ -898,7 +898,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.INVALID_RECIPIENT);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_batchOperations_mixedDeadlines() public {
@@ -921,7 +921,7 @@ contract Claim_Test is Base_Test {
 
         expectRevert(Errors.CLAIM_DEADLINE_PASSED);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     /* -------------------------------------------------------------------------- */
@@ -953,7 +953,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
         assertEq(wETH.balanceOf(escrow.feeRecipient()), initialFeeRecipientBalance + expectedFee);
@@ -975,7 +975,7 @@ contract Claim_Test is Base_Test {
         // Old signature should fail
         expectRevert(Errors.INVALID_SIGNATURE);
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
     function test_claim_integration_afterFeeRecipientChange() public {
@@ -996,7 +996,7 @@ contract Claim_Test is Base_Test {
         uint256 expectedFee = (DISTRIBUTION_AMOUNT * escrow.fee()) / 10000;
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Fee should go to new recipient
         assertEq(wETH.balanceOf(newFeeRecipient), initialNewFeeRecipientBalance + expectedFee);
@@ -1025,7 +1025,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Check balances
         assertEq(wETH.balanceOf(recipient), initialRecipientBalance + expectedNetAmount);
@@ -1064,7 +1064,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.prank(recipient);
-        escrow.claim(distributionIds, deadline, v, r, s);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
 
         // Normal operation: fee = 2, recipient gets 9
         // The defensive fee capping logic is not triggered in this case
@@ -1102,5 +1102,5 @@ contract Claim_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     event Claimed(uint256 indexed distributionId, address indexed recipient, uint256 netAmount, uint256 fee);
-    event ClaimedBatch(uint256[] distributionIds, address indexed recipient, uint256 deadline);
+    event ClaimedBatch(uint256[] distributionIds, address indexed recipient, uint256 deadline, bytes data);
 } 
