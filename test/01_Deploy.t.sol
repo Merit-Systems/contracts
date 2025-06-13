@@ -278,7 +278,7 @@ contract Deploy_Test is Base_Test {
         assertEq(deployedEscrow.MAX_FEE(), 1000);
         
         // Verify type hashes
-        bytes32 expectedSetAdminTypehash = keccak256("SetAdmin(uint repoId,uint accountId,address[] admins,uint nonce,uint deadline)");
+        bytes32 expectedSetAdminTypehash = keccak256("SetAdmin(uint repoId,uint accountId,address[] admins,uint nonce,uint signatureDeadline)");
         bytes32 expectedClaimTypehash = keccak256("Claim(uint[] distributionIds,address recipient,uint nonce,uint deadline)");
         
         assertEq(deployedEscrow.SET_ADMIN_TYPEHASH(), expectedSetAdminTypehash);

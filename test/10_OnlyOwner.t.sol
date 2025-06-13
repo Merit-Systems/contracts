@@ -810,7 +810,7 @@ contract OnlyOwner_Test is Base_Test {
     function testFuzz_setBatchLimit_dynamicEffects(uint256 newLimit) public {
         newLimit = bound(newLimit, 1, 1000); // Reasonable range
         
-        uint256 previousLimit = escrow.batchLimit();
+        uint256 _previousLimit = escrow.batchLimit();
         
         vm.expectEmit(true, true, true, true);
         emit BatchLimitSet(newLimit);

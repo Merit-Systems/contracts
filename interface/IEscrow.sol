@@ -38,7 +38,6 @@ interface IEscrow {
     event ClaimedBatch(
         uint256[] distributionIds,
         address indexed recipient,
-        uint256 deadline,
         bytes data
     );
 
