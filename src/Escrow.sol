@@ -520,7 +520,7 @@ contract Escrow is Owned, IEscrow {
         for (uint i; i < admins.length; ++i) {
             address admin = admins[i];
             if (account.admins.remove(admin)) {
-                emit RemovedAdmin(repoId, admin, address(0));
+                emit RemovedAdmin(repoId, accountId, admin);
             }
         }
     }

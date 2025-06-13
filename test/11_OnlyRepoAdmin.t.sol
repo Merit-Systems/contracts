@@ -408,7 +408,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     event AddedAdmin(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
-    event RemovedAdmin(uint256 indexed repoId, address indexed oldAdmin, address indexed newAdmin);
+    event RemovedAdmin(uint256 indexed repoId, uint256 indexed accountId, address indexed oldAdmin);
     event AddedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
     event RemovedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
 
@@ -565,7 +565,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
         adminsToRemove[0] = repoAdmin;
 
         vm.expectEmit(true, true, true, true);
-        emit RemovedAdmin(REPO_ID, repoAdmin, address(0));
+        emit RemovedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin);
 
         vm.prank(newAdmin);
         escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
