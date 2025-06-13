@@ -260,8 +260,8 @@ contract Escrow is Owned, IEscrow {
     {
         require(_distributions.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
-        distributionIds          = new uint[](_distributions.length);
-        uint batchId = batchCount++;
+        distributionIds = new uint[](_distributions.length);
+        uint batchId    = batchCount++;
         
         for (uint i; i < _distributions.length; ++i) {
             DistributionParams calldata distribution = _distributions[i];
