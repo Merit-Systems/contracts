@@ -35,7 +35,7 @@ contract Deploy_Test is Base_Test {
         
         // The deployment script will emit these events for the BASE_USDC token
         vm.expectEmit(true, false, false, false);
-        emit TokenWhitelisted(Params.BASE_USDC);
+        emit WhitelistedToken(Params.BASE_USDC);
 
         Escrow deployedEscrow = deployScript.run();
 
@@ -66,10 +66,10 @@ contract Deploy_Test is Base_Test {
         uint256 batchLimit = 100;
 
         vm.expectEmit(true, false, false, false);
-        emit TokenWhitelisted(testToken1);
+        emit WhitelistedToken(testToken1);
         
         vm.expectEmit(true, false, false, false);
-        emit TokenWhitelisted(testToken2);
+        emit WhitelistedToken(testToken2);
 
         Escrow deployedEscrow = new Escrow(
             testOwner,
@@ -421,5 +421,5 @@ contract Deploy_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event TokenWhitelisted(address indexed token);
+    event WhitelistedToken(address indexed token);
 }

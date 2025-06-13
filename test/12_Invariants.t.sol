@@ -22,8 +22,8 @@ contract EscrowInvariants is StdInvariant, Base_Test {
         selectors[1] = EscrowHandler.distributeFromRepo.selector;
         selectors[2] = EscrowHandler.distributeFromSender.selector;
         selectors[3] = EscrowHandler.claim.selector;
-        selectors[4] = EscrowHandler.reclaimRepo.selector;
-        selectors[5] = EscrowHandler.reclaimSolo.selector;
+        selectors[4] = EscrowHandler.reclaimRepoDistributions.selector;
+        selectors[5] = EscrowHandler.reclaimSenderDistributions.selector;
         selectors[6] = EscrowHandler.addAdmin.selector;
         selectors[7] = EscrowHandler.removeAdmin.selector;
         
@@ -422,7 +422,7 @@ contract EscrowHandler is Test {
             escrow.setSigner(vm.addr(1)); // Set signer to match the private key
             vm.startPrank(actors[currentActor]);
             
-            escrow.claim(distributionIds, deadline, v, r, s);
+            escrow.claim(distributionIds, deadline, v, r, s, "");
             
             claimedDistributionIds.push(distributionId);
             claimTimestamps[distributionId] = block.timestamp;
@@ -439,7 +439,7 @@ contract EscrowHandler is Test {
         }
     }
     
-    function reclaimRepo(uint256 distributionSeed) public {
+    function reclaimRepoDistributions(uint256 distributionSeed) public {
         uint256 distributionCount = escrow.distributionCount();
         if (distributionCount == 0) return;
         
@@ -455,14 +455,14 @@ contract EscrowHandler is Test {
             uint256[] memory distributionIds = new uint256[](1);
             distributionIds[0] = distributionId;
             
-            escrow.reclaimRepo(distributionIds);
+            escrow.reclaimRepoDistributions(distributionIds, "");
             reclaimedDistributionIds.push(distributionId);
         } catch {
             return; // Skip invalid distributions
         }
     }
     
-    function reclaimSolo(uint256 distributionSeed, uint256 actorSeed) public useActor(actorSeed) {
+    function reclaimSenderDistributions(uint256 distributionSeed, uint256 actorSeed) public useActor(actorSeed) {
         uint256 distributionCount = escrow.distributionCount();
         if (distributionCount == 0) return;
         
@@ -479,7 +479,7 @@ contract EscrowHandler is Test {
             uint256[] memory distributionIds = new uint256[](1);
             distributionIds[0] = distributionId;
             
-            escrow.reclaimSolo(distributionIds);
+            escrow.reclaimSenderDistributions(distributionIds, "");
             reclaimedDistributionIds.push(distributionId);
         } catch {
             return; // Skip invalid distributions

@@ -41,12 +41,12 @@ contract Escrow is Owned, IEscrow {
     struct Distribution {
         uint               amount;
         ERC20              token;
+        address            payer;
         address            recipient;
         uint               claimDeadline; // unix seconds
+        uint               fee;           // fee rate at creation time (basis points)
         DistributionStatus status;        // Distributed → Claimed / Reclaimed
         DistributionType   _type;         // Repo or Solo
-        address            payer;
-        uint               fee;           // fee rate at creation time (basis points)
         bool               exists;
     }
 
@@ -130,7 +130,7 @@ contract Escrow is Owned, IEscrow {
 
         for (uint i; i < _whitelistedTokens.length; ++i) {
             require(whitelistedTokens.add(_whitelistedTokens[i]), Errors.TOKEN_ALREADY_WHITELISTED);
-            emit TokenWhitelisted(_whitelistedTokens[i]);
+            emit WhitelistedToken(_whitelistedTokens[i]);
         }
     }
 
@@ -196,7 +196,7 @@ contract Escrow is Owned, IEscrow {
 
         accounts[repoId][accountId].balance[address(token)] += amount;
 
-        emit Funded(repoId, address(token), msg.sender, amount, data);
+        emit FundedRepo(repoId, address(token), msg.sender, amount, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -238,7 +238,7 @@ contract Escrow is Owned, IEscrow {
             });
             account.hasDistributions = true;
 
-            emit DistributedRepo(
+            emit DistributedFromRepo(
                 distributionBatchId,
                 distributionId,
                 distribution.recipient,
@@ -247,7 +247,7 @@ contract Escrow is Owned, IEscrow {
                 block.timestamp + distribution.claimPeriod
             );
         } 
-        emit DistributedRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
+        emit DistributedFromRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
     }
 
     ///
@@ -269,7 +269,8 @@ contract Escrow is Owned, IEscrow {
             uint distributionId = _createDistribution(distribution, DistributionType.Solo);
             distributionIds[i]  = distributionId;
 
-            emit DistributedSolo(
+            emit DistributedFromSender(
+                distributionBatchId,
                 distributionId,
                 msg.sender,
                 distribution.recipient,
@@ -278,7 +279,7 @@ contract Escrow is Owned, IEscrow {
                 block.timestamp + distribution.claimPeriod
             );
         } 
-        emit DistributedSoloBatch(distributionBatchId, distributionIds, data);
+        emit DistributedFromSenderBatch(distributionBatchId, distributionIds, data);
     }
 
     ///
@@ -317,11 +318,12 @@ contract Escrow is Owned, IEscrow {
     /*                                   CLAIM                                    */
     /* -------------------------------------------------------------------------- */
     function claim(
-        uint[] memory distributionIds,
-        uint256       deadline,
-        uint8         v,
-        bytes32       r,
-        bytes32       s
+        uint[] memory  distributionIds,
+        uint256        deadline,
+        uint8          v,
+        bytes32        r,
+        bytes32        s,
+        bytes calldata data
     ) external {
         require(block.timestamp <= deadline,          Errors.SIGNATURE_EXPIRED);
         require(distributionIds.length > 0,           Errors.INVALID_AMOUNT);
@@ -367,13 +369,13 @@ contract Escrow is Owned, IEscrow {
             
             emit Claimed(distributionId, msg.sender, netAmount, distribution.fee);
         }
-        emit ClaimedBatch(distributionIds, msg.sender, deadline);
+        emit ClaimedBatch(distributionIds, msg.sender, deadline, data);
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                                RECLAIM FUND                                */
+    /*                                RECLAIM FUNDS                                */
     /* -------------------------------------------------------------------------- */
-    function reclaimFund(
+    function reclaimRepoFunds(
         uint    repoId,
         uint    accountId,
         address token,
@@ -392,13 +394,16 @@ contract Escrow is Owned, IEscrow {
         accounts[repoId][accountId].balance[token] = balance - amount;
         ERC20(token).safeTransfer(msg.sender, amount);
         
-        emit ReclaimedFund(repoId, msg.sender, amount);
+        emit ReclaimedRepoFunds(repoId, msg.sender, amount);
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               RECLAIM REPO                                 */
+    /*                               RECLAIM REPO DISTRIBUTIONS                   */
     /* -------------------------------------------------------------------------- */
-    function reclaimRepo(uint[] calldata distributionIds) external {
+    function reclaimRepoDistributions(
+        uint[] calldata distributionIds,
+        bytes  calldata data
+    ) external {
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
         for (uint i; i < distributionIds.length; ++i) {
@@ -415,15 +420,18 @@ contract Escrow is Owned, IEscrow {
             RepoAccount memory repoAccount = distributionToRepo[distributionId];
             accounts[repoAccount.repoId][repoAccount.accountId].balance[address(distribution.token)] += distribution.amount;
             
-            emit ReclaimedRepo(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
+            emit ReclaimedRepoDistribution(repoAccount.repoId, distributionId, msg.sender, distribution.amount);
         }
-        emit ReclaimedRepoBatch(distributionIds);
+        emit ReclaimedRepoDistributionsBatch(distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               RECLAIM SOLO                                 */
+    /*                               RECLAIM SENDER DISTRIBUTIONS                 */
     /* -------------------------------------------------------------------------- */
-    function reclaimSolo(uint[] calldata distributionIds) external {
+    function reclaimSenderDistributions(
+        uint[] calldata distributionIds,
+        bytes  calldata data
+    ) external {
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
         for (uint i; i < distributionIds.length; ++i) {
@@ -438,20 +446,20 @@ contract Escrow is Owned, IEscrow {
             distribution.status = DistributionStatus.Reclaimed;
             distribution.token.safeTransfer(distribution.payer, distribution.amount);
             
-            emit ReclaimedSolo(distributionId, distribution.payer, distribution.amount);
+            emit ReclaimedSenderDistribution(distributionId, distribution.payer, distribution.amount);
         }
-        emit ReclaimedSoloBatch(distributionIds);
+        emit ReclaimedSenderDistributionsBatch(distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */
     /*                              ONLY OWNER                                    */
     /* -------------------------------------------------------------------------- */
-    function addWhitelistedToken(address token) 
+    function whitelistToken(address token) 
         external 
         onlyOwner 
     {
         require(whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
-        emit TokenWhitelisted(token);
+        emit WhitelistedToken(token);
     }
 
     function setFee(uint newFee) 
@@ -459,21 +467,27 @@ contract Escrow is Owned, IEscrow {
         onlyOwner 
     {
         require(newFee <= MAX_FEE, Errors.INVALID_FEE);
+        uint oldFee = fee;
         fee = newFee;
+        emit FeeSet(oldFee, newFee);
     }
 
     function setFeeRecipient(address newRec) 
         external 
         onlyOwner 
     {
+        address oldRecipient = feeRecipient;
         feeRecipient = newRec;
+        emit FeeRecipientSet(oldRecipient, newRec);
     }
 
     function setSigner(address newSigner) 
         external 
         onlyOwner 
     {
+        address oldSigner = signer;
         signer = newSigner;
+        emit SignerSet(oldSigner, newSigner);
     }
 
     function setBatchLimit(uint newBatchLimit) 
@@ -520,7 +534,7 @@ contract Escrow is Owned, IEscrow {
         for (uint i; i < admins.length; ++i) {
             address admin = admins[i];
             if (account.admins.remove(admin)) {
-                emit RemovedAdmin(repoId, admin, address(0));
+                emit RemovedAdmin(repoId, accountId, admin);
             }
         }
     }

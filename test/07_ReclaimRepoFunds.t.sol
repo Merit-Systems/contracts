@@ -78,10 +78,10 @@ contract ReclaimFund_Test is Base_Test {
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
 
         vm.expectEmit(true, true, true, true);
-        emit ReclaimedFund(REPO_ID, repoAdmin, reclaimAmount);
+        emit ReclaimedRepoFunds(REPO_ID, repoAdmin, reclaimAmount);
 
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
 
         // Check balances
         assertEq(wETH.balanceOf(repoAdmin), initialAdminBalance + reclaimAmount);
@@ -92,7 +92,7 @@ contract ReclaimFund_Test is Base_Test {
         _fundRepo(FUND_AMOUNT);
 
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
 
         // Should be able to reclaim all funds
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), 0);
@@ -106,7 +106,7 @@ contract ReclaimFund_Test is Base_Test {
         uint256 expectedRemainingBalance = FUND_AMOUNT - reclaimAmount;
 
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
 
         // Should have partial amount remaining
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), expectedRemainingBalance);
@@ -121,11 +121,11 @@ contract ReclaimFund_Test is Base_Test {
         
         // First reclaim
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), firstReclaim);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), firstReclaim);
         
         // Second reclaim
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), secondReclaim);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), secondReclaim);
         
         uint256 expectedBalance = FUND_AMOUNT - firstReclaim - secondReclaim;
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), expectedBalance);
@@ -165,10 +165,10 @@ contract ReclaimFund_Test is Base_Test {
         
         // Reclaim from both repos
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
         
         vm.prank(admin2);
-        escrow.reclaimFund(repoId2, accountId2, address(wETH), FUND_AMOUNT);
+        escrow.reclaimRepoFunds(repoId2, accountId2, address(wETH), FUND_AMOUNT);
         
         // Check balances
         assertEq(wETH.balanceOf(repoAdmin), FUND_AMOUNT);
@@ -181,7 +181,7 @@ contract ReclaimFund_Test is Base_Test {
         address unauthorized = makeAddr("unauthorized");
         expectRevert(Errors.NOT_REPO_ADMIN);
         vm.prank(unauthorized);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
     }
 
     function test_reclaimFund_revert_invalidToken() public {
@@ -191,7 +191,7 @@ contract ReclaimFund_Test is Base_Test {
 
         expectRevert(Errors.INVALID_TOKEN);
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(nonWhitelistedToken), FUND_AMOUNT);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(nonWhitelistedToken), FUND_AMOUNT);
     }
 
     function test_reclaimFund_revert_zeroAmount() public {
@@ -199,7 +199,7 @@ contract ReclaimFund_Test is Base_Test {
 
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), 0);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), 0);
     }
 
     function test_reclaimFund_revert_repoHasDistributions() public {
@@ -210,7 +210,7 @@ contract ReclaimFund_Test is Base_Test {
 
         expectRevert(Errors.REPO_HAS_DISTRIBUTIONS);
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
     }
 
     function test_reclaimFund_revert_insufficientBalance() public {
@@ -218,7 +218,7 @@ contract ReclaimFund_Test is Base_Test {
 
         expectRevert(Errors.INSUFFICIENT_BALANCE);
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT + 1);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT + 1);
     }
 
     function test_reclaimFund_revert_noFundsToReclaim() public {
@@ -226,7 +226,7 @@ contract ReclaimFund_Test is Base_Test {
         
         expectRevert(Errors.INSUFFICIENT_BALANCE);
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), 1);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), 1);
     }
 
     function test_reclaimFund_revert_afterFullReclaim() public {
@@ -234,12 +234,12 @@ contract ReclaimFund_Test is Base_Test {
         
         // Reclaim all funds first
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
         
         // Try to reclaim again
         expectRevert(Errors.INSUFFICIENT_BALANCE);
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), 1);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), 1);
     }
 
     function test_reclaimFund_fuzz_amounts(uint256 fundAmount, uint256 reclaimAmount) public {
@@ -252,7 +252,7 @@ contract ReclaimFund_Test is Base_Test {
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
         
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
         
         assertEq(wETH.balanceOf(repoAdmin), initialAdminBalance + reclaimAmount);
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance - reclaimAmount);
@@ -266,7 +266,7 @@ contract ReclaimFund_Test is Base_Test {
         
         expectRevert(Errors.INSUFFICIENT_BALANCE);
         vm.prank(repoAdmin);
-        escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
     }
 
     function test_reclaimFund_fuzz_repoAndAccountIds(uint256 repoId, uint256 accountId, uint256 amount) public {
@@ -305,7 +305,7 @@ contract ReclaimFund_Test is Base_Test {
         
         // Reclaim funds
         vm.prank(admin);
-        escrow.reclaimFund(repoId, accountId, address(wETH), amount);
+        escrow.reclaimRepoFunds(repoId, accountId, address(wETH), amount);
         
         assertEq(wETH.balanceOf(admin), initialAdminBalance + amount);
         assertEq(escrow.getAccountBalance(repoId, accountId, address(wETH)), 0);
@@ -323,7 +323,7 @@ contract ReclaimFund_Test is Base_Test {
         
         for (uint i = 0; i < numReclaims; i++) {
             vm.prank(repoAdmin);
-            escrow.reclaimFund(REPO_ID, ACCOUNT_ID, address(wETH), baseAmount);
+            escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), baseAmount);
             totalReclaimed += baseAmount;
         }
         
@@ -335,7 +335,7 @@ contract ReclaimFund_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event ReclaimedFund(uint256 indexed repoId, address indexed admin, uint256 amount);
+    event ReclaimedRepoFunds(uint256 indexed repoId, address indexed admin, uint256 amount);
 
     function _toArray(address addr) internal pure returns (address[] memory) {
         address[] memory arr = new address[](1);
