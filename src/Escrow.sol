@@ -270,6 +270,7 @@ contract Escrow is Owned, IEscrow {
             distributionIds[i]  = distributionId;
 
             emit DistributedFromSender(
+                distributionBatchId,
                 distributionId,
                 msg.sender,
                 distribution.recipient,

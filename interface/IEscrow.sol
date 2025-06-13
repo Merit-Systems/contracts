@@ -58,9 +58,10 @@ interface IEscrow {
     );
 
     event DistributedFromSender(
+        uint256 indexed distributionBatchId,
         uint256 indexed distributionId,
         address indexed payer,
-        address indexed recipient,
+        address recipient,
         address token,
         uint256 amount,
         uint256 claimDeadline
