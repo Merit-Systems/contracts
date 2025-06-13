@@ -278,8 +278,8 @@ contract DistributeFromSender_Test is Base_Test {
         });
 
         uint[] memory expectedDistributionIds = new uint[](2);
-        expectedDistributionIds[0] = escrow.distributionCount();
-        expectedDistributionIds[1] = escrow.distributionCount() + 1;
+        expectedDistributionIds[0] = escrow.itemCount();
+        expectedDistributionIds[1] = escrow.itemCount() + 1;
 
         vm.expectEmit(true, true, true, true);
         emit DistributedFromSenderBatch(0, expectedDistributionIds, "");
@@ -289,7 +289,7 @@ contract DistributeFromSender_Test is Base_Test {
     }
 
     function test_distributeFromSender_distributionCounter() public {
-        uint256 initialCount = escrow.distributionCount();
+        uint256 initialCount = escrow.itemCount();
 
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](3);
         for (uint i = 0; i < 3; i++) {
@@ -304,14 +304,14 @@ contract DistributeFromSender_Test is Base_Test {
         vm.prank(distributor);
         uint[] memory distributionIds = escrow.distributeFromSender(distributions, "");
 
-        assertEq(escrow.distributionCount(), initialCount + 3);
+        assertEq(escrow.itemCount(), initialCount + 3);
         assertEq(distributionIds[0], initialCount);
         assertEq(distributionIds[1], initialCount + 1);
         assertEq(distributionIds[2], initialCount + 2);
     }
 
     function test_distributeFromSender_batchCounter() public {
-        uint256 initialBatchCount = escrow.distributionBatchCount();
+        uint256 initialBatchCount = escrow.batchCount();
 
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
@@ -324,7 +324,7 @@ contract DistributeFromSender_Test is Base_Test {
         vm.prank(distributor);
         escrow.distributeFromSender(distributions, "");
 
-        assertEq(escrow.distributionBatchCount(), initialBatchCount + 1);
+        assertEq(escrow.batchCount(), initialBatchCount + 1);
     }
 
     function test_distributeFromSender_fuzz_amounts(uint256 amount1, uint256 amount2) public {

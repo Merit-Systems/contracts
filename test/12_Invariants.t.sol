@@ -76,7 +76,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev All distributions should be in valid states and amounts should be consistent
     function invariant_distributionStateConsistency() public view {
-        uint256 distributionCount = escrow.distributionCount();
+        uint256 distributionCount = escrow.itemCount();
         uint256 claimedAmount = 0;
         uint256 reclaimedAmount = 0;
         uint256 distributedAmount = 0;
@@ -216,7 +216,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev Only whitelisted tokens should be used in distributions
     function invariant_onlyWhitelistedTokensUsed() public view {
-        uint256 distributionCount = escrow.distributionCount();
+        uint256 distributionCount = escrow.itemCount();
         
         for (uint256 i = 0; i < distributionCount; i++) {
             Escrow.Distribution memory dist = escrow.getDistribution(i);
@@ -277,7 +277,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev Fee calculation precision: fees should never cause loss of funds
     function invariant_feeCalculationPrecision() public view {
-        uint256 distributionCount = escrow.distributionCount();
+        uint256 distributionCount = escrow.itemCount();
         
         for (uint256 i = 0; i < distributionCount; i++) {
             try escrow.getDistribution(i) returns (Escrow.Distribution memory dist) {
@@ -307,7 +307,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev Distribution ID monotonicity: distribution IDs should always increase
     function invariant_distributionIdMonotonicity() public view {
-        uint256 currentCount = escrow.distributionCount();
+        uint256 currentCount = escrow.itemCount();
         uint256 expectedMinCount = handler.getMinExpectedDistributionCount();
         
         assertGe(
@@ -319,7 +319,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev Batch count consistency: distribution batches should be properly tracked
     function invariant_batchCountConsistency() public view {
-        uint256 currentBatchCount = escrow.distributionBatchCount();
+        uint256 currentBatchCount = escrow.batchCount();
         uint256 expectedMinBatchCount = handler.getMinExpectedBatchCount();
         
         assertGe(
@@ -331,7 +331,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev Claim period validation: all distributions should have reasonable claim periods
     function invariant_claimPeriodReasonableness() public view {
-        uint256 distributionCount = escrow.distributionCount();
+        uint256 distributionCount = escrow.itemCount();
         
         for (uint256 i = 0; i < distributionCount; i++) {
             try escrow.getDistribution(i) returns (Escrow.Distribution memory dist) {
@@ -389,7 +389,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev Distribution type consistency: repo vs solo distributions should be properly categorized
     function invariant_distributionTypeConsistency() public view {
-        uint256 distributionCount = escrow.distributionCount();
+        uint256 distributionCount = escrow.itemCount();
         
         for (uint256 i = 0; i < distributionCount; i++) {
             try escrow.getDistribution(i) returns (Escrow.Distribution memory dist) {
@@ -576,7 +576,7 @@ contract EscrowHandler is Test {
     }
     
     function claim(uint256 distributionSeed, uint256 actorSeed) public useActor(actorSeed) {
-        uint256 distributionCount = escrow.distributionCount();
+        uint256 distributionCount = escrow.itemCount();
         if (distributionCount == 0) return;
         
         uint256 distributionId = bound(distributionSeed, 0, distributionCount - 1);
@@ -631,7 +631,7 @@ contract EscrowHandler is Test {
     }
     
     function reclaimRepoDistributions(uint256 distributionSeed) public {
-        uint256 distributionCount = escrow.distributionCount();
+        uint256 distributionCount = escrow.itemCount();
         if (distributionCount == 0) return;
         
         uint256 distributionId = bound(distributionSeed, 0, distributionCount - 1);
@@ -659,7 +659,7 @@ contract EscrowHandler is Test {
     }
     
     function reclaimSenderDistributions(uint256 distributionSeed, uint256 actorSeed) public useActor(actorSeed) {
-        uint256 distributionCount = escrow.distributionCount();
+        uint256 distributionCount = escrow.itemCount();
         if (distributionCount == 0) return;
         
         uint256 distributionId = bound(distributionSeed, 0, distributionCount - 1);
@@ -738,7 +738,7 @@ contract EscrowHandler is Test {
     }
     
     function getTotalUndistributedAmounts() public view returns (uint256 total) {
-        uint256 distributionCount = escrow.distributionCount();
+        uint256 distributionCount = escrow.itemCount();
         
         for (uint256 i = 0; i < distributionCount; i++) {
             try escrow.getDistribution(i) returns (Escrow.Distribution memory dist) {

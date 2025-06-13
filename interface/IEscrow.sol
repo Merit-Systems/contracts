@@ -12,7 +12,7 @@ interface IEscrow {
     );
 
     event DistributedFromRepo(
-        uint256 indexed distributionBatchId,
+        uint256 indexed batchId,
         uint256 indexed distributionId,
         address indexed recipient,
         address token,
@@ -21,7 +21,7 @@ interface IEscrow {
     );
 
     event DistributedFromRepoBatch(
-        uint256 indexed distributionBatchId,
+        uint256 indexed batchId,
         uint256 indexed repoId,
         uint256 indexed accountId,
         uint256[] distributionIds,
@@ -29,6 +29,7 @@ interface IEscrow {
     );
 
     event Claimed(
+        uint256 indexed batchId,
         uint256 indexed distributionId,
         address indexed recipient,
         uint256 amount,
@@ -36,6 +37,7 @@ interface IEscrow {
     );
 
     event ClaimedBatch(
+        uint256 indexed batchId,
         uint256[] distributionIds,
         address indexed recipient,
         bytes data
@@ -49,14 +51,14 @@ interface IEscrow {
     );
 
     event ReclaimedRepoDistribution(
-        uint256 indexed distributionBatchId,
+        uint256 indexed batchId,
         uint256 indexed distributionId,
         address indexed admin,
         uint256 amount
     );
 
     event ReclaimedRepoDistributionsBatch(
-        uint256 indexed distributionBatchId,
+        uint256 indexed batchId,
         uint256 indexed repoId,
         uint256 indexed accountId,
         uint256[] distributionIds,
@@ -64,7 +66,7 @@ interface IEscrow {
     );
 
     event DistributedFromSender(
-        uint256 indexed distributionBatchId,
+        uint256 indexed batchId,
         uint256 indexed distributionId,
         address indexed payer,
         address recipient,
@@ -74,18 +76,20 @@ interface IEscrow {
     );
 
     event ReclaimedSenderDistributionsBatch(
+        uint256 indexed batchId,
         uint256[] distributionIds,
         bytes data
     );
 
     event ReclaimedSenderDistribution(
+        uint256 indexed batchId,
         uint256 indexed distributionId,
         address indexed payer,
         uint256 amount
     );
 
     event DistributedFromSenderBatch(
-        uint256 indexed distributionBatchId,
+        uint256 indexed batchId,
         uint256[] distributionIds,
         bytes data
     );

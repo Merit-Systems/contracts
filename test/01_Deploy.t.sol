@@ -46,8 +46,8 @@ contract Deploy_Test is Base_Test {
         assertEq(deployedEscrow.fee(), Params.BASE_FEE_BPS);
         assertEq(deployedEscrow.batchLimit(), Params.BATCH_LIMIT);
         assertEq(deployedEscrow.ownerNonce(), 0);
-        assertEq(deployedEscrow.distributionBatchCount(), 0);
-        assertEq(deployedEscrow.distributionCount(), 0);
+        assertEq(deployedEscrow.batchCount(), 0);
+        assertEq(deployedEscrow.itemCount(), 0);
 
         // Verify BASE_USDC was whitelisted
         assertTrue(deployedEscrow.isTokenWhitelisted(Params.BASE_USDC));
@@ -86,8 +86,8 @@ contract Deploy_Test is Base_Test {
         assertEq(deployedEscrow.fee(), feeBps);
         assertEq(deployedEscrow.batchLimit(), batchLimit);
         assertEq(deployedEscrow.ownerNonce(), 0);
-        assertEq(deployedEscrow.distributionBatchCount(), 0);
-        assertEq(deployedEscrow.distributionCount(), 0);
+        assertEq(deployedEscrow.batchCount(), 0);
+        assertEq(deployedEscrow.itemCount(), 0);
 
         // Verify tokens were whitelisted
         assertTrue(deployedEscrow.isTokenWhitelisted(testToken1));

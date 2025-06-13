@@ -151,10 +151,10 @@ contract ReclaimRepo_Test is Base_Test {
 
         // Expect the updated event with distributionBatchId
         vm.expectEmit(true, true, true, true);
-        emit ReclaimedRepoDistribution(escrow.distributionBatchCount(), distributionId, address(this), DISTRIBUTION_AMOUNT);
+        emit ReclaimedRepoDistribution(escrow.batchCount(), distributionId, address(this), DISTRIBUTION_AMOUNT);
 
         vm.expectEmit(true, true, true, true);
-        emit ReclaimedRepoDistributionsBatch(escrow.distributionBatchCount(), REPO_ID, ACCOUNT_ID, distributionIds, "");
+        emit ReclaimedRepoDistributionsBatch(escrow.batchCount(), REPO_ID, ACCOUNT_ID, distributionIds, "");
 
         escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
 
@@ -345,15 +345,15 @@ contract ReclaimRepo_Test is Base_Test {
         uint[] memory distributionIds2 = new uint[](1);
         distributionIds2[0] = distributionId2;
 
-        uint256 initialBatchCount = escrow.distributionBatchCount();
+        uint256 initialBatchCount = escrow.batchCount();
 
         // First reclaim
         escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds1, "");
-        assertEq(escrow.distributionBatchCount(), initialBatchCount + 1);
+        assertEq(escrow.batchCount(), initialBatchCount + 1);
 
         // Second reclaim
         escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds2, "");
-        assertEq(escrow.distributionBatchCount(), initialBatchCount + 2);
+        assertEq(escrow.batchCount(), initialBatchCount + 2);
     }
 
     function test_reclaimToRepo_revert_batchLimitExceeded() public {
