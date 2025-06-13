@@ -23,71 +23,80 @@ contract OnlyOwner_Test is Base_Test {
     /*                           ADD WHITELISTED TOKEN TESTS                      */
     /* -------------------------------------------------------------------------- */
 
-    function test_addWhitelistedToken_success() public {
+    function test_whitelistToken_success() public {
         assertFalse(escrow.isTokenWhitelisted(newToken));
 
-        vm.expectEmit(true, false, false, false);
-        emit TokenWhitelisted(newToken);
+        vm.expectEmit(true, true, true, true);
+        emit WhitelistedToken(newToken);
 
         vm.prank(owner);
-        escrow.addWhitelistedToken(newToken);
+        escrow.whitelistToken(newToken);
 
         assertTrue(escrow.isTokenWhitelisted(newToken));
-        
-        // Check it's in the list
-        address[] memory tokens = escrow.getAllWhitelistedTokens();
-        bool found = false;
-        for (uint i = 0; i < tokens.length; i++) {
-            if (tokens[i] == newToken) {
-                found = true;
-                break;
-            }
-        }
-        assertTrue(found);
     }
 
-    function test_addWhitelistedToken_multiple() public {
-        address token1 = address(new MockERC20("Token1", "T1", 18));
-        address token2 = address(new MockERC20("Token2", "T2", 18));
-        address token3 = address(new MockERC20("Token3", "T3", 18));
+    function test_whitelistToken_multiple() public {
+        address token1 = makeAddr("token1");
+        address token2 = makeAddr("token2");
+        address token3 = makeAddr("token3");
 
+        vm.expectEmit(true, true, true, true);
+        emit WhitelistedToken(token1);
         vm.prank(owner);
-        escrow.addWhitelistedToken(token1);
+        escrow.whitelistToken(token1);
 
+        vm.expectEmit(true, true, true, true);
+        emit WhitelistedToken(token2);
         vm.prank(owner);
-        escrow.addWhitelistedToken(token2);
+        escrow.whitelistToken(token2);
 
+        vm.expectEmit(true, true, true, true);
+        emit WhitelistedToken(token3);
         vm.prank(owner);
-        escrow.addWhitelistedToken(token3);
+        escrow.whitelistToken(token3);
 
         assertTrue(escrow.isTokenWhitelisted(token1));
         assertTrue(escrow.isTokenWhitelisted(token2));
         assertTrue(escrow.isTokenWhitelisted(token3));
-
-        address[] memory tokens = escrow.getAllWhitelistedTokens();
-        assertEq(tokens.length, 4); // 3 new + 1 from setup (wETH)
     }
 
-    function test_addWhitelistedToken_revert_notOwner() public {
-        expectRevert("UNAUTHORIZED");
+    function test_whitelistToken_revert_notOwner() public {
         vm.prank(unauthorized);
-        escrow.addWhitelistedToken(newToken);
+        expectRevert("UNAUTHORIZED");
+        escrow.whitelistToken(newToken);
     }
 
-    function test_addWhitelistedToken_revert_alreadyWhitelisted() public {
+    function test_whitelistToken_revert_alreadyWhitelisted() public {
         vm.prank(owner);
-        escrow.addWhitelistedToken(newToken);
-
+        escrow.whitelistToken(newToken);
+        
+        vm.prank(owner);
         expectRevert(Errors.TOKEN_ALREADY_WHITELISTED);
-        vm.prank(owner);
-        escrow.addWhitelistedToken(newToken);
+        escrow.whitelistToken(newToken);
     }
 
-    function test_addWhitelistedToken_revert_alreadyWhitelistedFromSetup() public {
-        // wETH is already whitelisted in setup
-        expectRevert(Errors.TOKEN_ALREADY_WHITELISTED);
+    function test_whitelistToken_revert_alreadyWhitelistedFromSetup() public {
         vm.prank(owner);
-        escrow.addWhitelistedToken(address(wETH));
+        expectRevert(Errors.TOKEN_ALREADY_WHITELISTED);
+        escrow.whitelistToken(address(wETH));
+    }
+
+    function test_whitelistToken_fuzz_multipleTokens(uint8 numTokens) public {
+        vm.assume(numTokens > 0 && numTokens <= 50); // Reasonable limit to avoid gas issues
+        address[] memory initialTokens = escrow.getAllWhitelistedTokens();
+        uint256 initialCount = initialTokens.length;
+        for (uint i = 0; i < numTokens; i++) {
+            address token = address(new MockERC20(
+                string(abi.encodePacked("Token", i)),
+                string(abi.encodePacked("TK", i)),
+                18
+            ));
+            vm.prank(owner);
+            escrow.whitelistToken(token);
+            assertTrue(escrow.isTokenWhitelisted(token));
+        }
+        address[] memory finalTokens = escrow.getAllWhitelistedTokens();
+        assertEq(finalTokens.length, initialCount + numTokens);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -143,6 +152,14 @@ contract OnlyOwner_Test is Base_Test {
         assertEq(escrow.fee(), fee);
     }
 
+    function test_setFee_emitsEvent() public {
+        uint256 newFee = 500; // 5%
+        vm.expectEmit(true, true, true, true);
+        emit FeeSet(escrow.fee(), newFee);
+        vm.prank(owner);
+        escrow.setFee(newFee);
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                           SET FEE RECIPIENT TESTS                          */
     /* -------------------------------------------------------------------------- */
@@ -180,6 +197,14 @@ contract OnlyOwner_Test is Base_Test {
         escrow.setFeeRecipient(newRecipient);
     }
 
+    function test_setFeeRecipient_emitsEvent() public {
+        address differentRecipient = makeAddr("differentRecipient");
+        vm.expectEmit(true, true, true, true);
+        emit FeeRecipientSet(escrow.feeRecipient(), differentRecipient);
+        vm.prank(owner);
+        escrow.setFeeRecipient(differentRecipient);
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                             SET SIGNER TESTS                               */
     /* -------------------------------------------------------------------------- */
@@ -213,6 +238,14 @@ contract OnlyOwner_Test is Base_Test {
         expectRevert("UNAUTHORIZED");
         vm.prank(unauthorized);
         escrow.setSigner(newSigner);
+    }
+
+    function test_setSigner_emitsEvent() public {
+        address differentSigner = makeAddr("differentSigner");
+        vm.expectEmit(true, true, true, true);
+        emit SignerSet(escrow.signer(), differentSigner);
+        vm.prank(owner);
+        escrow.setSigner(differentSigner);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -303,7 +336,7 @@ contract OnlyOwner_Test is Base_Test {
             ));
             
             vm.prank(owner);
-            escrow.addWhitelistedToken(token);
+            escrow.whitelistToken(token);
             
             assertTrue(escrow.isTokenWhitelisted(token));
         }
@@ -376,27 +409,16 @@ contract OnlyOwner_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     function test_onlyOwner_multipleChanges() public {
-        // Change multiple settings in sequence
         address token1 = address(new MockERC20("Test1", "T1", 18));
         address token2 = address(new MockERC20("Test2", "T2", 18));
-
         vm.startPrank(owner);
-        
-        // Add tokens
-        escrow.addWhitelistedToken(token1);
-        escrow.addWhitelistedToken(token2);
-        
-        // Change fee settings
+        escrow.whitelistToken(token1);
+        escrow.whitelistToken(token2);
         escrow.setFee(750);
         escrow.setFeeRecipient(newRecipient);
-        
-        // Change operational settings
         escrow.setSigner(newSigner);
         escrow.setBatchLimit(25);
-        
         vm.stopPrank();
-
-        // Verify all changes
         assertTrue(escrow.isTokenWhitelisted(token1));
         assertTrue(escrow.isTokenWhitelisted(token2));
         assertEq(escrow.fee(), 750);
@@ -436,7 +458,7 @@ contract OnlyOwner_Test is Base_Test {
 
             expectRevert("UNAUTHORIZED");
             vm.prank(user);
-            escrow.addWhitelistedToken(newToken);
+            escrow.whitelistToken(newToken);
 
             expectRevert("UNAUTHORIZED");
             vm.prank(user);
@@ -460,9 +482,11 @@ contract OnlyOwner_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event TokenWhitelisted(address indexed token);
+    event WhitelistedToken(address indexed token);
+    event FeeSet(uint256 oldFee, uint256 newFee);
+    event FeeRecipientSet(address indexed oldRecipient, address indexed newRecipient);
+    event SignerSet(address indexed oldSigner, address indexed newSigner);
     event BatchLimitSet(uint256 newBatchLimit);
-    event SignerSet(address oldSigner, address newSigner);
 
     /* -------------------------------------------------------------------------- */
     /*                        FEE SNAPSHOT INTERACTION TESTS                      */

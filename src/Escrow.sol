@@ -130,7 +130,7 @@ contract Escrow is Owned, IEscrow {
 
         for (uint i; i < _whitelistedTokens.length; ++i) {
             require(whitelistedTokens.add(_whitelistedTokens[i]), Errors.TOKEN_ALREADY_WHITELISTED);
-            emit TokenWhitelisted(_whitelistedTokens[i]);
+            emit WhitelistedToken(_whitelistedTokens[i]);
         }
     }
 
@@ -196,7 +196,7 @@ contract Escrow is Owned, IEscrow {
 
         accounts[repoId][accountId].balance[address(token)] += amount;
 
-        emit Funded(repoId, address(token), msg.sender, amount, data);
+        emit FundedRepo(repoId, address(token), msg.sender, amount, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -446,12 +446,12 @@ contract Escrow is Owned, IEscrow {
     /* -------------------------------------------------------------------------- */
     /*                              ONLY OWNER                                    */
     /* -------------------------------------------------------------------------- */
-    function addWhitelistedToken(address token) 
+    function whitelistToken(address token) 
         external 
         onlyOwner 
     {
         require(whitelistedTokens.add(token), Errors.TOKEN_ALREADY_WHITELISTED);
-        emit TokenWhitelisted(token);
+        emit WhitelistedToken(token);
     }
 
     function setFee(uint newFee) 
@@ -459,21 +459,27 @@ contract Escrow is Owned, IEscrow {
         onlyOwner 
     {
         require(newFee <= MAX_FEE, Errors.INVALID_FEE);
+        uint oldFee = fee;
         fee = newFee;
+        emit FeeSet(oldFee, newFee);
     }
 
     function setFeeRecipient(address newRec) 
         external 
         onlyOwner 
     {
+        address oldRecipient = feeRecipient;
         feeRecipient = newRec;
+        emit FeeRecipientSet(oldRecipient, newRec);
     }
 
     function setSigner(address newSigner) 
         external 
         onlyOwner 
     {
+        address oldSigner = signer;
         signer = newSigner;
+        emit SignerSet(oldSigner, newSigner);
     }
 
     function setBatchLimit(uint newBatchLimit) 
