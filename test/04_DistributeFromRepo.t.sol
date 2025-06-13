@@ -418,7 +418,7 @@ contract DistributeFromRepo_Test is Base_Test {
     }
 
     function test_distributeFromRepo_batchCounter() public {
-        uint256 initialBatchCount = escrow.distributionBatchCount();
+        uint256 initialBatchCount = escrow.batchCount();
 
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
@@ -431,7 +431,7 @@ contract DistributeFromRepo_Test is Base_Test {
         vm.prank(repoAdmin);
         escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
 
-        assertEq(escrow.distributionBatchCount(), initialBatchCount + 1);
+        assertEq(escrow.batchCount(), initialBatchCount + 1);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -1055,7 +1055,7 @@ contract DistributeFromRepo_Test is Base_Test {
     }
 
     /// @dev Test distribution with different token types and edge cases
-    function testFuzz_distributeFromRepo_tokenEdgeCases(uint256 tokenSeed) public {
+    function testFuzz_distributeFromRepo_tokenEdgeCases(uint256 /* tokenSeed */) public {
         // For now, we only test with whitelisted tokens since that's what the contract accepts
         // In a real scenario, you might want to test with different ERC20 tokens
         

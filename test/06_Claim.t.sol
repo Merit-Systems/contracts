@@ -131,7 +131,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.expectEmit(true, true, true, true);
-        emit Claimed(distributionId, recipient, expectedNetAmount, escrow.fee());
+        emit Claimed(escrow.batchCount(), distributionId, recipient, expectedNetAmount, escrow.fee());
 
         vm.prank(recipient);
         escrow.claim(distributionIds, deadline, v, r, s, "");
@@ -1101,8 +1101,8 @@ contract Claim_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event Claimed(uint256 indexed distributionId, address indexed recipient, uint256 netAmount, uint256 fee);
-    event ClaimedBatch(uint256[] distributionIds, address indexed recipient, uint256 deadline, bytes data);
+    event Claimed(uint256 indexed batchId, uint256 indexed distributionId, address indexed recipient, uint256 amount, uint256 fee);
+    event ClaimedBatch(uint256 indexed batchId, uint256[] distributionIds, address indexed recipient, bytes data);
 
     /* -------------------------------------------------------------------------- */
     /*                          ADVANCED FUZZ TESTS                               */

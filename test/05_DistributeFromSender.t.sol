@@ -311,7 +311,7 @@ contract DistributeFromSender_Test is Base_Test {
     }
 
     function test_distributeFromSender_batchCounter() public {
-        uint256 initialBatchCount = escrow.distributionBatchCount();
+        uint256 initialBatchCount = escrow.batchCount();
 
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
@@ -324,7 +324,7 @@ contract DistributeFromSender_Test is Base_Test {
         vm.prank(distributor);
         escrow.distributeFromSender(distributions, "");
 
-        assertEq(escrow.distributionBatchCount(), initialBatchCount + 1);
+        assertEq(escrow.batchCount(), initialBatchCount + 1);
     }
 
     function test_distributeFromSender_fuzz_amounts(uint256 amount1, uint256 amount2) public {

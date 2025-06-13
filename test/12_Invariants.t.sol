@@ -319,7 +319,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev Batch count consistency: distribution batches should be properly tracked
     function invariant_batchCountConsistency() public view {
-        uint256 currentBatchCount = escrow.distributionBatchCount();
+        uint256 currentBatchCount = escrow.batchCount();
         uint256 expectedMinBatchCount = handler.getMinExpectedBatchCount();
         
         assertGe(

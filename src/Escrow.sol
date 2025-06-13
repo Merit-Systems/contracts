@@ -92,7 +92,7 @@ contract Escrow is Owned, IEscrow {
 
     address public signer;
 
-    uint public distributionBatchCount;
+    uint public batchCount;
     uint public distributionCount;
 
     /* -------------------------------------------------------------------------- */
@@ -219,8 +219,8 @@ contract Escrow is Owned, IEscrow {
         bool isDistributor = account.distributors.contains(msg.sender);
         require(isAdmin || isDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
         
-        distributionIds          = new uint[](_distributions.length);
-        uint distributionBatchId = distributionBatchCount++;
+        distributionIds = new uint[](_distributions.length);
+        uint batchId    = batchCount++;
 
         for (uint i; i < _distributions.length; ++i) {
             DistributionParams calldata distribution = _distributions[i];
@@ -239,7 +239,7 @@ contract Escrow is Owned, IEscrow {
             account.hasDistributions = true;
 
             emit DistributedFromRepo(
-                distributionBatchId,
+                batchId,
                 distributionId,
                 distribution.recipient,
                 address(distribution.token),
@@ -247,7 +247,7 @@ contract Escrow is Owned, IEscrow {
                 block.timestamp + distribution.claimPeriod
             );
         } 
-        emit DistributedFromRepoBatch(distributionBatchId, repoId, accountId, distributionIds, data);
+        emit DistributedFromRepoBatch(batchId, repoId, accountId, distributionIds, data);
     }
 
     ///
@@ -260,8 +260,8 @@ contract Escrow is Owned, IEscrow {
     {
         require(_distributions.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
-        distributionIds          = new uint[](_distributions.length);
-        uint distributionBatchId = distributionBatchCount++;
+        distributionIds = new uint[](_distributions.length);
+        uint batchId    = batchCount++;
         
         for (uint i; i < _distributions.length; ++i) {
             DistributionParams calldata distribution = _distributions[i];
@@ -270,7 +270,7 @@ contract Escrow is Owned, IEscrow {
             distributionIds[i]  = distributionId;
 
             emit DistributedFromSender(
-                distributionBatchId,
+                batchId,
                 distributionId,
                 msg.sender,
                 distribution.recipient,
@@ -279,7 +279,7 @@ contract Escrow is Owned, IEscrow {
                 block.timestamp + distribution.claimPeriod
             );
         } 
-        emit DistributedFromSenderBatch(distributionBatchId, distributionIds, data);
+        emit DistributedFromSenderBatch(batchId, distributionIds, data);
     }
 
     ///
@@ -329,6 +329,8 @@ contract Escrow is Owned, IEscrow {
         require(distributionIds.length >  0,                 Errors.INVALID_AMOUNT);
         require(distributionIds.length <= batchLimit,        Errors.BATCH_LIMIT_EXCEEDED);
 
+        uint batchId = batchCount++;
+
         require(ECDSA.recover(
             keccak256(
                 abi.encodePacked(
@@ -367,9 +369,9 @@ contract Escrow is Owned, IEscrow {
             if (feeAmount > 0) distribution.token.safeTransfer(feeRecipient, feeAmount);
             distribution.token.safeTransfer(msg.sender, netAmount);
             
-            emit Claimed(distributionId, msg.sender, netAmount, distribution.fee);
+            emit Claimed(batchId, distributionId, msg.sender, netAmount, distribution.fee);
         }
-        emit ClaimedBatch(distributionIds, msg.sender, data);
+        emit ClaimedBatch(batchId, distributionIds, msg.sender, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -408,7 +410,7 @@ contract Escrow is Owned, IEscrow {
     ) external {
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
 
-        uint distributionBatchId = distributionBatchCount++;
+        uint batchId = batchCount++;
         
         for (uint i; i < distributionIds.length; ++i) {
             uint distributionId = distributionIds[i];
@@ -425,9 +427,9 @@ contract Escrow is Owned, IEscrow {
             
             accounts[repoAccount.repoId][repoAccount.accountId].balance[address(distribution.token)] += distribution.amount;
             
-            emit ReclaimedRepoDistribution(distributionBatchId, distributionId, msg.sender, distribution.amount);
+            emit ReclaimedRepoDistribution(batchId, distributionId, msg.sender, distribution.amount);
         }
-        emit ReclaimedRepoDistributionsBatch(distributionBatchId, repoId, accountId, distributionIds, data);
+        emit ReclaimedRepoDistributionsBatch(batchId, repoId, accountId, distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -438,6 +440,8 @@ contract Escrow is Owned, IEscrow {
         bytes  calldata data
     ) external {
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
+
+        uint batchId = batchCount++;
         
         for (uint i; i < distributionIds.length; ++i) {
             uint                 distributionId = distributionIds[i];
@@ -451,9 +455,9 @@ contract Escrow is Owned, IEscrow {
             distribution.status = DistributionStatus.Reclaimed;
             distribution.token.safeTransfer(distribution.payer, distribution.amount);
             
-            emit ReclaimedSenderDistribution(distributionId, distribution.payer, distribution.amount);
+            emit ReclaimedSenderDistribution(batchId, distributionId, distribution.payer, distribution.amount);
         }
-        emit ReclaimedSenderDistributionsBatch(distributionIds, data);
+        emit ReclaimedSenderDistributionsBatch(batchId, distributionIds, data);
     }
 
     /* -------------------------------------------------------------------------- */
