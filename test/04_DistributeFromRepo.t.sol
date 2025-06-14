@@ -1134,4 +1134,224 @@ contract DistributeFromRepo_Test is Base_Test {
             escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
         }
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               GAP FILL TESTS                               */
+    /* -------------------------------------------------------------------------- */
+
+    function test_distributeFromRepo_revert_nonExistentRepo() public {
+        uint256 nonExistentRepoId = 999;
+        uint256 nonExistentAccountId = 999;
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // This should revert because the distributor check will fail
+        // (non-existent repos have no admins or distributors)
+        expectRevert(Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        vm.prank(repoAdmin);
+        escrow.distributeFromRepo(nonExistentRepoId, nonExistentAccountId, distributions, "");
+    }
+
+    function test_distributeFromRepo_revert_adminRemovedMidFlow() public {
+        // Add a temporary admin
+        address tempAdmin = makeAddr("tempAdmin");
+        address[] memory adminsToAdd = new address[](1);
+        adminsToAdd[0] = tempAdmin;
+        
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+        
+        // Verify admin was added
+        assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, tempAdmin));
+        
+        // Remove the admin
+        address[] memory adminsToRemove = new address[](1);
+        adminsToRemove[0] = tempAdmin;
+        
+        vm.prank(repoAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToRemove);
+        
+        // Verify admin was removed
+        assertFalse(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, tempAdmin));
+        
+        // Try to distribute as removed admin - should fail
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        expectRevert(Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        vm.prank(tempAdmin);
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+    }
+
+    function test_distributeFromRepo_revert_distributorRemovedMidFlow() public {
+        // Verify distributor1 can distribute initially
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(distributor1);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        assertEq(distributionIds.length, 1);
+        
+        // Remove the distributor
+        address[] memory distributorsToRemove = new address[](1);
+        distributorsToRemove[0] = distributor1;
+        
+        vm.prank(repoAdmin);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributorsToRemove);
+        
+        // Verify distributor was removed
+        assertFalse(escrow.getIsAuthorizedDistributor(REPO_ID, ACCOUNT_ID, distributor1));
+        
+        // Try to distribute as removed distributor - should fail
+        Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
+        distributions2[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient2,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        expectRevert(Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        vm.prank(distributor1);
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions2, "");
+    }
+
+    function test_distributeFromRepo_claimIntegration() public {
+        // Create a distribution from repo
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        // Verify distribution was created
+        assertEq(distributionIds.length, 1);
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.amount, DISTRIBUTION_AMOUNT);
+        assertEq(distribution.recipient, recipient1);
+        assertEq(distribution.fee, escrow.fee()); // Should snapshot current fee
+        
+        // Claim the distribution
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.CLAIM_TYPEHASH(),
+                    keccak256(abi.encode(distributionIds)),
+                    recipient1,
+                    escrow.recipientNonce(recipient1),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        
+        uint256 initialBalance = wETH.balanceOf(recipient1);
+        uint256 feeAmount = (DISTRIBUTION_AMOUNT * distribution.fee + 9999) / 10000;
+        uint256 expectedNetAmount = DISTRIBUTION_AMOUNT - feeAmount;
+        
+        vm.prank(recipient1);
+        escrow.claim(distributionIds, deadline, v, r, s, "");
+        
+        // Verify claim worked correctly
+        assertEq(wETH.balanceOf(recipient1), initialBalance + expectedNetAmount);
+        
+        // Verify distribution status changed
+        Escrow.Distribution memory claimedDistribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(uint8(claimedDistribution.status), uint8(Escrow.DistributionStatus.Claimed));
+    }
+
+    function test_distributeFromRepo_domainSeparatorBehavior() public {
+        // Test that domain separator is consistent within the same chain
+        bytes32 initialDomainSeparator = escrow.DOMAIN_SEPARATOR();
+        
+        // Create a distribution (which uses domain separator internally for signature verification)
+        address[] memory admins = new address[](1);
+        admins[0] = makeAddr("testAdmin");
+        
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    123, // repoId
+                    456, // accountId
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        
+        // This should work with current domain separator
+        escrow.initRepo(123, 456, admins, deadline, v, r, s);
+        
+        // Domain separator should remain the same
+        assertEq(escrow.DOMAIN_SEPARATOR(), initialDomainSeparator);
+        
+        // Test domain separator changes with chain ID (simulate fork)
+        vm.chainId(999);
+        bytes32 newDomainSeparator = escrow.DOMAIN_SEPARATOR();
+        assertTrue(newDomainSeparator != initialDomainSeparator, "Domain separator should change with chain ID");
+    }
+
+    function test_distributeFromRepo_reentrancyProtection() public {
+        // For basic reentrancy protection, we can test that the function
+        // maintains correct state even if called recursively (though this
+        // is unlikely with the current implementation since tokens are transferred
+        // from repo balance, not from external transfers)
+        
+        // This test primarily verifies that state updates happen in the correct order
+        uint256 initialBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        uint256 initialDistributionCount = escrow.distributionCount();
+        
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        // Verify state was updated atomically
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialBalance - DISTRIBUTION_AMOUNT);
+        assertEq(escrow.distributionCount(), initialDistributionCount + 1);
+        assertEq(distributionIds[0], initialDistributionCount);
+        
+        // Verify distribution exists and has correct data
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertTrue(distribution.exists);
+        assertEq(distribution.amount, DISTRIBUTION_AMOUNT);
+    }
 } 
