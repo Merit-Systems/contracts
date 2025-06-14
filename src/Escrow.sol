@@ -294,7 +294,6 @@ contract Escrow is Owned, IEscrow {
     {
         require(distribution.recipient  != address(0),                   Errors.INVALID_ADDRESS);
         require(distribution.amount      > 0,                            Errors.INVALID_AMOUNT);
-        require(distribution.claimPeriod > 0,                            Errors.INVALID_CLAIM_PERIOD);
         require(whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
 
         // Validate that after fees, recipient will receive at least 1 wei
@@ -422,7 +421,7 @@ contract Escrow is Owned, IEscrow {
             require(distribution.exists,                                                Errors.INVALID_DISTRIBUTION_ID);
             require(distribution._type  == DistributionType.Repo,                       Errors.NOT_REPO_DISTRIBUTION);
             require(distribution.status == DistributionStatus.Distributed,              Errors.ALREADY_CLAIMED);
-            require(block.timestamp      > distribution.claimDeadline,                  Errors.STILL_CLAIMABLE);
+            require(block.timestamp     >= distribution.claimDeadline,                  Errors.STILL_CLAIMABLE);
             require(repoAccount.repoId == repoId && repoAccount.accountId == accountId, Errors.DISTRIBUTION_NOT_FROM_REPO);
 
             distribution.status = DistributionStatus.Reclaimed;
@@ -452,7 +451,7 @@ contract Escrow is Owned, IEscrow {
             require(distribution.exists,                                   Errors.INVALID_DISTRIBUTION_ID);
             require(distribution._type  == DistributionType.Solo,          Errors.NOT_DIRECT_DISTRIBUTION);
             require(distribution.status == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
-            require(block.timestamp     >  distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
+            require(block.timestamp     >= distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
             
             distribution.status = DistributionStatus.Reclaimed;
             distribution.token.safeTransfer(distribution.payer, distribution.amount);

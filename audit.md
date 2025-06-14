@@ -3,6 +3,7 @@ Notes for Auditors
 - Accepted ERC-20 Types: wETH, USDC
 - Chains: Base
 - Addresses can only claim if whitelisted by us with the signature
+- Instant reclaimability is intentional
 - All functions are mostly called by smart wallets (privy)
 - Anyone claiming/reclaiming distributions is acceptable behavior for us
 - Distributors remain authorized even after admin changes (by design)
