@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
+import {console} from "forge-std/console.sol";
 
 import {Escrow} from "../src/Escrow.sol";
 import {IEscrow} from "../interface/IEscrow.sol";
@@ -47,6 +48,10 @@ contract DeployAnvil is Script {
             FEE_BPS,
             BATCH_LIMIT
         );
+
+        console.log("--------------------------------");
+        console.log("Escrow deployed at", address(escrow));
+        console.log("--------------------------------");
         
         vm.stopBroadcast();
         
