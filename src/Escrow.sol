@@ -177,6 +177,8 @@ contract Escrow is Owned, IEscrow {
             account.admins.add(admins[i]);
             emit AddedAdmin(repoId, accountId, address(0), admins[i]);
         }
+        
+        emit InitializedRepo(repoId, accountId, admins);
     }
 
     /* -------------------------------------------------------------------------- */

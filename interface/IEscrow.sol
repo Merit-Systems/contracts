@@ -2,12 +2,26 @@
 pragma solidity ^0.8.26;
 
 interface IEscrow {
+    event InitializedRepo(
+        uint256 indexed repoId,
+        uint256 indexed accountId,
+        address[] admins
+    );
+
     event FundedRepo(
         uint256 indexed repoId,
         uint256 indexed accountId,
         address indexed token,
         address sender,
         uint256 amount,
+        bytes data
+    );
+
+    event DistributedFromRepoBatch(
+        uint256 indexed batchId,
+        uint256 indexed repoId,
+        uint256 indexed accountId,
+        uint256[] distributionIds,
         bytes data
     );
 
@@ -20,47 +34,8 @@ interface IEscrow {
         uint256 claimDeadline
     );
 
-    event DistributedFromRepoBatch(
+    event DistributedFromSenderBatch(
         uint256 indexed batchId,
-        uint256 indexed repoId,
-        uint256 indexed accountId,
-        uint256[] distributionIds,
-        bytes data
-    );
-
-    event Claimed(
-        uint256 indexed batchId,
-        uint256 indexed distributionId,
-        address indexed recipient,
-        uint256 amount,
-        uint256 fee
-    );
-
-    event ClaimedBatch(
-        uint256 indexed batchId,
-        uint256[] distributionIds,
-        address indexed recipient,
-        bytes data
-    );
-
-    event ReclaimedRepoFunds(
-        uint256 indexed repoId,
-        uint256 indexed accountId,
-        address indexed admin,
-        uint256 amount
-    );
-
-    event ReclaimedRepoDistribution(
-        uint256 indexed batchId,
-        uint256 indexed distributionId,
-        address indexed admin,
-        uint256 amount
-    );
-
-    event ReclaimedRepoDistributionsBatch(
-        uint256 indexed batchId,
-        uint256 indexed repoId,
-        uint256 indexed accountId,
         uint256[] distributionIds,
         bytes data
     );
@@ -75,6 +50,44 @@ interface IEscrow {
         uint256 claimDeadline
     );
 
+    event ClaimedBatch(
+        uint256 indexed batchId,
+        uint256[] distributionIds,
+        address indexed recipient,
+        bytes data
+    );
+
+    event Claimed(
+        uint256 indexed batchId,
+        uint256 indexed distributionId,
+        address indexed recipient,
+        uint256 amount,
+        uint256 fee
+    );
+
+    event ReclaimedRepoFunds(
+        uint256 indexed repoId,
+        uint256 indexed accountId,
+        address indexed admin,
+        uint256 amount
+    );
+
+    event ReclaimedRepoDistributionsBatch(
+        uint256 indexed batchId,
+        uint256 indexed repoId,
+        uint256 indexed accountId,
+        uint256[] distributionIds,
+        bytes data
+    );
+
+    event ReclaimedRepoDistribution(
+        uint256 indexed batchId,
+        uint256 indexed distributionId,
+        address indexed admin,
+        uint256 amount
+    );
+
+
     event ReclaimedSenderDistributionsBatch(
         uint256 indexed batchId,
         uint256[] distributionIds,
@@ -88,11 +101,6 @@ interface IEscrow {
         uint256 amount
     );
 
-    event DistributedFromSenderBatch(
-        uint256 indexed batchId,
-        uint256[] distributionIds,
-        bytes data
-    );
 
     event AddedAdmin(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
     event RemovedAdmin(uint256 indexed repoId, uint256 indexed accountId, address indexed oldAdmin);
