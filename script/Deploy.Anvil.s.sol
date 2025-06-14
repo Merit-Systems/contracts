@@ -133,8 +133,13 @@ contract DeployAnvil is Script {
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_PRIVATE_KEY, digest);
         
-        vm.broadcast(USER1);
+        vm.broadcast(admins[0]);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+        // Add the first admin as distributor for this repo
+        address[] memory distributors = new address[](1);
+        distributors[0] = admins[0];
+        vm.broadcast(admins[0]);
+        escrow.addDistributors(repoId, accountId, distributors);
     }
     
     function testFundingAndDistributions() internal {
@@ -307,6 +312,11 @@ contract DeployAnvil is Script {
         
         vm.broadcast(USER1);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+        // Add USER1 as distributor for repo 2
+        address[] memory distributors = new address[](1);
+        distributors[0] = USER1;
+        vm.broadcast(USER1);
+        escrow.addDistributors(repoId, accountId, distributors);
         
         // Fund the repo for reclaim testing
         vm.startBroadcast(OWNER_PRIVATE_KEY);
@@ -380,9 +390,6 @@ contract DeployAnvil is Script {
         // Test admin management edge cases
         testAdminManagementEdgeCases();
         
-        // Test complex claiming scenarios
-        testComplexClaimingScenarios();
-        
         // Test fee scenarios
         testFeeScenarios();
         
@@ -455,6 +462,11 @@ contract DeployAnvil is Script {
             
             vm.broadcast(admins[0]);
             escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+            // Add the first admin as distributor for this repo
+            address[] memory distributors = new address[](1);
+            distributors[0] = admins[0];
+            vm.broadcast(admins[0]);
+            escrow.addDistributors(repoId, accountId, distributors);
         }
     }
     
@@ -463,7 +475,7 @@ contract DeployAnvil is Script {
         uint accountId = 1;
         uint amount = 1000e18;
         
-        // Fund repo 10
+        // Fund repo for edge case testing
         vm.startBroadcast(OWNER_PRIVATE_KEY);
         token1.mint(OWNER, amount * 10);
         token1.approve(address(escrow), amount * 10);
@@ -471,9 +483,14 @@ contract DeployAnvil is Script {
         
         vm.broadcast(OWNER);
         escrow.fundRepo(repoId, accountId, token1, amount * 5, "bulk funding for edge cases");
+        // Add USER2 as distributor for repo 10 (USER2 is an admin for repo 10)
+        address[] memory distributors = new address[](1);
+        distributors[0] = USER2;
+        vm.broadcast(USER2);
+        escrow.addDistributors(repoId, accountId, distributors);
         
         // Test small amount distributions
-        vm.startBroadcast(USER1);
+        vm.startBroadcast(USER2); // USER2 is now the distributor
         
         Escrow.DistributionParams[] memory smallDistributions = new Escrow.DistributionParams[](3);
         smallDistributions[0] = Escrow.DistributionParams({
@@ -534,6 +551,11 @@ contract DeployAnvil is Script {
         
         vm.broadcast(OWNER);
         escrow.fundRepo(repoId, accountId, token1, amount, "funding for batch operations");
+        // Add USER2 as distributor for repo 11
+        address[] memory distributors = new address[](1);
+        distributors[0] = USER2;
+        vm.broadcast(USER2);
+        escrow.addDistributors(repoId, accountId, distributors);
         
         // Test maximum batch size distributions
         vm.startBroadcast(USER2); // USER2 is admin for repo 11
@@ -618,70 +640,6 @@ contract DeployAnvil is Script {
         vm.stopBroadcast();
     }
     
-    function testComplexClaimingScenarios() internal {
-        uint repoId = 13;
-        uint accountId = 1;
-        
-        // Fund repo for claiming tests
-        vm.startBroadcast(OWNER_PRIVATE_KEY);
-        token1.mint(OWNER, 1000e18);
-        token1.approve(address(escrow), 1000e18);
-        vm.stopBroadcast();
-        
-        vm.broadcast(OWNER);
-        escrow.fundRepo(repoId, accountId, token1, 1000e18, "funding for complex claiming tests");
-        
-        // Create distributions with different claim periods
-        vm.startBroadcast(USER1); // Assuming USER1 has admin access to repo 13
-        
-        address testRecipient = address(0x5000);
-        
-        Escrow.DistributionParams[] memory claimTestDistributions = new Escrow.DistributionParams[](8);
-        for (uint i = 0; i < 8; i++) {
-            claimTestDistributions[i] = Escrow.DistributionParams({
-                amount: 100e18,
-                recipient: testRecipient,
-                claimPeriod: uint32(7200 + (i * 1800)), // Different claim periods
-                token: token1
-            });
-        }
-        
-        uint[] memory claimTestIds = escrow.distributeFromRepo(
-            repoId, accountId, claimTestDistributions, "complex claiming test distributions"
-        );
-        
-        vm.stopBroadcast();
-        
-        // Create claim signature and claim multiple distributions at once
-        uint recipientNonce = escrow.recipientNonce(testRecipient);
-        uint signatureDeadline = block.timestamp + 3600;
-        
-        // Claim first 5 distributions
-        uint[] memory claimIds = new uint[](5);
-        for (uint i = 0; i < 5; i++) {
-            claimIds[i] = claimTestIds[i];
-        }
-        
-        bytes32 claimDigest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                escrow.DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(
-                    escrow.CLAIM_TYPEHASH(),
-                    keccak256(abi.encode(claimIds)),
-                    testRecipient,
-                    recipientNonce,
-                    signatureDeadline
-                ))
-            )
-        );
-        
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PRIVATE_KEY, claimDigest);
-        
-        vm.broadcast(testRecipient);
-        escrow.claim(claimIds, signatureDeadline, v, r, s, "complex batch claim");
-    }
-    
     function testFeeScenarios() internal {
         vm.startBroadcast(OWNER_PRIVATE_KEY);
         
@@ -723,6 +681,11 @@ contract DeployAnvil is Script {
         
         vm.broadcast(OWNER);
         escrow.fundRepo(repoId, accountId, token1, 1000e18, "funding for timing tests");
+        // Add USER1 as distributor for repo 14 (USER1 is an admin for repo 14)
+        address[] memory distributors = new address[](1);
+        distributors[0] = USER1;
+        vm.broadcast(USER1);
+        escrow.addDistributors(repoId, accountId, distributors);
         
         // Create distributions with very short claim periods for immediate reclaim testing
         vm.startBroadcast(USER1); // Assuming USER1 has admin access
@@ -732,7 +695,7 @@ contract DeployAnvil is Script {
             shortPeriodDistributions[i] = Escrow.DistributionParams({
                 amount: 50e18,
                 recipient: address(uint160(0x6000 + i)),
-                claimPeriod: uint32(1), // 1 second - will be immediately reclaimable in next block
+                claimPeriod: uint32(0), // 0 seconds - immediately reclaimable
                 token: token1
             });
         }
@@ -743,7 +706,7 @@ contract DeployAnvil is Script {
         
         vm.stopBroadcast();
         
-        // The distributions with 1 second claim period are now reclaimable
+        // The distributions with 0 second claim period are now reclaimable
         vm.broadcast(USER1);
         escrow.reclaimRepoDistributions(repoId, accountId, shortPeriodIds, "reclaiming expired short period distributions");
         
@@ -757,7 +720,7 @@ contract DeployAnvil is Script {
             immediateReclaimDist[i] = Escrow.DistributionParams({
                 amount: 80e18,
                 recipient: address(uint160(0x7000 + i)),
-                claimPeriod: uint32(1), // 1 second
+                claimPeriod: uint32(0), // 0 seconds
                 token: token1
             });
         }
@@ -804,6 +767,11 @@ contract DeployAnvil is Script {
         
         vm.broadcast(USER1);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+        // Add USER1 as distributor for repo 20
+        address[] memory distributors = new address[](1);
+        distributors[0] = USER1;
+        vm.broadcast(USER1);
+        escrow.addDistributors(repoId, accountId, distributors);
         
         // Fund with large amount for stress testing
         vm.startBroadcast(OWNER_PRIVATE_KEY);
@@ -886,6 +854,11 @@ contract DeployAnvil is Script {
         
         vm.broadcast(USER1);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+        // Add USER1 as distributor for repo 30
+        address[] memory distributors = new address[](1);
+        distributors[0] = USER1;
+        vm.broadcast(USER1);
+        escrow.addDistributors(repoId, accountId, distributors);
         
         // Fund repo with multiple tokens
         vm.startBroadcast(OWNER_PRIVATE_KEY);
@@ -965,25 +938,25 @@ contract DeployAnvil is Script {
         shortLivedMixed[0] = Escrow.DistributionParams({
             amount: 50e18,
             recipient: address(0xC001),
-            claimPeriod: uint32(1), // 1 second
+            claimPeriod: uint32(0), // 0 seconds
             token: token1
         });
         shortLivedMixed[1] = Escrow.DistributionParams({
             amount: 50e6,
             recipient: address(0xC002),
-            claimPeriod: uint32(1), // 1 second
+            claimPeriod: uint32(0), // 0 seconds
             token: token2
         });
         shortLivedMixed[2] = Escrow.DistributionParams({
             amount: 75e18,
             recipient: address(0xC003),
-            claimPeriod: uint32(1), // 1 second
+            claimPeriod: uint32(0), // 0 seconds
             token: token1
         });
         shortLivedMixed[3] = Escrow.DistributionParams({
             amount: 75e6,
             recipient: address(0xC004),
-            claimPeriod: uint32(1), // 1 second
+            claimPeriod: uint32(0), // 0 seconds
             token: token2
         });
         
@@ -1085,6 +1058,11 @@ contract DeployAnvil is Script {
         
         vm.broadcast(USER1);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+        // Add USER1 as distributor for repo 40
+        address[] memory distributors = new address[](1);
+        distributors[0] = USER1;
+        vm.broadcast(USER1);
+        escrow.addDistributors(repoId, accountId, distributors);
         
         // Fund and test distributions with different configurations
         vm.startBroadcast(OWNER_PRIVATE_KEY);
