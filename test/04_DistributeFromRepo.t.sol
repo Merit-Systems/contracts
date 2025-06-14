@@ -255,18 +255,26 @@ contract DistributeFromRepo_Test is Base_Test {
         escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
-    function test_distributeFromRepo_revert_zeroClaimPeriod() public {
+    function test_distributeFromRepo_success_zeroClaimPeriod() public {
+        // Test that zero claim period works for instant reclaimability
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
             amount: DISTRIBUTION_AMOUNT,
             recipient: recipient1,
-            claimPeriod: 0,
+            claimPeriod: 0, // Instant reclaimability
             token: wETH
         });
 
-        expectRevert(Errors.INVALID_CLAIM_PERIOD);
         vm.prank(repoAdmin);
-        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        // Verify the distribution was created successfully
+        assertEq(distributionIds.length, 1);
+        
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
+        assertEq(distribution.amount, DISTRIBUTION_AMOUNT);
+        assertEq(distribution.recipient, recipient1);
+        assertEq(distribution.claimDeadline, block.timestamp); // Should equal current timestamp for instant reclaimability
     }
 
     function test_distributeFromRepo_revert_insufficientBalanceNonWhitelistedToken() public {
@@ -378,7 +386,7 @@ contract DistributeFromRepo_Test is Base_Test {
     }
 
     function test_distributeFromRepo_fuzz_claimPeriods(uint32 claimPeriod) public {
-        vm.assume(claimPeriod > 0 && claimPeriod <= 365 days);
+        vm.assume(claimPeriod <= 365 days); // Now allows 0 for instant reclaimability
 
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
