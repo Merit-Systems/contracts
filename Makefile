@@ -74,7 +74,8 @@ deploy-anvil:
 		--fork-url http://localhost:8545 \
 		--broadcast \
 		--unlocked \
-		-vvvv
+		-vvvv \
+		--via-ir
 
 # ---------------------------------------------------------------------------
 # Testing Targets
