@@ -46,6 +46,8 @@ contract InitRepo_Test is Base_Test {
 
         vm.expectEmit(true, true, true, true);
         emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), repoAdmin);
+        vm.expectEmit(true, true, false, true);
+        emit InitializedRepo(REPO_ID, ACCOUNT_ID, admins);
 
         escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
 
@@ -94,6 +96,8 @@ contract InitRepo_Test is Base_Test {
         emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin2);
         vm.expectEmit(true, true, true, true);
         emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin3);
+        vm.expectEmit(true, true, false, true);
+        emit InitializedRepo(REPO_ID, ACCOUNT_ID, admins);
 
         escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
 
@@ -444,6 +448,8 @@ contract InitRepo_Test is Base_Test {
         // Only one event should be emitted since EnumerableSet handles duplicates
         vm.expectEmit(true, true, true, true);
         emit AddedAdmin(REPO_ID, ACCOUNT_ID, address(0), admin1);
+        vm.expectEmit(true, true, false, true);
+        emit InitializedRepo(REPO_ID, ACCOUNT_ID, admins);
 
         escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
 
@@ -1318,8 +1324,203 @@ contract InitRepo_Test is Base_Test {
     }
 
     /* -------------------------------------------------------------------------- */
+    /*                          INITIALIZED REPO EVENT TESTS                     */
+    /* -------------------------------------------------------------------------- */
+
+    function test_initRepo_emitsInitializedRepoEvent_singleAdmin() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+        
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    signatureDeadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        // Expect InitializedRepo event to be emitted
+        vm.expectEmit(true, true, false, true);
+        emit InitializedRepo(REPO_ID, ACCOUNT_ID, admins);
+
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
+    }
+
+    function test_initRepo_emitsInitializedRepoEvent_multipleAdmins() public {
+        address admin1 = makeAddr("admin1");
+        address admin2 = makeAddr("admin2");
+        address admin3 = makeAddr("admin3");
+        
+        address[] memory admins = new address[](3);
+        admins[0] = admin1;
+        admins[1] = admin2;
+        admins[2] = admin3;
+        
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    signatureDeadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        // Expect InitializedRepo event to be emitted with all admins
+        vm.expectEmit(true, true, false, true);
+        emit InitializedRepo(REPO_ID, ACCOUNT_ID, admins);
+
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
+    }
+
+    function test_initRepo_emitsInitializedRepoEvent_differentRepoIds() public {
+        address admin1 = makeAddr("admin1");
+        address admin2 = makeAddr("admin2");
+        
+        address[] memory admins1 = new address[](1);
+        admins1[0] = admin1;
+        address[] memory admins2 = new address[](1);
+        admins2[0] = admin2;
+
+        // Test first repo
+        uint256 signatureDeadline1 = block.timestamp + 1 hours;
+        bytes32 digest1 = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    1,
+                    100,
+                    keccak256(abi.encode(admins1)),
+                    escrow.ownerNonce(),
+                    signatureDeadline1
+                ))
+            )
+        );
+        
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(ownerPrivateKey, digest1);
+
+        vm.expectEmit(true, true, false, true);
+        emit InitializedRepo(1, 100, admins1);
+        escrow.initRepo(1, 100, admins1, signatureDeadline1, v1, r1, s1);
+
+        // Test second repo
+        uint256 signatureDeadline2 = block.timestamp + 1 hours;
+        bytes32 digest2 = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    2,
+                    200,
+                    keccak256(abi.encode(admins2)),
+                    escrow.ownerNonce(),
+                    signatureDeadline2
+                ))
+            )
+        );
+        
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(ownerPrivateKey, digest2);
+
+        vm.expectEmit(true, true, false, true);
+        emit InitializedRepo(2, 200, admins2);
+        escrow.initRepo(2, 200, admins2, signatureDeadline2, v2, r2, s2);
+    }
+
+    function test_initRepo_emitsInitializedRepoEvent_maximumAdmins() public {
+        uint256 batchLimit = escrow.batchLimit();
+        address[] memory admins = new address[](batchLimit);
+        
+        // Create maximum number of admins
+        for (uint256 i = 0; i < batchLimit; i++) {
+            admins[i] = makeAddr(string(abi.encodePacked("maxAdmin", i)));
+        }
+        
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    REPO_ID,
+                    ACCOUNT_ID,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    signatureDeadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        // Expect InitializedRepo event with max admins
+        vm.expectEmit(true, true, false, true);
+        emit InitializedRepo(REPO_ID, ACCOUNT_ID, admins);
+
+        escrow.initRepo(REPO_ID, ACCOUNT_ID, admins, signatureDeadline, v, r, s);
+    }
+
+    function test_initRepo_emitsInitializedRepoEvent_fuzzRepoAndAccountIds(
+        uint256 repoId, 
+        uint256 accountId
+    ) public {
+        vm.assume(repoId != 0 && accountId != 0);
+        vm.assume(repoId < type(uint128).max && accountId < type(uint128).max);
+        
+        address admin = makeAddr("fuzzAdmin");
+        address[] memory admins = new address[](1);
+        admins[0] = admin;
+        
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    accountId,
+                    keccak256(abi.encode(admins)),
+                    escrow.ownerNonce(),
+                    signatureDeadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        // Expect InitializedRepo event with fuzzed IDs
+        vm.expectEmit(true, true, false, true);
+        emit InitializedRepo(repoId, accountId, admins);
+
+        escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+    }
+
+    /* -------------------------------------------------------------------------- */
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
     event AddedAdmin(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
+    event InitializedRepo(uint256 indexed repoId, uint256 indexed accountId, address[] admins);
 } 
