@@ -320,7 +320,7 @@ contract Claim_Test is Base_Test {
         escrow.claim(distributionIds, deadline, v, r, s, "");
     }
 
-    function test_claim_revert_claimDeadlinePassed() public {
+    function test_claim_succeeds_afterClaimDeadline() public {
         uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
@@ -331,9 +331,18 @@ contract Claim_Test is Base_Test {
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
 
-        expectRevert(Errors.CLAIM_DEADLINE_PASSED);
+        // Should succeed - claims are now allowed after deadline as long as not reclaimed
+        uint256 initialBalance = wETH.balanceOf(recipient);
         vm.prank(recipient);
         escrow.claim(distributionIds, deadline, v, r, s, "");
+        
+        // Verify claim succeeded
+        assertTrue(wETH.balanceOf(recipient) > initialBalance);
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
+        assertEq(
+            uint8(distribution.status), 
+            uint8(Escrow.DistributionStatus.Claimed)
+        );
     }
 
     function test_claim_fuzz_amounts(uint256 amount) public {
@@ -913,15 +922,24 @@ contract Claim_Test is Base_Test {
         vm.warp(block.timestamp + 2 hours);
 
         uint[] memory distributionIds = new uint[](2);
-        distributionIds[0] = distributionId1; // Expired
-        distributionIds[1] = distributionId2; // Still valid
+        distributionIds[0] = distributionId1; // Past deadline but not reclaimed
+        distributionIds[1] = distributionId2; // Within deadline
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
 
-        expectRevert(Errors.CLAIM_DEADLINE_PASSED);
+        // Should succeed - both can be claimed as long as not reclaimed
+        uint256 initialBalance = wETH.balanceOf(recipient);
         vm.prank(recipient);
         escrow.claim(distributionIds, deadline, v, r, s, "");
+        
+        // Verify both claims succeeded
+        assertTrue(wETH.balanceOf(recipient) > initialBalance);
+        
+        Escrow.Distribution memory dist1 = escrow.getDistribution(distributionId1);
+        Escrow.Distribution memory dist2 = escrow.getDistribution(distributionId2);
+        assertEq(uint8(dist1.status), uint8(Escrow.DistributionStatus.Claimed));
+        assertEq(uint8(dist2.status), uint8(Escrow.DistributionStatus.Claimed));
     }
 
     /* -------------------------------------------------------------------------- */
