@@ -356,7 +356,6 @@ contract Escrow is Owned, IEscrow {
             require(distribution.exists,                                      Errors.INVALID_DISTRIBUTION_ID);
             require(distribution.status    == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
             require(distribution.recipient == msg.sender,                     Errors.INVALID_RECIPIENT);
-            require(block.timestamp        <= distribution.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
 
             distribution.status = DistributionStatus.Claimed;
              
