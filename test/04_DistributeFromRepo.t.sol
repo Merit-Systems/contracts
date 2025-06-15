@@ -227,6 +227,34 @@ contract DistributeFromRepo_Test is Base_Test {
         escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
 
+    function test_distributeFromRepo_revert_emptyArray() public {
+        // Test that empty distributions array reverts with EMPTY_ARRAY error
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](0);
+
+        uint256 initialBatchCount = escrow.batchCount();
+        uint256 initialDistributionCount = escrow.distributionCount();
+        uint256 initialBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+
+        // Should revert with EMPTY_ARRAY error
+        expectRevert(Errors.EMPTY_ARRAY);
+        vm.prank(repoAdmin);
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        // Verify no state changes occurred
+        assertEq(escrow.batchCount(), initialBatchCount, "Batch count should not increment");
+        assertEq(escrow.distributionCount(), initialDistributionCount, "Distribution count should not increment");
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialBalance, "Balance should not change");
+    }
+
+    function test_distributeFromRepo_revert_emptyArray_asDistributor() public {
+        // Test that empty array also fails for distributors (not just admins)
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](0);
+
+        expectRevert(Errors.EMPTY_ARRAY);
+        vm.prank(distributor1);
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+    }
+
     function test_distributeFromRepo_revert_zeroAmount() public {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({

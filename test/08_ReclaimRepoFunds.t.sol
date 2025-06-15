@@ -364,6 +364,36 @@ contract ReclaimRepo_Test is Base_Test {
         escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
     }
 
+    function test_reclaimToRepo_revert_emptyArray() public {
+        // Test that empty distributionIds array reverts with EMPTY_ARRAY error
+        uint[] memory distributionIds = new uint[](0);
+
+        uint256 initialBatchCount = escrow.batchCount();
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+
+        // Should revert with EMPTY_ARRAY error
+        expectRevert(Errors.EMPTY_ARRAY);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        // Verify no state changes occurred
+        assertEq(escrow.batchCount(), initialBatchCount, "Batch count should not increment");
+        assertEq(
+            escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), 
+            initialRepoBalance, 
+            "Repo balance should not change"
+        );
+    }
+
+    function test_reclaimToRepo_revert_emptyArray_anyUser() public {
+        // Test that empty array fails for any user (not just admins)
+        uint[] memory distributionIds = new uint[](0);
+        address randomUser = makeAddr("randomUser");
+
+        expectRevert(Errors.EMPTY_ARRAY);
+        vm.prank(randomUser);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+    }
+
     function test_reclaimToRepo_revert_invalidDistributionId() public {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = 999; // Non-existent

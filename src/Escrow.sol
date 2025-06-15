@@ -213,6 +213,7 @@ contract Escrow is Owned, IEscrow {
         external 
         returns (uint[] memory distributionIds)
     {
+        require(_distributions.length >  0,          Errors.EMPTY_ARRAY);
         require(_distributions.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
         Account storage account = accounts[repoId][accountId];
@@ -260,6 +261,7 @@ contract Escrow is Owned, IEscrow {
         external 
         returns (uint[] memory distributionIds)
     {
+        require(_distributions.length >  0,          Errors.EMPTY_ARRAY);
         require(_distributions.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
         distributionIds = new uint[](_distributions.length);
@@ -408,6 +410,7 @@ contract Escrow is Owned, IEscrow {
         uint[] calldata distributionIds,
         bytes  calldata data
     ) external {
+        require(distributionIds.length >  0,          Errors.EMPTY_ARRAY);
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
 
         uint batchId = batchCount++;
@@ -439,6 +442,7 @@ contract Escrow is Owned, IEscrow {
         uint[] calldata distributionIds,
         bytes  calldata data
     ) external {
+        require(distributionIds.length >  0,          Errors.EMPTY_ARRAY);
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
 
         uint batchId = batchCount++;
@@ -635,7 +639,8 @@ contract Escrow is Owned, IEscrow {
         view 
         returns (bool) 
     {
-        return accounts[repoId][accountId].admins.contains(caller) || accounts[repoId][accountId].distributors.contains(caller);
+        return accounts[repoId][accountId].admins.contains(caller) || 
+               accounts[repoId][accountId].distributors.contains(caller);
     }
 
     function getAllDistributors(uint repoId, uint accountId) 
