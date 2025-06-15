@@ -587,7 +587,7 @@ contract Escrow is Owned, IEscrow {
     function _domainSeparator() private view returns (bytes32) {
         return keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint chainId,address verifyingContract)"),
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("Escrow")),
                 keccak256(bytes("1")),
                 block.chainid,

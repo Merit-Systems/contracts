@@ -252,7 +252,7 @@ contract Deploy_Test is Base_Test {
         // Domain separator should be deterministically computed
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint chainId,address verifyingContract)"),
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("Escrow")),
                 keccak256(bytes("1")),
                 block.chainid,
