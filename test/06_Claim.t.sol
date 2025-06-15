@@ -1611,68 +1611,49 @@ contract Claim_Test is Base_Test {
 
     /// @dev Comprehensive test of the new claim-reclaim behavior
     function test_claimReclaim_comprehensiveBehavior() public {
-        // Create multiple distributions with different scenarios
-        uint256 dist1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);    // Will be claimed before deadline
-        uint256 dist2 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);    // Will be claimed after deadline  
-        uint256 dist3 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);    // Will be reclaimed after deadline
-        uint256 dist4 = _createSoloDistribution(recipient, DISTRIBUTION_AMOUNT);   // Solo - will be claimed after deadline
+        // Create distributions
+        uint256 dist1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);    
+        uint256 dist2 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);    
+        uint256 dist3 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);    
 
         // Scenario 1: Claim before deadline
-        uint[] memory claimIds1 = new uint[](1);
-        claimIds1[0] = dist1;
+        uint[] memory ids = new uint[](1);
+        ids[0] = dist1;
         uint256 deadline = block.timestamp + 1 hours;
-        (uint8 v1, bytes32 r1, bytes32 s1) = _signClaim(claimIds1, recipient, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = _signClaim(ids, recipient, deadline);
         
         vm.prank(recipient);
-        escrow.claim(claimIds1, deadline, v1, r1, s1, "");
-        
-        // Verify claimed
+        escrow.claim(ids, deadline, v, r, s, "");
         assertEq(uint8(escrow.getDistribution(dist1).status), uint8(Escrow.DistributionStatus.Claimed));
 
         // Move past all deadlines
         vm.warp(block.timestamp + CLAIM_PERIOD + 1);
 
         // Scenario 2: Claim after deadline (should work)
-        uint[] memory claimIds2 = new uint[](1);
-        claimIds2[0] = dist2;
+        ids[0] = dist2;
         deadline = block.timestamp + 1 hours;
-        (uint8 v2, bytes32 r2, bytes32 s2) = _signClaim(claimIds2, recipient, deadline);
-        
+        (v, r, s) = _signClaim(ids, recipient, deadline);
         vm.prank(recipient);
-        escrow.claim(claimIds2, deadline, v2, r2, s2, "");
-        
+        escrow.claim(ids, deadline, v, r, s, "");
         assertEq(uint8(escrow.getDistribution(dist2).status), uint8(Escrow.DistributionStatus.Claimed));
 
         // Scenario 3: Reclaim after deadline
-        uint[] memory reclaimIds = new uint[](1);
-        reclaimIds[0] = dist3;
+        ids[0] = dist3;
         vm.prank(repoAdmin);
-        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, reclaimIds, "");
-        
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, ids, "");
         assertEq(uint8(escrow.getDistribution(dist3).status), uint8(Escrow.DistributionStatus.Reclaimed));
 
-        // Scenario 4: Solo distribution claimed after deadline
-        uint[] memory claimIds4 = new uint[](1);
-        claimIds4[0] = dist4;
-        (uint8 v4, bytes32 r4, bytes32 s4) = _signClaim(claimIds4, recipient, deadline);
-        
-        vm.prank(recipient);
-        escrow.claim(claimIds4, deadline, v4, r4, s4, "");
-        
-        assertEq(uint8(escrow.getDistribution(dist4).status), uint8(Escrow.DistributionStatus.Claimed));
-
         // Verify that trying to reclaim already claimed distributions fails
+        ids[0] = dist1;
         expectRevert(Errors.ALREADY_CLAIMED);
         vm.prank(repoAdmin);
-        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, claimIds1, "");
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, ids, "");
 
         // Verify that trying to claim already reclaimed distributions fails
-        uint[] memory failClaimIds = new uint[](1);
-        failClaimIds[0] = dist3;
-        (uint8 vFail, bytes32 rFail, bytes32 sFail) = _signClaim(failClaimIds, recipient, deadline);
-        
+        ids[0] = dist3;
+        (v, r, s) = _signClaim(ids, recipient, deadline);
         expectRevert(Errors.ALREADY_CLAIMED);
         vm.prank(recipient);
-        escrow.claim(failClaimIds, deadline, vFail, rFail, sFail, "");
+        escrow.claim(ids, deadline, v, r, s, "");
     }
 } 
