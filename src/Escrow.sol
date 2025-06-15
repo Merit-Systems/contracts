@@ -25,7 +25,7 @@ contract Escrow is Owned, IEscrow {
     bytes32 public constant SET_ADMIN_TYPEHASH =
         keccak256("SetAdmin(uint256 repoId,uint256 accountId,address[] admins,uint256 nonce,uint256 signatureDeadline)");
     bytes32 public constant CLAIM_TYPEHASH =
-        keccak256("Claim(uint256[] distributionIds,address recipient,uint256 nonce,uint256 deadline)");
+        keccak256("Claim(uint256[] distributionIds,address recipient,uint256 nonce,uint256 signatureDeadline)");
 
     /* -------------------------------------------------------------------------- */
     /*                                     TYPES                                  */
