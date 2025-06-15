@@ -252,7 +252,7 @@ contract Deploy_Test is Base_Test {
         // Domain separator should be deterministically computed
         bytes32 expectedDomainSeparator = keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint chainId,address verifyingContract)"),
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("Escrow")),
                 keccak256(bytes("1")),
                 block.chainid,
@@ -278,12 +278,8 @@ contract Deploy_Test is Base_Test {
         assertEq(deployedEscrow.MAX_FEE(), 1000);
         
         // Verify type hashes
-        bytes32 expectedSetAdminTypehash = keccak256(
-            "SetAdmin(uint repoId,uint accountId,address[] admins,uint nonce,uint signatureDeadline)"
-        );
-        bytes32 expectedClaimTypehash = keccak256(
-            "Claim(uint[] distributionIds,address recipient,uint nonce,uint signatureDeadline)"
-        );
+        bytes32 expectedSetAdminTypehash = keccak256("SetAdmin(uint256 repoId,uint256 accountId,address[] admins,uint256 nonce,uint256 signatureDeadline)");
+        bytes32 expectedClaimTypehash = keccak256("Claim(uint256[] distributionIds,address recipient,uint256 nonce,uint256 deadline)");
         
         assertEq(deployedEscrow.SET_ADMIN_TYPEHASH(), expectedSetAdminTypehash);
         assertEq(deployedEscrow.CLAIM_TYPEHASH(), expectedClaimTypehash);

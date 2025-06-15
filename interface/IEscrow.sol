@@ -83,7 +83,7 @@ interface IEscrow {
     event ReclaimedRepoDistribution(
         uint256 indexed batchId,
         uint256 indexed distributionId,
-        address indexed admin,
+        address indexed reclaimer,
         uint256 amount
     );
 

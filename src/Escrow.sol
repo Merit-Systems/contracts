@@ -23,9 +23,9 @@ contract Escrow is Owned, IEscrow {
     uint16 public constant MAX_FEE = 1_000; // 10 %
 
     bytes32 public constant SET_ADMIN_TYPEHASH =
-        keccak256("SetAdmin(uint repoId,uint accountId,address[] admins,uint nonce,uint signatureDeadline)");
+        keccak256("SetAdmin(uint256 repoId,uint256 accountId,address[] admins,uint256 nonce,uint256 signatureDeadline)");
     bytes32 public constant CLAIM_TYPEHASH =
-        keccak256("Claim(uint[] distributionIds,address recipient,uint nonce,uint signatureDeadline)");
+        keccak256("Claim(uint256[] distributionIds,address recipient,uint256 nonce,uint256 deadline)");
 
     /* -------------------------------------------------------------------------- */
     /*                                     TYPES                                  */
@@ -356,7 +356,6 @@ contract Escrow is Owned, IEscrow {
             require(distribution.exists,                                      Errors.INVALID_DISTRIBUTION_ID);
             require(distribution.status    == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
             require(distribution.recipient == msg.sender,                     Errors.INVALID_RECIPIENT);
-            require(block.timestamp        <= distribution.claimDeadline,     Errors.CLAIM_DEADLINE_PASSED);
 
             distribution.status = DistributionStatus.Claimed;
              
@@ -587,7 +586,7 @@ contract Escrow is Owned, IEscrow {
     function _domainSeparator() private view returns (bytes32) {
         return keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint chainId,address verifyingContract)"),
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("Escrow")),
                 keccak256(bytes("1")),
                 block.chainid,
