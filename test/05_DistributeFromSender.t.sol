@@ -399,13 +399,25 @@ contract DistributeFromSender_Test is Base_Test {
         assertEq(distribution.claimDeadline, block.timestamp + claimPeriod);
     }
 
-    function test_distributeFromSender_emptyDistributions() public {
+    function test_distributeFromSender_revert_emptyArray() public {
+        // Test that empty distributions array reverts with EMPTY_ARRAY error
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](0);
 
-        vm.prank(distributor);
-        uint[] memory distributionIds = escrow.distributeFromSender(distributions, "");
+        uint256 initialBatchCount = escrow.batchCount();
+        uint256 initialDistributionCount = escrow.distributionCount();
+        uint256 initialDistributorBalance = wETH.balanceOf(distributor);
+        uint256 initialEscrowBalance = wETH.balanceOf(address(escrow));
 
-        assertEq(distributionIds.length, 0);
+        // Should revert with EMPTY_ARRAY error
+        expectRevert(Errors.EMPTY_ARRAY);
+        vm.prank(distributor);
+        escrow.distributeFromSender(distributions, "");
+
+        // Verify no state changes occurred
+        assertEq(escrow.batchCount(), initialBatchCount, "Batch count should not increment");
+        assertEq(escrow.distributionCount(), initialDistributionCount, "Distribution count should not increment");
+        assertEq(wETH.balanceOf(distributor), initialDistributorBalance, "Distributor balance should not change");
+        assertEq(wETH.balanceOf(address(escrow)), initialEscrowBalance, "Escrow balance should not change");
     }
 
     function test_distributeFromSender_maxBatchLimit() public {

@@ -290,6 +290,34 @@ contract ReclaimSolo_Test is Base_Test {
         escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
+    function test_reclaimSenderDistributions_revert_emptyArray() public {
+        // Test that empty distributionIds array reverts with EMPTY_ARRAY error
+        uint[] memory distributionIds = new uint[](0);
+
+        uint256 initialBatchCount = escrow.batchCount();
+        uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
+        uint256 initialEscrowBalance = wETH.balanceOf(address(escrow));
+
+        // Should revert with EMPTY_ARRAY error
+        expectRevert(Errors.EMPTY_ARRAY);
+        escrow.reclaimSenderDistributions(distributionIds, "");
+
+        // Verify no state changes occurred
+        assertEq(escrow.batchCount(), initialBatchCount, "Batch count should not increment");
+        assertEq(wETH.balanceOf(soloPayer), initialPayerBalance, "Payer balance should not change");
+        assertEq(wETH.balanceOf(address(escrow)), initialEscrowBalance, "Escrow balance should not change");
+    }
+
+    function test_reclaimSenderDistributions_revert_emptyArray_anyUser() public {
+        // Test that empty array fails for any user
+        uint[] memory distributionIds = new uint[](0);
+        address randomUser = makeAddr("randomUser");
+
+        expectRevert(Errors.EMPTY_ARRAY);
+        vm.prank(randomUser);
+        escrow.reclaimSenderDistributions(distributionIds, "");
+    }
+
     function test_reclaimSenderDistributions_revert_invalidDistributionId() public {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = 999; // Non-existent
