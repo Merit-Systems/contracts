@@ -148,14 +148,13 @@ contract FundRepo_Test is Base_Test {
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), amount);
     }
 
-    function test_fundRepo_fuzz_repoAndAccountIds(uint256 repoId, uint256 accountId, uint256 amount) public {
-        vm.assume(amount > 0 && amount <= 1000e18);
-        vm.assume(repoId <= type(uint128).max && accountId <= type(uint128).max);
-        
-        vm.prank(alice);
-        escrow.fundRepo(repoId, accountId, wETH, amount, "");
-        
-        assertEq(escrow.getAccountBalance(repoId, accountId, address(wETH)), amount);
+    function test_fundRepo_fuzz_repoAndAccountIds(uint256 repoId, uint256 instanceId, uint256 amount) public {
+        vm.assume(repoId <= type(uint128).max && instanceId <= type(uint128).max);
+        vm.assume(amount > 0 && amount <= type(uint128).max);
+
+        escrow.fundRepo(repoId, instanceId, wETH, amount, "");
+
+        assertEq(escrow.getAccountBalance(repoId, instanceId, address(wETH)), amount);
     }
 
     function test_fundRepo_fuzz_multipleFundings(uint8 numFundings, uint256 baseAmount) public {
@@ -209,5 +208,5 @@ contract FundRepo_Test is Base_Test {
     }
 
     // Event for testing
-    event FundedRepo(uint256 indexed repoId, uint256 indexed accountId, address indexed token, address sender, uint256 amount, bytes data);
+    event FundedRepo(uint256 indexed repoId, uint256 indexed instanceId, address indexed token, address sender, uint256 amount, bytes data);
 } 
