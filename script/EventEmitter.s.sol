@@ -10,23 +10,44 @@ import {Escrow} from "../src/Escrow.sol";
 import {IEscrow} from "../interface/IEscrow.sol";
 
 contract EventEmitter is Script {
-    // Test addresses for anvil
-    address constant OWNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266; // anvil default account 0
-    address constant SIGNER = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8; // anvil default account 1
-    address constant USER1 = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC; // anvil default account 2
-    address constant USER2 = 0x90F79bf6EB2c4f870365E785982E1f101E93b906; // anvil default account 3
-    address constant RECIPIENT = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65; // anvil default account 4
+    // Default addresses for anvil
+    address public OWNER;
+    address public SIGNER;
+    address public USER1;
+    address public USER2;
+    address public RECIPIENT;
     
-    uint constant FEE_BPS = 250; // 2.5%
-    uint constant BATCH_LIMIT = 10;
+    uint public FEE_BPS;
+    uint public BATCH_LIMIT;
     
-    uint256 constant OWNER_PRIVATE_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
-    uint256 constant SIGNER_PRIVATE_KEY = 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d;
+    uint256 public OWNER_PRIVATE_KEY;
+    uint256 public SIGNER_PRIVATE_KEY;
     
     Escrow public escrow;
     MockERC20 public token1;
     MockERC20 public token2;
-    // Add your event-emitting functions here
+
+    function initialize(
+        address _owner,
+        address _signer,
+        address _user1,
+        address _user2,
+        address _recipient,
+        uint _feeBps,
+        uint _batchLimit,
+        uint256 _ownerPrivateKey,
+        uint256 _signerPrivateKey
+    ) internal {
+        OWNER = _owner;
+        SIGNER = _signer;
+        USER1 = _user1;
+        USER2 = _user2;
+        RECIPIENT = _recipient;
+        FEE_BPS = _feeBps;
+        BATCH_LIMIT = _batchLimit;
+        OWNER_PRIVATE_KEY = _ownerPrivateKey;
+        SIGNER_PRIVATE_KEY = _signerPrivateKey;
+    }
 
     function testAllEventEmittingFunctions() internal {
         // Test owner functions first
