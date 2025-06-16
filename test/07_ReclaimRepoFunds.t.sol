@@ -134,7 +134,7 @@ contract ReclaimFund_Test is Base_Test {
 
     function test_reclaimFund_differentRepos() public {
         uint256 repoId2 = 2;
-        uint256 accountId2 = 200;
+        uint256 instanceId2 = 200;
         address admin2 = makeAddr("admin2");
         
         // Initialize second repo
@@ -146,7 +146,7 @@ contract ReclaimFund_Test is Base_Test {
                 keccak256(abi.encode(
                     escrow.SET_ADMIN_TYPEHASH(),
                     repoId2,
-                    accountId2,
+                    instanceId2,
                     keccak256(abi.encode(_toArray(admin2))),
                     escrow.ownerNonce(),
                     deadline
@@ -155,20 +155,20 @@ contract ReclaimFund_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId2, accountId2, _toArray(admin2), deadline, v, r, s);
+        escrow.initRepo(repoId2, instanceId2, _toArray(admin2), deadline, v, r, s);
         
         // Fund both repos
         _fundRepo(FUND_AMOUNT);
         wETH.mint(address(this), FUND_AMOUNT);
         wETH.approve(address(escrow), FUND_AMOUNT);
-        escrow.fundRepo(repoId2, accountId2, wETH, FUND_AMOUNT, "");
+        escrow.fundRepo(repoId2, instanceId2, wETH, FUND_AMOUNT, "");
         
         // Reclaim from both repos
         vm.prank(repoAdmin);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
         
         vm.prank(admin2);
-        escrow.reclaimRepoFunds(repoId2, accountId2, address(wETH), FUND_AMOUNT);
+        escrow.reclaimRepoFunds(repoId2, instanceId2, address(wETH), FUND_AMOUNT);
         
         // Check balances
         assertEq(wETH.balanceOf(repoAdmin), FUND_AMOUNT);
@@ -269,10 +269,10 @@ contract ReclaimFund_Test is Base_Test {
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
     }
 
-    function test_reclaimFund_fuzz_repoAndAccountIds(uint256 repoId, uint256 accountId, uint256 amount) public {
+    function test_reclaimFund_fuzz_repoAndAccountIds(uint256 repoId, uint256 instanceId, uint256 amount) public {
         vm.assume(amount > 0 && amount <= 1000e18);
-        vm.assume(repoId != REPO_ID || accountId != ACCOUNT_ID); // Avoid conflict with existing repo
-        vm.assume(repoId <= type(uint128).max && accountId <= type(uint128).max);
+        vm.assume(repoId != REPO_ID || instanceId != ACCOUNT_ID); // Avoid conflict with existing repo
+        vm.assume(repoId <= type(uint128).max && instanceId <= type(uint128).max);
         
         address admin = makeAddr("fuzzAdmin");
         
@@ -285,7 +285,7 @@ contract ReclaimFund_Test is Base_Test {
                 keccak256(abi.encode(
                     escrow.SET_ADMIN_TYPEHASH(),
                     repoId,
-                    accountId,
+                    instanceId,
                     keccak256(abi.encode(_toArray(admin))),
                     escrow.ownerNonce(),
                     deadline
@@ -294,21 +294,21 @@ contract ReclaimFund_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId, accountId, _toArray(admin), deadline, v, r, s);
+        escrow.initRepo(repoId, instanceId, _toArray(admin), deadline, v, r, s);
         
         // Fund the repo
         wETH.mint(address(this), amount);
         wETH.approve(address(escrow), amount);
-        escrow.fundRepo(repoId, accountId, wETH, amount, "");
+        escrow.fundRepo(repoId, instanceId, wETH, amount, "");
         
         uint256 initialAdminBalance = wETH.balanceOf(admin);
         
         // Reclaim funds
         vm.prank(admin);
-        escrow.reclaimRepoFunds(repoId, accountId, address(wETH), amount);
+        escrow.reclaimRepoFunds(repoId, instanceId, address(wETH), amount);
         
         assertEq(wETH.balanceOf(admin), initialAdminBalance + amount);
-        assertEq(escrow.getAccountBalance(repoId, accountId, address(wETH)), 0);
+        assertEq(escrow.getAccountBalance(repoId, instanceId, address(wETH)), 0);
     }
 
     function test_reclaimFund_fuzz_multipleReclaims(uint8 numReclaims, uint256 baseAmount) public {
@@ -335,7 +335,7 @@ contract ReclaimFund_Test is Base_Test {
     /*                                    EVENTS                                  */
     /* -------------------------------------------------------------------------- */
 
-    event ReclaimedRepoFunds(uint256 indexed repoId, uint256 indexed accountId, address indexed admin, uint256 amount);
+    event ReclaimedRepoFunds(uint256 indexed repoId, uint256 indexed instanceId, address indexed admin, uint256 amount);
 
     function _toArray(address addr) internal pure returns (address[] memory) {
         address[] memory arr = new address[](1);

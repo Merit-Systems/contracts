@@ -809,7 +809,7 @@ contract DistributeFromRepo_Test is Base_Test {
         // Test getDistributionRepo for valid repo distribution
         Escrow.RepoAccount memory repoAccount = escrow.getDistributionRepo(distributionIds[0]);
         assertEq(repoAccount.repoId, REPO_ID);
-        assertEq(repoAccount.accountId, ACCOUNT_ID);
+        assertEq(repoAccount.instanceId, ACCOUNT_ID);
 
         // Create a solo distribution for comparison
         MockERC20(address(wETH)).mint(address(this), DISTRIBUTION_AMOUNT);

@@ -279,7 +279,7 @@ contract Deploy_Test is Base_Test {
         
         // Verify type hashes
         bytes32 expectedSetAdminTypehash = keccak256(
-            "SetAdmin(uint256 repoId,uint256 accountId,address[] admins,uint256 nonce,uint256 signatureDeadline)"
+            "SetAdmin(uint256 repoId,uint256 instanceId,address[] admins,uint256 nonce,uint256 signatureDeadline)"
         );
         bytes32 expectedClaimTypehash = keccak256(
             "Claim(uint256[] distributionIds,address recipient,uint256 nonce,uint256 signatureDeadline)"

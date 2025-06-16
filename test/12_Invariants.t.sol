@@ -53,13 +53,13 @@ contract EscrowInvariants is StdInvariant, Base_Test {
         
         for (uint i = 0; i < repoIds.length; i++) {
             uint256 repoId = repoIds[i];
-            uint256[] memory accountIds = handler.getTrackedAccountIds(repoId);
+            uint256[] memory instanceIds = handler.getTrackedAccountIds(repoId);
             
-            for (uint j = 0; j < accountIds.length; j++) {
-                uint256 accountId = accountIds[j];
-                uint256 currentBalance = escrow.getAccountBalance(repoId, accountId, address(wETH));
-                uint256 totalFunded = handler.getTotalFunded(repoId, accountId);
-                uint256 accountTotalDistributed = handler.getTotalDistributedFromAccount(repoId, accountId);
+            for (uint j = 0; j < instanceIds.length; j++) {
+                uint256 instanceId = instanceIds[j];
+                uint256 currentBalance = escrow.getAccountBalance(repoId, instanceId, address(wETH));
+                uint256 totalFunded = handler.getTotalFunded(repoId, instanceId);
+                uint256 accountTotalDistributed = handler.getTotalDistributedFromAccount(repoId, instanceId);
                 
                 assertEq(
                     currentBalance + accountTotalDistributed,
@@ -176,13 +176,13 @@ contract EscrowInvariants is StdInvariant, Base_Test {
         
         for (uint i = 0; i < repoIds.length; i++) {
             uint256 repoId = repoIds[i];
-            uint256[] memory accountIds = handler.getTrackedAccountIds(repoId);
+            uint256[] memory instanceIds = handler.getTrackedAccountIds(repoId);
             
-            for (uint j = 0; j < accountIds.length; j++) {
-                uint256 accountId = accountIds[j];
+            for (uint j = 0; j < instanceIds.length; j++) {
+                uint256 instanceId = instanceIds[j];
                 
-                if (escrow.getAccountExists(repoId, accountId)) {
-                    address[] memory admins = escrow.getAllAdmins(repoId, accountId);
+                if (escrow.getAccountExists(repoId, instanceId)) {
+                    address[] memory admins = escrow.getAllAdmins(repoId, instanceId);
                     assertGt(admins.length, 0, "Initialized repo should always have at least one admin");
                 }
             }
@@ -360,23 +360,23 @@ contract EscrowInvariants is StdInvariant, Base_Test {
         
         for (uint i = 0; i < repoIds.length; i++) {
             uint256 repoId = repoIds[i];
-            uint256[] memory accountIds = handler.getTrackedAccountIds(repoId);
+            uint256[] memory instanceIds = handler.getTrackedAccountIds(repoId);
             
-            for (uint j = 0; j < accountIds.length; j++) {
-                uint256 accountId = accountIds[j];
+            for (uint j = 0; j < instanceIds.length; j++) {
+                uint256 instanceId = instanceIds[j];
                 
-                if (escrow.getAccountExists(repoId, accountId)) {
+                if (escrow.getAccountExists(repoId, instanceId)) {
                     // If repo exists, it should have at least one admin
-                    address[] memory admins = escrow.getAllAdmins(repoId, accountId);
+                    address[] memory admins = escrow.getAllAdmins(repoId, instanceId);
                     assertGt(admins.length, 0, "Existing repo should have admins");
                     
                     // Balance should never be negative (this is implicit in uint256)
-                    uint256 balance = escrow.getAccountBalance(repoId, accountId, address(wETH));
+                    uint256 balance = escrow.getAccountBalance(repoId, instanceId, address(wETH));
                     assertGe(balance, 0, "Balance should be non-negative");
                     
                     // Total funded should be at least distributed + current balance
-                    uint256 totalFunded = handler.getTotalFunded(repoId, accountId);
-                    uint256 totalDistributed = handler.getTotalDistributedFromAccount(repoId, accountId);
+                    uint256 totalFunded = handler.getTotalFunded(repoId, instanceId);
+                    uint256 totalDistributed = handler.getTotalDistributedFromAccount(repoId, instanceId);
                     assertGe(
                         totalFunded,
                         totalDistributed + balance,
@@ -400,7 +400,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
                     // Should be able to get repo info
                     try escrow.getDistributionRepo(i) returns (Escrow.RepoAccount memory repoAccount) {
                         assertTrue(repoAccount.repoId > 0, "Repo distribution should have valid repo ID");
-                        assertTrue(repoAccount.accountId > 0, "Repo distribution should have valid account ID");
+                        assertTrue(repoAccount.instanceId > 0, "Repo distribution should have valid instance ID");
                     } catch {
                         assertTrue(false, "Repo distribution should have valid repo account");
                     }
@@ -441,14 +441,14 @@ contract EscrowHandler is Test {
     uint256 public ownerPrivateKey;
     
     // Tracking state for invariant verification
-    mapping(uint256 => mapping(uint256 => uint256)) public totalFunded; // repoId => accountId => amount
-    mapping(uint256 => mapping(uint256 => uint256)) public totalDistributedFromAccount; // repoId => accountId => amount
+    mapping(uint256 => mapping(uint256 => uint256)) public totalFunded; // repoId => instanceId => amount
+    mapping(uint256 => mapping(uint256 => uint256)) public totalDistributedFromAccount; // repoId => instanceId => amount
     mapping(uint256 => uint256) public claimTimestamps; // distributionId => timestamp
     mapping(address => uint256) public minExpectedRecipientNonce;
     
     uint256[] public trackedRepoIds;
-    mapping(uint256 => uint256[]) public trackedAccountIds; // repoId => accountId[]
-    mapping(uint256 => mapping(uint256 => bool)) public repoAccountExists; // repoId => accountId => exists
+    mapping(uint256 => uint256[]) public trackedAccountIds; // repoId => instanceId[]
+    mapping(uint256 => mapping(uint256 => bool)) public repoAccountExists; // repoId => instanceId => exists
     
     uint256[] public claimedDistributionIds;
     uint256[] public reclaimedDistributionIds;
@@ -489,46 +489,46 @@ contract EscrowHandler is Test {
         vm.stopPrank();
     }
     
-    function fundRepo(uint256 repoSeed, uint256 accountSeed, uint256 amount) public {
+    function fundRepo(uint256 repoSeed, uint256 instanceSeed, uint256 amount) public {
         // Reduce ranges for faster execution
         uint256 repoId = bound(repoSeed, 1, 10);  // Reduced from 100
-        uint256 accountId = bound(accountSeed, 1, 10);  // Reduced from 100  
+        uint256 instanceId = bound(instanceSeed, 1, 10);  // Reduced from 100  
         amount = bound(amount, 1e18, 100e18);  // Reduced upper bound
         
         // Initialize repo if it doesn't exist
-        if (!escrow.getAccountExists(repoId, accountId)) {
-            _initRepo(repoId, accountId, actors[0]);
+        if (!escrow.getAccountExists(repoId, instanceId)) {
+            _initRepo(repoId, instanceId, actors[0]);
         }
         
         // Fund the repo
         token.mint(address(this), amount);
         token.approve(address(escrow), amount);
         
-        escrow.fundRepo(repoId, accountId, token, amount, "");
+        escrow.fundRepo(repoId, instanceId, token, amount, "");
         
-        totalFunded[repoId][accountId] += amount;
-        _trackRepoAccount(repoId, accountId);
+        totalFunded[repoId][instanceId] += amount;
+        _trackRepoAccount(repoId, instanceId);
     }
     
-    function distributeFromRepo(uint256 repoSeed, uint256 accountSeed, uint256 amount, uint256 actorSeed) 
+    function distributeFromRepo(uint256 repoSeed, uint256 instanceSeed, uint256 amount, uint256 actorSeed) 
         public 
         useActor(actorSeed) 
     {
         uint256 repoId = bound(repoSeed, 1, 10);
-        uint256 accountId = bound(accountSeed, 1, 10);
+        uint256 instanceId = bound(instanceSeed, 1, 10);
         amount = bound(amount, 1e18, 50e18);
         
-        if (!escrow.getAccountExists(repoId, accountId)) {
+        if (!escrow.getAccountExists(repoId, instanceId)) {
             return; // Skip if repo doesn't exist
         }
         
-        uint256 balance = escrow.getAccountBalance(repoId, accountId, address(token));
+        uint256 balance = escrow.getAccountBalance(repoId, instanceId, address(token));
         if (balance < amount) {
             return; // Skip if insufficient balance
         }
         
         // Check if actor is authorized
-        if (!escrow.canDistribute(repoId, accountId, actors[currentActor])) {
+        if (!escrow.canDistribute(repoId, instanceId, actors[currentActor])) {
             return; // Skip if not authorized
         }
         
@@ -543,8 +543,8 @@ contract EscrowHandler is Test {
             token: token
         });
         
-        escrow.distributeFromRepo(repoId, accountId, distributions, "");
-        totalDistributedFromAccount[repoId][accountId] += amount;
+        escrow.distributeFromRepo(repoId, instanceId, distributions, "");
+        totalDistributedFromAccount[repoId][instanceId] += amount;
         
         // Track distribution and batch counts
         minExpectedDistributionCount++;
@@ -648,7 +648,7 @@ contract EscrowHandler is Test {
                 uint256[] memory distributionIds = new uint256[](1);
                 distributionIds[0] = distributionId;
                 
-                escrow.reclaimRepoDistributions(repoAccount.repoId, repoAccount.accountId, distributionIds, "");
+                escrow.reclaimRepoDistributions(repoAccount.repoId, repoAccount.instanceId, distributionIds, "");
                 reclaimedDistributionIds.push(distributionId);
             } catch {
                 return; // Skip if can't get repo account
@@ -682,12 +682,12 @@ contract EscrowHandler is Test {
         }
     }
     
-    function addAdmin(uint256 repoSeed, uint256 accountSeed, uint256 actorSeed) public useActor(actorSeed) {
+    function addAdmin(uint256 repoSeed, uint256 instanceSeed, uint256 actorSeed) public useActor(actorSeed) {
         uint256 repoId = bound(repoSeed, 1, 10);
-        uint256 accountId = bound(accountSeed, 1, 10);
+        uint256 instanceId = bound(instanceSeed, 1, 10);
         
-        if (!escrow.getAccountExists(repoId, accountId) || 
-            !escrow.getIsAuthorizedAdmin(repoId, accountId, actors[currentActor])) {
+        if (!escrow.getAccountExists(repoId, instanceId) || 
+            !escrow.getIsAuthorizedAdmin(repoId, instanceId, actors[currentActor])) {
             return;
         }
         
@@ -695,19 +695,19 @@ contract EscrowHandler is Test {
         address[] memory admins = new address[](1);
         admins[0] = newAdmin;
         
-        escrow.addAdmins(repoId, accountId, admins);
+        escrow.addAdmins(repoId, instanceId, admins);
     }
     
-    function removeAdmin(uint256 repoSeed, uint256 accountSeed, uint256 actorSeed) public useActor(actorSeed) {
+    function removeAdmin(uint256 repoSeed, uint256 instanceSeed, uint256 actorSeed) public useActor(actorSeed) {
         uint256 repoId = bound(repoSeed, 1, 10);
-        uint256 accountId = bound(accountSeed, 1, 10);
+        uint256 instanceId = bound(instanceSeed, 1, 10);
         
-        if (!escrow.getAccountExists(repoId, accountId) || 
-            !escrow.getIsAuthorizedAdmin(repoId, accountId, actors[currentActor])) {
+        if (!escrow.getAccountExists(repoId, instanceId) || 
+            !escrow.getIsAuthorizedAdmin(repoId, instanceId, actors[currentActor])) {
             return;
         }
         
-        address[] memory allAdmins = escrow.getAllAdmins(repoId, accountId);
+        address[] memory allAdmins = escrow.getAllAdmins(repoId, instanceId);
         if (allAdmins.length <= 1) {
             return; // Can't remove last admin
         }
@@ -718,7 +718,7 @@ contract EscrowHandler is Test {
                 address[] memory adminsToRemove = new address[](1);
                 adminsToRemove[0] = allAdmins[i];
                 
-                escrow.removeAdmins(repoId, accountId, adminsToRemove);
+                escrow.removeAdmins(repoId, instanceId, adminsToRemove);
                 break;
             }
         }
@@ -728,11 +728,11 @@ contract EscrowHandler is Test {
     function getTotalAccountBalances() public view returns (uint256 total) {
         for (uint i = 0; i < trackedRepoIds.length; i++) {
             uint256 repoId = trackedRepoIds[i];
-            uint256[] memory accountIds = trackedAccountIds[repoId];
+            uint256[] memory instanceIds = trackedAccountIds[repoId];
             
-            for (uint j = 0; j < accountIds.length; j++) {
-                uint256 accountId = accountIds[j];
-                total += escrow.getAccountBalance(repoId, accountId, address(token));
+            for (uint j = 0; j < instanceIds.length; j++) {
+                uint256 instanceId = instanceIds[j];
+                total += escrow.getAccountBalance(repoId, instanceId, address(token));
             }
         }
     }
@@ -765,7 +765,7 @@ contract EscrowHandler is Test {
     }
 
     // Internal helpers
-    function _initRepo(uint256 repoId, uint256 accountId, address admin) internal {
+    function _initRepo(uint256 repoId, uint256 instanceId, address admin) internal {
         address[] memory admins = new address[](1);
         admins[0] = admin;
         
@@ -777,7 +777,7 @@ contract EscrowHandler is Test {
                 keccak256(abi.encode(
                     escrow.SET_ADMIN_TYPEHASH(),
                     repoId,
-                    accountId,
+                    instanceId,
                     keccak256(abi.encode(admins)),
                     escrow.ownerNonce(),
                     deadline
@@ -786,15 +786,15 @@ contract EscrowHandler is Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
+        escrow.initRepo(repoId, instanceId, admins, deadline, v, r, s);
         
         minExpectedOwnerNonce++;
-        _trackRepoAccount(repoId, accountId);
+        _trackRepoAccount(repoId, instanceId);
     }
     
-    function _trackRepoAccount(uint256 repoId, uint256 accountId) internal {
-        if (!repoAccountExists[repoId][accountId]) {
-            repoAccountExists[repoId][accountId] = true;
+    function _trackRepoAccount(uint256 repoId, uint256 instanceId) internal {
+        if (!repoAccountExists[repoId][instanceId]) {
+            repoAccountExists[repoId][instanceId] = true;
             
             // Track repoId
             bool repoExists = false;
@@ -808,8 +808,8 @@ contract EscrowHandler is Test {
                 trackedRepoIds.push(repoId);
             }
             
-            // Track accountId for this repo
-            trackedAccountIds[repoId].push(accountId);
+            // Track instanceId for this repo
+            trackedAccountIds[repoId].push(instanceId);
         }
     }
     
@@ -829,12 +829,12 @@ contract EscrowHandler is Test {
         return trackedAccountIds[repoId];
     }
     
-    function getTotalFunded(uint256 repoId, uint256 accountId) public view returns (uint256) {
-        return totalFunded[repoId][accountId];
+    function getTotalFunded(uint256 repoId, uint256 instanceId) public view returns (uint256) {
+        return totalFunded[repoId][instanceId];
     }
     
-    function getTotalDistributedFromAccount(uint256 repoId, uint256 accountId) public view returns (uint256) {
-        return totalDistributedFromAccount[repoId][accountId];
+    function getTotalDistributedFromAccount(uint256 repoId, uint256 instanceId) public view returns (uint256) {
+        return totalDistributedFromAccount[repoId][instanceId];
     }
     
     function getClaimedDistributionIds() public view returns (uint256[] memory) {
