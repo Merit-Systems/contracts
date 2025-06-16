@@ -148,9 +148,13 @@ contract FundRepo_Test is Base_Test {
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), amount);
     }
 
-    function test_fundRepo_fuzz_repoAndAccountIds(uint256 repoId, uint256 instanceId, uint256 amount) public {
+    function test_fundRepo_fuzz_repoAndInstanceIds(uint256 repoId, uint256 instanceId, uint256 amount) public {
         vm.assume(repoId <= type(uint128).max && instanceId <= type(uint128).max);
         vm.assume(amount > 0 && amount <= type(uint128).max);
+        
+        // Mint tokens for the test contract and approve
+        wETH.mint(address(this), amount);
+        wETH.approve(address(escrow), amount);
 
         escrow.fundRepo(repoId, instanceId, wETH, amount, "");
 
