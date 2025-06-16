@@ -6,11 +6,17 @@ import {Params} from "../libraries/Params.sol";
 import {Script} from "forge-std/Script.sol";
 import {Escrow} from "../src/Escrow.sol";
 import {console} from "forge-std/console.sol";
+import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 
 contract DeployBaseSepolia is Deploy {
     function run() public returns (Escrow escrow) {
+        vm.startBroadcast();
+        MockERC20 mockUSDC = new MockERC20("USD Coin", "USDC", 6);
+        mockUSDC.mint(Params.BASESEPOLIA_OWNER, 1_000_000 * 10**6); // Mint 1M USDC
+        vm.stopBroadcast();
+
         address[] memory initialWhitelistedTokens = new address[](1);
-        initialWhitelistedTokens[0] = Params.BASESEPOLIA_USDC;
+        initialWhitelistedTokens[0] = address(mockUSDC);
 
         escrow = deploy(
             Params.BASESEPOLIA_OWNER,
@@ -20,6 +26,7 @@ contract DeployBaseSepolia is Deploy {
             Params.BATCH_LIMIT
         );
 
+        console.log("Mock USDC deployed at:", address(mockUSDC));
         console.log("Escrow deployed at:", address(escrow));
     }
 } 
