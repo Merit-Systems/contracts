@@ -236,7 +236,7 @@ contract Escrow is Owned, IEscrow {
             distributionIds[i]  = distributionId;
 
             distributionToRepo[distributionId] = RepoAccount({
-                repoId:    repoId,
+                repoId:     repoId,
                 instanceId: instanceId
             });
             account.hasDistributions = true;
