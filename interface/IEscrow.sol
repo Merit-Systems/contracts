@@ -4,13 +4,13 @@ pragma solidity ^0.8.26;
 interface IEscrow {
     event InitializedRepo(
         uint256 indexed repoId,
-        uint256 indexed accountId,
+        uint256 indexed instanceId,
         address[] admins
     );
 
     event FundedRepo(
         uint256 indexed repoId,
-        uint256 indexed accountId,
+        uint256 indexed instanceId,
         address indexed token,
         address sender,
         uint256 amount,
@@ -20,7 +20,7 @@ interface IEscrow {
     event DistributedFromRepoBatch(
         uint256 indexed batchId,
         uint256 indexed repoId,
-        uint256 indexed accountId,
+        uint256 indexed instanceId,
         uint256[] distributionIds,
         bytes data
     );
@@ -67,7 +67,7 @@ interface IEscrow {
 
     event ReclaimedRepoFunds(
         uint256 indexed repoId,
-        uint256 indexed accountId,
+        uint256 indexed instanceId,
         address indexed admin,
         uint256 amount
     );
@@ -75,7 +75,7 @@ interface IEscrow {
     event ReclaimedRepoDistributionsBatch(
         uint256 indexed batchId,
         uint256 indexed repoId,
-        uint256 indexed accountId,
+        uint256 indexed instanceId,
         uint256[] distributionIds,
         bytes data
     );
@@ -102,11 +102,11 @@ interface IEscrow {
     );
 
 
-    event AddedAdmin(uint256 indexed repoId, uint256 indexed accountId, address oldAdmin, address indexed newAdmin);
-    event RemovedAdmin(uint256 indexed repoId, uint256 indexed accountId, address indexed oldAdmin);
+    event AddedAdmin(uint256 indexed repoId, uint256 indexed instanceId, address oldAdmin, address indexed newAdmin);
+    event RemovedAdmin(uint256 indexed repoId, uint256 indexed instanceId, address indexed oldAdmin);
     event WhitelistedToken(address indexed token);
-    event AddedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
-    event RemovedDistributor(uint256 indexed repoId, uint256 indexed accountId, address indexed distributor);
+    event AddedDistributor(uint256 indexed repoId, uint256 indexed instanceId, address indexed distributor);
+    event RemovedDistributor(uint256 indexed repoId, uint256 indexed instanceId, address indexed distributor);
     event BatchLimitSet(uint256 newBatchLimit);
     event FeeSet(uint256 oldFee, uint256 newFee);
     event FeeRecipientSet(address indexed oldRecipient, address indexed newRecipient);
