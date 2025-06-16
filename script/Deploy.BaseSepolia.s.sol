@@ -15,8 +15,9 @@ contract DeployBaseSepolia is Deploy {
         mockUSDC.mint(Params.BASESEPOLIA_OWNER, 1_000_000 * 10**6); // Mint 1M USDC
         vm.stopBroadcast();
 
-        address[] memory initialWhitelistedTokens = new address[](1);
+        address[] memory initialWhitelistedTokens = new address[](2);
         initialWhitelistedTokens[0] = address(mockUSDC);
+        initialWhitelistedTokens[1] = 0xBFB1Dd9080d9D2C590Aa0DF4dd12f6af9eA26C03;
 
         escrow = deploy(
             Params.BASESEPOLIA_OWNER,

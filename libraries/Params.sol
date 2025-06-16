@@ -28,7 +28,7 @@ library Params {
     /*//////////////////////////////////////////////////////////////
                               BASE SEPOLIA
     //////////////////////////////////////////////////////////////*/
-    address constant BASESEPOLIA_OWNER        = 0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F;
+    address constant BASESEPOLIA_OWNER        = 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec;
     address constant BASESEPOLIA_SIGNER       = 0x9d8A62f656a8d1615C1294fd71e9CFb3E4855A4F;
     address constant BASESEPOLIA_WETH         = 0x4200000000000000000000000000000000000006;
     address constant BASESEPOLIA_USDC         = 0x081827b8C3Aa05287b5aA2bC3051fbE638F33152;
