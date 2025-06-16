@@ -588,7 +588,7 @@ contract OnlyOwner_Test is Base_Test {
     function _setupRepoAndCreateDistributions(uint256 /* expectedFee */) internal {
         // Initialize repo
         uint256 repoId = 1;
-        uint256 accountId = 100;
+        uint256 instanceId = 100;
         address admin = makeAddr("admin");
         
         uint256 deadline = block.timestamp + 1 hours;
@@ -599,7 +599,7 @@ contract OnlyOwner_Test is Base_Test {
                 keccak256(abi.encode(
                     escrow.SET_ADMIN_TYPEHASH(),
                     repoId,
-                    accountId,
+                    instanceId,
                     keccak256(abi.encode(_toArray(admin))),
                     escrow.ownerNonce(),
                     deadline
@@ -608,12 +608,12 @@ contract OnlyOwner_Test is Base_Test {
         );
         
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
-        escrow.initRepo(repoId, accountId, _toArray(admin), deadline, v, r, s);
+        escrow.initRepo(repoId, instanceId, _toArray(admin), deadline, v, r, s);
 
         // Fund repo
         wETH.mint(address(this), 10000e18);
         wETH.approve(address(escrow), 10000e18);
-        escrow.fundRepo(repoId, accountId, wETH, 10000e18, "");
+        escrow.fundRepo(repoId, instanceId, wETH, 10000e18, "");
 
         // Create distribution
         address recipient = makeAddr("recipient");
@@ -626,7 +626,7 @@ contract OnlyOwner_Test is Base_Test {
         });
 
         vm.prank(admin);
-        escrow.distributeFromRepo(repoId, accountId, distributions, "");
+        escrow.distributeFromRepo(repoId, instanceId, distributions, "");
     }
 
     function _createSingleDistribution(address recipient, uint256 amount) internal {
