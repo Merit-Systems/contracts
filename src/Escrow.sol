@@ -388,8 +388,8 @@ contract Escrow is Owned, IEscrow {
         external 
         onlyRepoAdmin(repoId, instanceId) 
     {
-        require(whitelistedTokens.contains(token),             Errors.INVALID_TOKEN);
-        require(amount > 0,                                    Errors.INVALID_AMOUNT);
+        require(whitelistedTokens.contains(token),              Errors.INVALID_TOKEN);
+        require(amount > 0,                                     Errors.INVALID_AMOUNT);
         require(!accounts[repoId][instanceId].hasDistributions, Errors.REPO_HAS_DISTRIBUTIONS);
         
         uint balance = accounts[repoId][instanceId].balance[token];
@@ -420,10 +420,10 @@ contract Escrow is Owned, IEscrow {
             Distribution storage distribution = distributions     [distributionId];
             RepoAccount  memory repoAccount   = distributionToRepo[distributionId];
             
-            require(distribution.exists,                                                Errors.INVALID_DISTRIBUTION_ID);
-            require(distribution._type  == DistributionType.Repo,                       Errors.NOT_REPO_DISTRIBUTION);
-            require(distribution.status == DistributionStatus.Distributed,              Errors.ALREADY_CLAIMED);
-            require(block.timestamp     >= distribution.claimDeadline,                  Errors.STILL_CLAIMABLE);
+            require(distribution.exists,                                                  Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution._type  == DistributionType.Repo,                         Errors.NOT_REPO_DISTRIBUTION);
+            require(distribution.status == DistributionStatus.Distributed,                Errors.ALREADY_CLAIMED);
+            require(block.timestamp     >= distribution.claimDeadline,                    Errors.STILL_CLAIMABLE);
             require(repoAccount.repoId == repoId && repoAccount.instanceId == instanceId, Errors.DISTRIBUTION_NOT_FROM_REPO);
 
             distribution.status = DistributionStatus.Reclaimed;
