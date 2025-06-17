@@ -1290,7 +1290,7 @@ contract DistributeFromRepo_Test is Base_Test {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(distributionIds)),
                     recipient1,
-                    escrow.recipientNonce(recipient1),
+                    escrow.recipientClaimNonce(recipient1),
                     deadline
                 ))
             )

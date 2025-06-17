@@ -97,7 +97,7 @@ contract Claim_Test is Base_Test {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(distributionIds)),
                     _recipient,
-                    escrow.recipientNonce(_recipient),
+                    escrow.recipientClaimNonce(_recipient),
                     deadline
                 ))
             )
@@ -145,7 +145,7 @@ contract Claim_Test is Base_Test {
         assertTrue(uint8(distribution.status) == 1); // Claimed
 
         // Check nonce was incremented
-        assertEq(escrow.recipientNonce(recipient), 1);
+        assertEq(escrow.recipientClaimNonce(recipient), 1);
     }
 
     function test_claim_success_multipleDistributions() public {
@@ -236,7 +236,7 @@ contract Claim_Test is Base_Test {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(distributionIds)),
                     recipient,
-                    escrow.recipientNonce(recipient),
+                    escrow.recipientClaimNonce(recipient),
                     deadline
                 ))
             )
@@ -389,13 +389,13 @@ contract Claim_Test is Base_Test {
         (uint8 v1, bytes32 r1, bytes32 s1) = _signClaim(distributionIds1, recipient, deadline);
         vm.prank(recipient);
         escrow.claim(distributionIds1, deadline, v1, r1, s1, "");
-        assertEq(escrow.recipientNonce(recipient), 1);
+        assertEq(escrow.recipientClaimNonce(recipient), 1);
 
         // Second claim (nonce should be incremented)
         (uint8 v2, bytes32 r2, bytes32 s2) = _signClaim(distributionIds2, recipient, deadline);
         vm.prank(recipient);
         escrow.claim(distributionIds2, deadline, v2, r2, s2, "");
-        assertEq(escrow.recipientNonce(recipient), 2);
+        assertEq(escrow.recipientClaimNonce(recipient), 2);
     }
 
     function test_claim_maxBatchLimit() public {
@@ -763,7 +763,7 @@ contract Claim_Test is Base_Test {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(distributionIds)),
                     recipient,
-                    escrow.recipientNonce(recipient) + 1, // Wrong nonce
+                    escrow.recipientClaimNonce(recipient) + 1, // Wrong nonce
                     deadline
                 ))
             )
@@ -792,7 +792,7 @@ contract Claim_Test is Base_Test {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(distributionIds)),
                     claimer, // Wrong recipient
-                    escrow.recipientNonce(recipient),
+                    escrow.recipientClaimNonce(recipient),
                     deadline
                 ))
             )
@@ -1366,7 +1366,7 @@ contract Claim_Test is Base_Test {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(distributionIds)),
                     recipient,
-                    escrow.recipientNonce(recipient),
+                    escrow.recipientClaimNonce(recipient),
                     deadline
                 ))
             )

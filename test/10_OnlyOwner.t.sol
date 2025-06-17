@@ -601,7 +601,7 @@ contract OnlyOwner_Test is Base_Test {
                     repoId,
                     instanceId,
                     keccak256(abi.encode(_toArray(admin))),
-                    escrow.signerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )
@@ -755,7 +755,7 @@ contract OnlyOwner_Test is Base_Test {
                         1,
                         1,
                         keccak256(abi.encode(admins)),
-                        escrow.signerNonce(),
+                        escrow.setAdminNonce(),
                         deadline
                     ))
                 )
@@ -772,7 +772,7 @@ contract OnlyOwner_Test is Base_Test {
                             1,
                             1,
                             keccak256(abi.encode(admins)),
-                            escrow.signerNonce(),
+                            escrow.setAdminNonce(),
                             deadline
                         ))
                     )
@@ -808,7 +808,7 @@ contract OnlyOwner_Test is Base_Test {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(claimIds)),
                     recipient,
-                    escrow.recipientNonce(recipient),
+                    escrow.recipientClaimNonce(recipient),
                     block.timestamp + 1 hours
                 ))
             )
@@ -851,7 +851,7 @@ contract OnlyOwner_Test is Base_Test {
                         1,
                         1,
                         keccak256(abi.encode(admins)),
-                        escrow.signerNonce(),
+                        escrow.setAdminNonce(),
                         deadline
                     ))
                 )
@@ -868,7 +868,7 @@ contract OnlyOwner_Test is Base_Test {
                             1,
                             1,
                             keccak256(abi.encode(admins)),
-                            escrow.signerNonce(),
+                            escrow.setAdminNonce(),
                             deadline
                         ))
                     )

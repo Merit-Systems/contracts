@@ -618,7 +618,7 @@ contract EscrowHandler is Test {
             
             vm.stopPrank();
             vm.prank(owner);
-            escrow.setAdmin(vm.addr(1)); // Set signer to match the private key
+            escrow.setSigner(vm.addr(1)); // Set signer to match the private key
             vm.startPrank(actors[currentActor]);
             
             escrow.claim(distributionIds, deadline, v, r, s, "");

@@ -51,7 +51,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.signerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )
@@ -1200,7 +1200,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(_singleAddressArray(initialAdmin))),
-                    escrow.signerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )
