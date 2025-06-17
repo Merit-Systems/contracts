@@ -118,7 +118,7 @@ contract DeployAnvil is Script {
         admins[1] = USER2;
         
         // Create signature for initRepo
-        uint ownerNonce = escrow.ownerNonce();
+        uint setAdminNonce = escrow.setAdminNonce();
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(
@@ -130,7 +130,7 @@ contract DeployAnvil is Script {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    ownerNonce,
+                    setAdminNonce,
                     signatureDeadline
                 ))
             )
@@ -263,7 +263,7 @@ contract DeployAnvil is Script {
         vm.stopBroadcast();
         
         // Create claim signature
-        uint recipientNonce = escrow.recipientNonce(RECIPIENT);
+        uint recipientClaimNonce = escrow.recipientClaimNonce(RECIPIENT);
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 claimDigest = keccak256(
@@ -274,7 +274,7 @@ contract DeployAnvil is Script {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(distributionIds)),
                     RECIPIENT,
-                    recipientNonce,
+                    recipientClaimNonce,
                     signatureDeadline
                 ))
             )
@@ -295,7 +295,7 @@ contract DeployAnvil is Script {
         address[] memory admins = new address[](1);
         admins[0] = USER1;
         
-        uint ownerNonce = escrow.ownerNonce();
+        uint setAdminNonce = escrow.setAdminNonce();
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(
@@ -307,7 +307,7 @@ contract DeployAnvil is Script {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    ownerNonce,
+                    setAdminNonce,
                     signatureDeadline
                 ))
             )
@@ -445,7 +445,7 @@ contract DeployAnvil is Script {
                 if (admins.length > 2) admins[2] = RECIPIENT;
             }
             
-            uint ownerNonce = escrow.ownerNonce();
+            uint setAdminNonce = escrow.setAdminNonce();
             uint signatureDeadline = block.timestamp + 3600;
             
             bytes32 digest = keccak256(
@@ -457,7 +457,7 @@ contract DeployAnvil is Script {
                         repoId,
                         accountId,
                         keccak256(abi.encode(admins)),
-                        ownerNonce,
+                        setAdminNonce,
                         signatureDeadline
                     ))
                 )
@@ -750,7 +750,7 @@ contract DeployAnvil is Script {
         address[] memory admins = new address[](1);
         admins[0] = USER1;
         
-        uint ownerNonce = escrow.ownerNonce();
+        uint setAdminNonce = escrow.setAdminNonce();
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(
@@ -762,7 +762,7 @@ contract DeployAnvil is Script {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    ownerNonce,
+                    setAdminNonce,
                     signatureDeadline
                 ))
             )
@@ -837,7 +837,7 @@ contract DeployAnvil is Script {
         address[] memory admins = new address[](1);
         admins[0] = USER1;
         
-        uint ownerNonce = escrow.ownerNonce();
+        uint setAdminNonce = escrow.setAdminNonce();
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(
@@ -849,7 +849,7 @@ contract DeployAnvil is Script {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    ownerNonce,
+                    setAdminNonce,
                     signatureDeadline
                 ))
             )
@@ -1041,7 +1041,7 @@ contract DeployAnvil is Script {
         address[] memory admins = new address[](1);
         admins[0] = USER1;
         
-        uint ownerNonce = escrow.ownerNonce();
+        uint setAdminNonce = escrow.setAdminNonce();
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(
@@ -1053,7 +1053,7 @@ contract DeployAnvil is Script {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    ownerNonce,
+                    setAdminNonce,
                     signatureDeadline
                 ))
             )

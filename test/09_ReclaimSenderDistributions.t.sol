@@ -49,7 +49,7 @@ contract ReclaimSolo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(_toArray(repoAdmin))),
-                    escrow.ownerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )
@@ -258,7 +258,7 @@ contract ReclaimSolo_Test is Base_Test {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(claimIds)),
                     recipient,
-                    escrow.recipientNonce(recipient),
+                    escrow.recipientClaimNonce(recipient),
                     block.timestamp + 1 hours
                 ))
             )
@@ -354,7 +354,7 @@ contract ReclaimSolo_Test is Base_Test {
                     escrow.CLAIM_TYPEHASH(),
                     keccak256(abi.encode(claimIds)),
                     recipient,
-                    escrow.recipientNonce(recipient),
+                    escrow.recipientClaimNonce(recipient),
                     block.timestamp + 1 hours
                 ))
             )

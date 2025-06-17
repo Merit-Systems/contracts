@@ -51,13 +51,16 @@ contract OnlyRepoAdmin_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.ownerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )
         );
         
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            ownerPrivateKey,
+            digest
+        );
         escrow.initRepo(repoId, accountId, admins, deadline, v, r, s);
     }
 
@@ -1197,7 +1200,7 @@ contract OnlyRepoAdmin_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(_singleAddressArray(initialAdmin))),
-                    escrow.ownerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )

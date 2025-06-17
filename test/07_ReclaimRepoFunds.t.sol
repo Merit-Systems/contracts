@@ -36,7 +36,7 @@ contract ReclaimFund_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(_toArray(repoAdmin))),
-                    escrow.ownerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )
@@ -148,7 +148,7 @@ contract ReclaimFund_Test is Base_Test {
                     repoId2,
                     instanceId2,
                     keccak256(abi.encode(_toArray(admin2))),
-                    escrow.ownerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )
@@ -287,7 +287,7 @@ contract ReclaimFund_Test is Base_Test {
                     repoId,
                     instanceId,
                     keccak256(abi.encode(_toArray(admin))),
-                    escrow.ownerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )
