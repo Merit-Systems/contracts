@@ -37,7 +37,7 @@ contract ReclaimRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(_toArray(repoAdmin))),
-                    escrow.ownerNonce(),
+                    escrow.signerNonce(),
                     deadline
                 ))
             )
@@ -58,13 +58,16 @@ contract ReclaimRepo_Test is Base_Test {
                     repoId,
                     instanceId,
                     keccak256(abi.encode(_toArray(admin))),
-                    escrow.ownerNonce(),
+                    escrow.signerNonce(),
                     deadline
                 ))
             )
         );
         
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            ownerPrivateKey,
+            digest
+        );
         escrow.initRepo(repoId, instanceId, _toArray(admin), deadline, v, r, s);
     }
 

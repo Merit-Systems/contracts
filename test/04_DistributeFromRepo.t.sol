@@ -49,7 +49,7 @@ contract DistributeFromRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(_toArray(repoAdmin))),
-                    escrow.ownerNonce(),
+                    escrow.signerNonce(),
                     deadline
                 ))
             )
@@ -938,7 +938,7 @@ contract DistributeFromRepo_Test is Base_Test {
                         repoId,
                         accountId,
                         keccak256(abi.encode(initialAdmins)),
-                        escrow.ownerNonce(),
+                        escrow.signerNonce(),
                         deadline
                     ))
                 )
@@ -1331,7 +1331,7 @@ contract DistributeFromRepo_Test is Base_Test {
                     123, // repoId
                     456, // accountId
                     keccak256(abi.encode(admins)),
-                    escrow.ownerNonce(),
+                    escrow.signerNonce(),
                     deadline
                 ))
             )

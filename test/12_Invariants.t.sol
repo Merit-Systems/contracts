@@ -195,10 +195,10 @@ contract EscrowInvariants is StdInvariant, Base_Test {
     
     /// @dev Nonces should always increase monotonically
     function invariant_noncesMonotonic() public view {
-        // Owner nonce should never decrease
-        uint256 currentOwnerNonce = escrow.ownerNonce();
-        uint256 expectedMinOwnerNonce = handler.getMinExpectedOwnerNonce();
-        assertGe(currentOwnerNonce, expectedMinOwnerNonce, "Owner nonce should be monotonic");
+        // Signer nonce should never decrease
+        uint256 currentSignerNonce = escrow.signerNonce();
+        uint256 expectedMinSignerNonce = handler.getMinExpectedSignerNonce();
+        assertGe(currentSignerNonce, expectedMinSignerNonce, "Signer nonce should be monotonic");
         
         // Recipient nonces should never decrease
         address[] memory recipients = handler.getTrackedRecipients();
@@ -428,6 +428,12 @@ contract EscrowInvariants is StdInvariant, Base_Test {
         // This tests that the domain separator logic is working correctly
         assertTrue(domainSeparator.length == 32, "Domain separator should be 32 bytes");
     }
+
+    function checkNonceInvariants() public {
+        uint256 currentSignerNonce = escrow.signerNonce();
+        uint256 expectedMinSignerNonce = handler.getMinExpectedSignerNonce();
+        assertGe(currentSignerNonce, expectedMinSignerNonce, "Signer nonce should be monotonic");
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -455,7 +461,7 @@ contract EscrowHandler is Test {
     address[] public trackedRecipients;
     mapping(address => bool) public recipientTracked;
     
-    uint256 public minExpectedOwnerNonce;
+
     uint256 public totalFeesCollectedByHandler; // Track fees we've collected
     uint256 public initialFeeRecipientBalance;   // Track initial balance
     
@@ -466,6 +472,8 @@ contract EscrowHandler is Test {
     // Additional tracking for new invariants
     uint256 public minExpectedDistributionCount;
     uint256 public minExpectedBatchCount;
+    
+    uint256 public minExpectedSignerNonce;
     
     constructor(Escrow _escrow, MockERC20 _token, address _owner, uint256 _ownerPrivateKey) {
         escrow = _escrow;
@@ -764,6 +772,10 @@ contract EscrowHandler is Test {
         return minExpectedBatchCount;
     }
 
+    function getMinExpectedSignerNonce() public view returns (uint256) {
+        return minExpectedSignerNonce;
+    }
+
     // Internal helpers
     function _initRepo(uint256 repoId, uint256 instanceId, address admin) internal {
         address[] memory admins = new address[](1);
@@ -779,7 +791,7 @@ contract EscrowHandler is Test {
                     repoId,
                     instanceId,
                     keccak256(abi.encode(admins)),
-                    escrow.ownerNonce(),
+                    escrow.signerNonce(),
                     deadline
                 ))
             )
@@ -788,7 +800,7 @@ contract EscrowHandler is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
         escrow.initRepo(repoId, instanceId, admins, deadline, v, r, s);
         
-        minExpectedOwnerNonce++;
+        minExpectedSignerNonce++;
         _trackRepoAccount(repoId, instanceId);
     }
     
@@ -849,9 +861,7 @@ contract EscrowHandler is Test {
         return trackedRecipients;
     }
     
-    function getMinExpectedOwnerNonce() public view returns (uint256) {
-        return minExpectedOwnerNonce;
-    }
+
     
     function getMinExpectedRecipientNonce(address recipient) public view returns (uint256) {
         return minExpectedRecipientNonce[recipient];

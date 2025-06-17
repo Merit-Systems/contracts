@@ -601,7 +601,7 @@ contract OnlyOwner_Test is Base_Test {
                     repoId,
                     instanceId,
                     keccak256(abi.encode(_toArray(admin))),
-                    escrow.ownerNonce(),
+                    escrow.signerNonce(),
                     deadline
                 ))
             )
@@ -755,13 +755,29 @@ contract OnlyOwner_Test is Base_Test {
                         1,
                         1,
                         keccak256(abi.encode(admins)),
-                        escrow.ownerNonce(),
+                        escrow.signerNonce(),
                         deadline
                     ))
                 )
             );
             
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+                ownerPrivateKey,
+                keccak256(
+                    abi.encodePacked(
+                        "\x19\x01",
+                        escrow.DOMAIN_SEPARATOR(),
+                        keccak256(abi.encode(
+                            escrow.SET_ADMIN_TYPEHASH(),
+                            1,
+                            1,
+                            keccak256(abi.encode(admins)),
+                            escrow.signerNonce(),
+                            deadline
+                        ))
+                    )
+                )
+            );
             escrow.initRepo(1, 1, admins, deadline, v, r, s);
         }
         
@@ -835,13 +851,29 @@ contract OnlyOwner_Test is Base_Test {
                         1,
                         1,
                         keccak256(abi.encode(admins)),
-                        escrow.ownerNonce(),
+                        escrow.signerNonce(),
                         deadline
                     ))
                 )
             );
             
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+                ownerPrivateKey,
+                keccak256(
+                    abi.encodePacked(
+                        "\x19\x01",
+                        escrow.DOMAIN_SEPARATOR(),
+                        keccak256(abi.encode(
+                            escrow.SET_ADMIN_TYPEHASH(),
+                            1,
+                            1,
+                            keccak256(abi.encode(admins)),
+                            escrow.signerNonce(),
+                            deadline
+                        ))
+                    )
+                )
+            );
             escrow.initRepo(1, 1, admins, deadline, v, r, s);
             
             // Fund repo
