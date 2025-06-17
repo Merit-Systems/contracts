@@ -82,7 +82,7 @@ contract Escrow is Owned, IEscrow {
     mapping(uint => RepoAccount)  public distributionToRepo; // distributionId → RepoAccount (for repo distributions)
 
     mapping(address => uint) public recipientNonce;          // recipient → nonce
-    uint                     public ownerNonce;    
+    uint                     public signerNonce;             // nonce for signer operations
 
     uint    public fee;
     address public feeRecipient;
@@ -162,14 +162,14 @@ contract Escrow is Owned, IEscrow {
                     repoId,
                     instanceId,
                     keccak256(abi.encode(admins)),
-                    ownerNonce,
+                    signerNonce,
                     signatureDeadline
                 ))
             )
         );
-        require(ECDSA.recover(digest, v, r, s) == owner, Errors.INVALID_SIGNATURE);
+        require(ECDSA.recover(digest, v, r, s) == signer, Errors.INVALID_SIGNATURE);
 
-        ownerNonce++;
+        signerNonce++;
         account.exists = true;
         
         for (uint i; i < admins.length; ++i) {
