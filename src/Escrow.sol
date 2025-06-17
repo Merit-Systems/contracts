@@ -82,7 +82,7 @@ contract Escrow is Owned, IEscrow {
     mapping(uint => RepoAccount)  public distributionToRepo; // distributionId → RepoAccount (for repo distributions)
 
     mapping(address => uint) public recipientNonce;          // recipient → nonce
-    uint                     public signerNonce;             // nonce for signer operations
+    uint                     public signerNonce;
 
     uint    public fee;
     address public feeRecipient;
