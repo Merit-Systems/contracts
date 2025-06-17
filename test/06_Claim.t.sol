@@ -40,7 +40,7 @@ contract Claim_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(_toArray(repoAdmin))),
-                    escrow.signerNonce(),
+                    escrow.setAdminNonce(),
                     deadline
                 ))
             )
