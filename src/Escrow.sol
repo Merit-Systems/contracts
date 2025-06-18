@@ -109,6 +109,14 @@ contract Escrow is Owned, IEscrow {
         _;
     }
 
+    modifier onlyRepoAdminOrDistributor(uint repoId, uint instanceId) {
+        Account storage account = accounts[repoId][instanceId];
+        bool isAdmin            = account.admins.contains(msg.sender);
+        bool isDistributor      = account.distributors.contains(msg.sender);
+        require(isAdmin || isDistributor, Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        _;
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                 CONSTRUCTOR                                */
     /* -------------------------------------------------------------------------- */
@@ -211,16 +219,13 @@ contract Escrow is Owned, IEscrow {
         bytes                memory   data
     ) 
         external 
+        onlyRepoAdminOrDistributor(repoId, instanceId)
         returns (uint[] memory distributionIds)
     {
         require(_distributions.length >  0,          Errors.EMPTY_ARRAY);
         require(_distributions.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
         Account storage account = accounts[repoId][instanceId];
-
-        bool isAdmin       = account.admins.contains(msg.sender);
-        bool isDistributor = account.distributors.contains(msg.sender);
-        require(isAdmin || isDistributor, Errors.NOT_AUTHORIZED_DISTRIBUTOR);
         
         distributionIds = new uint[](_distributions.length);
         uint batchId    = batchCount++;
@@ -409,7 +414,10 @@ contract Escrow is Owned, IEscrow {
         uint            instanceId,
         uint[] calldata distributionIds,
         bytes  calldata data
-    ) external {
+    ) 
+        external 
+        onlyRepoAdminOrDistributor(repoId, instanceId) 
+    {
         require(distributionIds.length >  0,          Errors.EMPTY_ARRAY);
         require(distributionIds.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
 
@@ -455,6 +463,7 @@ contract Escrow is Owned, IEscrow {
             require(distribution._type  == DistributionType.Solo,          Errors.NOT_DIRECT_DISTRIBUTION);
             require(distribution.status == DistributionStatus.Distributed, Errors.ALREADY_CLAIMED);
             require(block.timestamp     >= distribution.claimDeadline,     Errors.STILL_CLAIMABLE);
+            require(msg.sender          == distribution.payer,             Errors.NOT_ORIGINAL_PAYER);
             
             distribution.status = DistributionStatus.Reclaimed;
             distribution.token.safeTransfer(distribution.payer, distribution.amount);

@@ -36,7 +36,7 @@ SEPOLIA_FLAGS = $(FORGE_COMMON_FLAGS) --etherscan-api-key $(ETH_ETHERSCAN_API_KE
 
 .PHONY: deploy deploy-sepolia deploy-base-sepolia deploy-base deploy-anvil \
 		deposit-count recipient-nonces flatten \
-		test-escrow test-escrow-with-fee gas create-payments
+		test-escrow test-escrow-with-fee gas create-payments init-repo-base-sepolia
 
 # ----------------------
 # Deploy to Sepolia
@@ -76,6 +76,15 @@ deploy-anvil:
 		--unlocked \
 		-v \
 		--via-ir
+
+# ----------------------
+# Initialize Repo on Base Sepolia
+# ----------------------
+init-repo:
+	forge script script/InitRepo.BaseSepolia.s.sol \
+		--rpc-url $(BASE_SEPOLIA_RPC) \
+		--sender $(SEPOLIA_SENDER) \
+		$(BASE_FLAGS)
 
 # ---------------------------------------------------------------------------
 # Testing Targets
