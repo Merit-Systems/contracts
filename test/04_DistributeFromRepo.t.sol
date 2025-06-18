@@ -834,9 +834,253 @@ contract DistributeFromRepo_Test is Base_Test {
         escrow.getDistributionRepo(999999);
     }
 
-    // Events for testing
+    /* -------------------------------------------------------------------------- */
+    /*                    REPO ADMIN OR DISTRIBUTOR ACCESS TESTS                 */
+    /* -------------------------------------------------------------------------- */
+
+    function test_distributeFromRepo_accessControl_adminCanDistribute() public {
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Admin should be able to distribute
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        assertEq(distributionIds.length, 1);
+        assertTrue(escrow.getDistribution(distributionIds[0]).exists);
+    }
+
+    function test_distributeFromRepo_accessControl_distributorCanDistribute() public {
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Distributor should be able to distribute
+        vm.prank(distributor1);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        assertEq(distributionIds.length, 1);
+        assertTrue(escrow.getDistribution(distributionIds[0]).exists);
+    }
+
+    function test_distributeFromRepo_accessControl_secondDistributorCanDistribute() public {
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Second distributor should also be able to distribute
+        vm.prank(distributor2);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        assertEq(distributionIds.length, 1);
+        assertTrue(escrow.getDistribution(distributionIds[0]).exists);
+    }
+
+    function test_distributeFromRepo_accessControl_randomUserCannotDistribute() public {
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        address randomUser = makeAddr("randomUser");
+
+        // Random user should NOT be able to distribute
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(randomUser);
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+    }
+
+    function test_distributeFromRepo_accessControl_crossRepoAdminCannotAccess() public {
+        // Setup second repo with different admin
+        uint256 repo2Id = 2;
+        uint256 instance2Id = 200;
+        address admin2 = makeAddr("admin2");
+        _initializeSecondRepo(repo2Id, instance2Id, admin2);
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Admin from repo2 should NOT be able to distribute from repo1
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(admin2);
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        // Admin from repo1 should NOT be able to distribute from repo2
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(repoAdmin);
+        escrow.distributeFromRepo(repo2Id, instance2Id, distributions, "");
+    }
+
+    function test_distributeFromRepo_accessControl_crossRepoDistributorCannotAccess() public {
+        // Setup second repo with admin and distributor
+        uint256 repo2Id = 2;
+        uint256 instance2Id = 200;
+        address admin2 = makeAddr("admin2");
+        address distributor2Repo2 = makeAddr("distributor2Repo2");
+        
+        _initializeSecondRepo(repo2Id, instance2Id, admin2);
+        
+        // Add distributor to repo2
+        vm.prank(admin2);
+        escrow.addDistributors(repo2Id, instance2Id, _toArray(distributor2Repo2));
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Distributor from repo2 should NOT be able to distribute from repo1
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(distributor2Repo2);
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+
+        // Distributor from repo1 should NOT be able to distribute from repo2
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(distributor1);
+        escrow.distributeFromRepo(repo2Id, instance2Id, distributions, "");
+    }
+
+    function test_distributeFromRepo_accessControl_adminBecomesDistributor() public {
+        // Admin can still distribute after becoming a distributor
+        vm.prank(repoAdmin);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, _toArray(repoAdmin));
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Admin who is also a distributor should still be able to distribute
+        vm.prank(repoAdmin);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        assertEq(distributionIds.length, 1);
+    }
+
+    function test_distributeFromRepo_accessControl_distributorBecomesAdmin() public {
+        // Make distributor1 an admin
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, _toArray(distributor1));
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Distributor who became admin should still be able to distribute
+        vm.prank(distributor1);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        assertEq(distributionIds.length, 1);
+    }
+
+    function test_distributeFromRepo_accessControl_removedDistributorCannotDistribute() public {
+        // Remove distributor1
+        vm.prank(repoAdmin);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, _toArray(distributor1));
+
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Removed distributor should NOT be able to distribute
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(distributor1);
+        escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        
+        // But distributor2 should still work
+        vm.prank(distributor2);
+        uint[] memory distributionIds = escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
+        assertEq(distributionIds.length, 1);
+    }
+
+    function test_distributeFromRepo_accessControl_canDistributeGetter() public {
+        // Test the canDistribute getter function
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, repoAdmin));
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor1));
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor2));
+        
+        address randomUser = makeAddr("randomUser");
+        assertFalse(escrow.canDistribute(REPO_ID, ACCOUNT_ID, randomUser));
+    }
+
+    function test_distributeFromRepo_accessControl_nonExistentRepo() public {
+        Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
+        distributions[0] = Escrow.DistributionParams({
+            amount: DISTRIBUTION_AMOUNT,
+            recipient: recipient1,
+            claimPeriod: CLAIM_PERIOD,
+            token: wETH
+        });
+
+        // Try to distribute from non-existent repo
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(repoAdmin);
+        escrow.distributeFromRepo(999, 999, distributions, "");
+    }
+
+    function _initializeSecondRepo(uint256 repoId, uint256 instanceId, address admin) internal {
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    instanceId,
+                    keccak256(abi.encode(_toArray(admin))),
+                    escrow.setAdminNonce(),
+                    deadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        
+        escrow.initRepo(repoId, instanceId, _toArray(admin), deadline, v, r, s);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                                    EVENTS                                  */
+    /* -------------------------------------------------------------------------- */
+
     event DistributedFromRepo(
-        uint256 indexed distributionBatchId,
+        uint256 indexed batchId,
         uint256 indexed distributionId,
         address indexed recipient,
         address token,
@@ -845,9 +1089,9 @@ contract DistributeFromRepo_Test is Base_Test {
     );
 
     event DistributedFromRepoBatch(
-        uint256 indexed distributionBatchId,
+        uint256 indexed batchId,
         uint256 indexed repoId,
-        uint256 indexed accountId,
+        uint256 indexed instanceId,
         uint256[] distributionIds,
         bytes data
     );
