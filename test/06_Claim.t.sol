@@ -1597,7 +1597,8 @@ contract Claim_Test is Base_Test {
         // Original payer reclaims solo distribution
         uint[] memory reclaimIds = new uint[](1);
         reclaimIds[0] = distributionId;
-        vm.prank(address(this)); // We are the payer for solo distributions
+        address originalPayer = makeAddr("payer"); // This is the payer from _createSoloDistribution
+        vm.prank(originalPayer);
         escrow.reclaimSenderDistributions(reclaimIds, "");
 
         // Now recipient tries to claim - should fail
