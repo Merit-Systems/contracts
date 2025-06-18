@@ -136,7 +136,7 @@ contract DeployAnvil is Script {
             )
         );
         
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_PRIVATE_KEY, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PRIVATE_KEY, digest);
         
         vm.broadcast(admins[0]);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
@@ -313,7 +313,7 @@ contract DeployAnvil is Script {
             )
         );
         
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_PRIVATE_KEY, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PRIVATE_KEY, digest);
         
         vm.broadcast(USER1);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
@@ -463,7 +463,7 @@ contract DeployAnvil is Script {
                 )
             );
             
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_PRIVATE_KEY, digest);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PRIVATE_KEY, digest);
             
             vm.broadcast(admins[0]);
             escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
@@ -768,7 +768,7 @@ contract DeployAnvil is Script {
             )
         );
         
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_PRIVATE_KEY, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PRIVATE_KEY, digest);
         
         vm.broadcast(USER1);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
@@ -855,7 +855,7 @@ contract DeployAnvil is Script {
             )
         );
         
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_PRIVATE_KEY, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PRIVATE_KEY, digest);
         
         vm.broadcast(USER1);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
@@ -1059,7 +1059,7 @@ contract DeployAnvil is Script {
             )
         );
         
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(OWNER_PRIVATE_KEY, digest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PRIVATE_KEY, digest);
         
         vm.broadcast(USER1);
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
