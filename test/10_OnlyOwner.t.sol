@@ -382,9 +382,10 @@ contract OnlyOwner_Test is Base_Test {
     }
 
     function test_feeChanges_fuzz_distributionImpact(uint256 oldFee, uint256 newFee, uint256 amount) public {
-        vm.assume(oldFee <= escrow.MAX_FEE());
-        vm.assume(newFee <= escrow.MAX_FEE());
-        vm.assume(amount >= 100 && amount <= 1000e18); // Ensure amount is large enough to pass fee validation
+        // Use bound instead of vm.assume to avoid rejecting too many inputs
+        oldFee = bound(oldFee, 0, escrow.MAX_FEE());
+        newFee = bound(newFee, 0, escrow.MAX_FEE());
+        amount = bound(amount, 100, 1000e18); // Ensure amount is large enough to pass fee validation
         
         // Set initial fee
         vm.prank(owner);

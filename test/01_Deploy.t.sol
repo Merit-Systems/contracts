@@ -392,7 +392,9 @@ contract Deploy_Test is Base_Test {
     function test_deploy_chainIdHandling() public {
         address[] memory initialWhitelist = new address[](0);
         
-        uint256 originalChainId = block.chainid;
+        // Use a fixed, known chain ID for test determinism
+        uint256 testChainId = 31337; // Anvil default
+        vm.chainId(testChainId);
         
         Escrow deployedEscrow = new Escrow(
             testOwner,
@@ -402,23 +404,47 @@ contract Deploy_Test is Base_Test {
             100
         );
         
+        // Get domain separator on initial chain
         bytes32 domainSeparator1 = deployedEscrow.DOMAIN_SEPARATOR();
         
-        // Change chain ID
+        // Verify it matches the expected computation for initial chain
+        bytes32 expectedOriginal = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("Escrow")),
+                keccak256(bytes("1")),
+                testChainId,
+                address(deployedEscrow)
+            )
+        );
+        assertEq(domainSeparator1, expectedOriginal);
+        
+        // Change chain ID to a different value
         vm.chainId(999);
         
         bytes32 domainSeparator2 = deployedEscrow.DOMAIN_SEPARATOR();
         
-        // Domain separators should be different
+        // Should be different and match expected for new chain
+        bytes32 expectedNewChain = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("Escrow")),
+                keccak256(bytes("1")),
+                999,
+                address(deployedEscrow)
+            )
+        );
+        assertEq(domainSeparator2, expectedNewChain);
         assertTrue(domainSeparator1 != domainSeparator2);
         
-        // Reset chain ID
-        vm.chainId(originalChainId);
+        // Reset chain ID back to original
+        vm.chainId(testChainId);
         
         bytes32 domainSeparator3 = deployedEscrow.DOMAIN_SEPARATOR();
         
-        // Should match original
-        assertEq(domainSeparator1, domainSeparator3);
+        // Should match original (uses cached INITIAL_DOMAIN_SEPARATOR) 
+        assertEq(domainSeparator3, domainSeparator1);
+        assertEq(domainSeparator3, expectedOriginal);
     }
 
     /* -------------------------------------------------------------------------- */
