@@ -167,7 +167,7 @@ contract ReclaimRepo_Test is Base_Test {
 
         // Expect the updated event with distributionBatchId
         vm.expectEmit(true, true, true, true);
-        emit ReclaimedRepoDistribution(escrow.batchCount(), distributionId, address(this), DISTRIBUTION_AMOUNT);
+        emit ReclaimedRepoDistribution(escrow.batchCount(), distributionId, repoAdmin, DISTRIBUTION_AMOUNT);
 
         vm.expectEmit(true, true, true, true);
         emit ReclaimedRepoDistributionsBatch(escrow.batchCount(), REPO_ID, ACCOUNT_ID, distributionIds, "");
@@ -273,9 +273,12 @@ contract ReclaimRepo_Test is Base_Test {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
 
-        // Try to reclaim with wrong repo ID
+        // Try to reclaim with wrong repo ID (need to create admin for repo 999 first to bypass access control)
+        address admin999 = makeAddr("admin999");
+        _initializeSecondRepo(999, ACCOUNT_ID, admin999);
+        
         expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
-        vm.prank(repoAdmin);
+        vm.prank(admin999);
         escrow.reclaimRepoDistributions(999, ACCOUNT_ID, distributionIds, "");
     }
 
@@ -289,9 +292,12 @@ contract ReclaimRepo_Test is Base_Test {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
 
-        // Try to reclaim with wrong instance ID
+        // Try to reclaim with wrong instance ID (need to create admin for instance 999 first to bypass access control)
+        address admin999Instance = makeAddr("admin999Instance");
+        _initializeSecondRepo(REPO_ID, 999, admin999Instance);
+        
         expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
-        vm.prank(repoAdmin);
+        vm.prank(admin999Instance);
         escrow.reclaimRepoDistributions(REPO_ID, 999, distributionIds, "");
     }
 
@@ -305,9 +311,12 @@ contract ReclaimRepo_Test is Base_Test {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
 
-        // Try to reclaim with wrong repo and instance ID
+        // Try to reclaim with wrong repo and instance ID (need to create admin for repo/instance first to bypass access control)
+        address admin999888 = makeAddr("admin999888");
+        _initializeSecondRepo(999, 888, admin999888);
+        
         expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
-        vm.prank(repoAdmin);
+        vm.prank(admin999888);
         escrow.reclaimRepoDistributions(999, 888, distributionIds, "");
     }
 
@@ -713,9 +722,13 @@ contract ReclaimRepo_Test is Base_Test {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
         
+        // Setup admin for wrong repo ID to bypass access control and test repo validation
+        address wrongRepoAdmin = makeAddr("wrongRepoAdmin");
+        _initializeSecondRepo(wrongRepoId, instanceId, wrongRepoAdmin);
+        
         // Should fail with wrong repo ID
         expectRevert(Errors.DISTRIBUTION_NOT_FROM_REPO);
-        vm.prank(admin);
+        vm.prank(wrongRepoAdmin);
         escrow.reclaimRepoDistributions(wrongRepoId, instanceId, distributionIds, "");
         
         // Should succeed with correct IDs
