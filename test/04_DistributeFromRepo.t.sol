@@ -190,7 +190,7 @@ contract DistributeFromRepo_Test is Base_Test {
 
         address unauthorized = makeAddr("unauthorized");
         
-        expectRevert(Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
         vm.prank(unauthorized);
         escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
@@ -984,7 +984,7 @@ contract DistributeFromRepo_Test is Base_Test {
             uint256[] memory distributionIds = escrow.distributeFromRepo(repoId, accountId, distributions, "");
             assertEq(distributionIds.length, 1);
         } else {
-            vm.expectRevert(bytes(Errors.NOT_AUTHORIZED_DISTRIBUTOR));
+            vm.expectRevert(bytes(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR));
             vm.prank(actor);
             escrow.distributeFromRepo(repoId, accountId, distributions, "");
         }
@@ -1181,7 +1181,7 @@ contract DistributeFromRepo_Test is Base_Test {
 
         // This should revert because the distributor check will fail
         // (non-existent repos have no admins or distributors)
-        expectRevert(Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
         vm.prank(repoAdmin);
         escrow.distributeFromRepo(nonExistentRepoId, nonExistentAccountId, distributions, "");
     }
@@ -1217,7 +1217,7 @@ contract DistributeFromRepo_Test is Base_Test {
             token: wETH
         });
 
-        expectRevert(Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
         vm.prank(tempAdmin);
         escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions, "");
     }
@@ -1255,7 +1255,7 @@ contract DistributeFromRepo_Test is Base_Test {
             token: wETH
         });
 
-        expectRevert(Errors.NOT_AUTHORIZED_DISTRIBUTOR);
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
         vm.prank(distributor1);
         escrow.distributeFromRepo(REPO_ID, ACCOUNT_ID, distributions2, "");
     }

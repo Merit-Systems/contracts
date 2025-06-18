@@ -119,6 +119,7 @@ contract ReclaimSolo_Test is Base_Test {
         vm.expectEmit(true, true, true, true);
         emit ReclaimedSenderDistribution(escrow.batchCount(), distributionId, soloPayer, DISTRIBUTION_AMOUNT);
 
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Check payer received funds back
@@ -144,6 +145,7 @@ contract ReclaimSolo_Test is Base_Test {
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
 
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Check payer received all funds back
@@ -163,14 +165,21 @@ contract ReclaimSolo_Test is Base_Test {
         // Move past claim deadline
         vm.warp(block.timestamp + CLAIM_PERIOD + 1);
 
-        uint[] memory distributionIds = new uint[](2);
-        distributionIds[0] = distributionId1;
-        distributionIds[1] = distributionId2;
-
         uint256 initialPayer1Balance = wETH.balanceOf(soloPayer);
         uint256 initialPayer2Balance = wETH.balanceOf(soloPayer2);
 
-        escrow.reclaimSenderDistributions(distributionIds, "");
+        // Each payer can only reclaim their own distributions
+        uint[] memory distributionIds1 = new uint[](1);
+        distributionIds1[0] = distributionId1;
+        
+        uint[] memory distributionIds2 = new uint[](1);
+        distributionIds2[0] = distributionId2;
+
+        vm.prank(soloPayer);
+        escrow.reclaimSenderDistributions(distributionIds1, "");
+        
+        vm.prank(soloPayer2);
+        escrow.reclaimSenderDistributions(distributionIds2, "");
 
         // Each payer should get their own distribution back
         assertEq(wETH.balanceOf(soloPayer), initialPayer1Balance + DISTRIBUTION_AMOUNT);
@@ -191,6 +200,7 @@ contract ReclaimSolo_Test is Base_Test {
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
 
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Payer should get back both distributions regardless of recipients
@@ -212,13 +222,14 @@ contract ReclaimSolo_Test is Base_Test {
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
 
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Check all were reclaimed
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + (distributionAmount * batchLimit));
     }
 
-    function test_reclaimSenderDistributions_anyoneCanReclaim() public {
+    function test_reclaimSenderDistributions_onlyOriginalPayerCanReclaim() public {
         uint256 distributionId = _createSoloDistribution(soloPayer, recipient, DISTRIBUTION_AMOUNT);
 
         // Move past claim deadline
@@ -228,13 +239,18 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         address randomUser = makeAddr("randomUser");
-        uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
 
-        // Random user should be able to reclaim expired solo distributions
+        // Random user should NOT be able to reclaim solo distributions
+        expectRevert(Errors.NOT_ORIGINAL_PAYER);
         vm.prank(randomUser);
         escrow.reclaimSenderDistributions(distributionIds, "");
 
-        // Original payer should still receive the funds
+        // Only the original payer should be able to reclaim
+        uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
+        vm.prank(soloPayer);
+        escrow.reclaimSenderDistributions(distributionIds, "");
+
+        // Original payer should receive the funds
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + DISTRIBUTION_AMOUNT);
 
         // Check distribution was reclaimed
@@ -276,6 +292,7 @@ contract ReclaimSolo_Test is Base_Test {
         reclaimIds[0] = distributionId2;
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(reclaimIds, "");
 
         // Should reclaim successfully
@@ -287,6 +304,7 @@ contract ReclaimSolo_Test is Base_Test {
         uint[] memory distributionIds = new uint[](batchLimit + 1);
 
         expectRevert(Errors.BATCH_LIMIT_EXCEEDED);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
@@ -300,6 +318,7 @@ contract ReclaimSolo_Test is Base_Test {
 
         // Should revert with EMPTY_ARRAY error
         expectRevert(Errors.EMPTY_ARRAY);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Verify no state changes occurred
@@ -323,6 +342,7 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[0] = 999; // Non-existent
 
         expectRevert(Errors.INVALID_DISTRIBUTION_ID);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
@@ -336,6 +356,7 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         expectRevert(Errors.NOT_DIRECT_DISTRIBUTION);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
@@ -370,6 +391,7 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         expectRevert(Errors.ALREADY_CLAIMED);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
@@ -381,6 +403,7 @@ contract ReclaimSolo_Test is Base_Test {
 
         // Still within claim period
         expectRevert(Errors.STILL_CLAIMABLE);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
@@ -394,10 +417,12 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         // First reclaim should succeed
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Second reclaim should fail
         expectRevert(Errors.ALREADY_CLAIMED);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
@@ -413,6 +438,7 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[1] = repoDistributionId; // This is a repo distribution, should fail
 
         expectRevert(Errors.NOT_DIRECT_DISTRIBUTION);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
     }
 
@@ -433,6 +459,7 @@ contract ReclaimSolo_Test is Base_Test {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
 
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
 
         // Verify distribution data after reclaim (everything same except status)
@@ -459,6 +486,7 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[1] = distributionId2;
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
         
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + amount1 + amount2);
@@ -476,6 +504,7 @@ contract ReclaimSolo_Test is Base_Test {
         distributionIds[0] = distributionId;
 
         uint256 initialPayerBalance = wETH.balanceOf(soloPayer);
+        vm.prank(soloPayer);
         escrow.reclaimSenderDistributions(distributionIds, "");
         
         assertEq(wETH.balanceOf(soloPayer), initialPayerBalance + DISTRIBUTION_AMOUNT);
@@ -502,7 +531,14 @@ contract ReclaimSolo_Test is Base_Test {
         // Move past deadline
         vm.warp(block.timestamp + CLAIM_PERIOD + 1);
 
-        escrow.reclaimSenderDistributions(distributionIds, "");
+        // Each payer can only reclaim their own distributions
+        for (uint i = 0; i < payerCount; i++) {
+            uint[] memory singleDistribution = new uint[](1);
+            singleDistribution[0] = distributionIds[i];
+            
+            vm.prank(payers[i]);
+            escrow.reclaimSenderDistributions(singleDistribution, "");
+        }
         
         // Verify each payer got their funds back
         for (uint i = 0; i < payerCount; i++) {

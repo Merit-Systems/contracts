@@ -8,6 +8,7 @@ bytecode_hash = "none"
 cbor_metadata = false
 optimizer = true
 optimizer_runs = 200
+via_ir = true
 
 always_use_create_2_factory = true
 
