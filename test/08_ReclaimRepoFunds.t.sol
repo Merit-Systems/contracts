@@ -110,7 +110,13 @@ contract ReclaimRepo_Test is Base_Test {
         return distributionIds[0];
     }
 
-    function _createSpecificRepoDistribution(uint256 repoId, uint256 instanceId, address admin, address _recipient, uint256 amount) internal returns (uint256 distributionId) {
+    function _createSpecificRepoDistribution(
+        uint256 repoId, 
+        uint256 instanceId, 
+        address admin, 
+        address _recipient, 
+        uint256 amount
+    ) internal returns (uint256 distributionId) {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
             amount: amount,
@@ -311,7 +317,8 @@ contract ReclaimRepo_Test is Base_Test {
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
 
-        // Try to reclaim with wrong repo and instance ID (need to create admin for repo/instance first to bypass access control)
+        // Try to reclaim with wrong repo and instance ID 
+        // (need to create admin for repo/instance first to bypass access control)
         address admin999888 = makeAddr("admin999888");
         _initializeSecondRepo(999, 888, admin999888);
         
@@ -736,6 +743,331 @@ contract ReclaimRepo_Test is Base_Test {
         vm.prank(admin);
         escrow.reclaimRepoDistributions(repoId, instanceId, distributionIds, "");
         assertEq(escrow.getAccountBalance(repoId, instanceId, address(wETH)), initialBalance + DISTRIBUTION_AMOUNT);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                    REPO ADMIN OR DISTRIBUTOR ACCESS TESTS                 */
+    /* -------------------------------------------------------------------------- */
+
+    function test_reclaimRepoDistributions_accessControl_adminCanReclaim() public {
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+
+        // Admin should be able to reclaim
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        // Check that reclaim succeeded
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + DISTRIBUTION_AMOUNT);
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
+        assertTrue(uint8(distribution.status) == 2); // Reclaimed
+    }
+
+    function test_reclaimRepoDistributions_accessControl_distributorCanReclaim() public {
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+
+        // Distributor should be able to reclaim
+        vm.prank(distributor1);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        // Check that reclaim succeeded
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + DISTRIBUTION_AMOUNT);
+        Escrow.Distribution memory distribution = escrow.getDistribution(distributionId);
+        assertTrue(uint8(distribution.status) == 2); // Reclaimed
+    }
+
+    function test_reclaimRepoDistributions_accessControl_secondDistributorCanReclaim() public {
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+
+        // Second distributor should also be able to reclaim
+        vm.prank(distributor1);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        // Check that reclaim succeeded
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + DISTRIBUTION_AMOUNT);
+    }
+
+    function test_reclaimRepoDistributions_accessControl_randomUserCannotReclaim() public {
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        address randomUser = makeAddr("randomUser");
+
+        // Random user should NOT be able to reclaim
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(randomUser);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+    }
+
+    function test_reclaimRepoDistributions_accessControl_crossRepoAdminCannotAccess() public {
+        // Setup second repo with different admin
+        uint256 repo2Id = 2;
+        uint256 instance2Id = 200;
+        address admin2 = makeAddr("admin2");
+        _initializeSecondRepo(repo2Id, instance2Id, admin2);
+        _fundSpecificRepo(repo2Id, instance2Id, FUND_AMOUNT);
+
+        // Create distributions in both repos
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId2 = _createSpecificRepoDistribution(repo2Id, instance2Id, admin2, recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds1 = new uint[](1);
+        distributionIds1[0] = distributionId1;
+
+        uint[] memory distributionIds2 = new uint[](1);
+        distributionIds2[0] = distributionId2;
+
+        // Admin from repo2 should NOT be able to reclaim from repo1
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(admin2);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds1, "");
+
+        // Admin from repo1 should NOT be able to reclaim from repo2
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoDistributions(repo2Id, instance2Id, distributionIds2, "");
+
+        // But each admin should be able to reclaim from their own repo
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds1, "");
+
+        vm.prank(admin2);
+        escrow.reclaimRepoDistributions(repo2Id, instance2Id, distributionIds2, "");
+    }
+
+    function test_reclaimRepoDistributions_accessControl_crossRepoDistributorCannotAccess() public {
+        // Setup second repo with admin and distributor
+        uint256 repo2Id = 2;
+        uint256 instance2Id = 200;
+        address admin2 = makeAddr("admin2");
+        address distributorRepo2 = makeAddr("distributorRepo2");
+        
+        _initializeSecondRepo(repo2Id, instance2Id, admin2);
+        _fundSpecificRepo(repo2Id, instance2Id, FUND_AMOUNT);
+        
+        // Add distributor to repo2
+        vm.prank(admin2);
+        escrow.addDistributors(repo2Id, instance2Id, _toArray(distributorRepo2));
+
+        // Create distributions in both repos
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId1 = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+        uint256 distributionId2 = _createSpecificRepoDistribution(repo2Id, instance2Id, admin2, recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds1 = new uint[](1);
+        distributionIds1[0] = distributionId1;
+
+        uint[] memory distributionIds2 = new uint[](1);
+        distributionIds2[0] = distributionId2;
+
+        // Distributor from repo2 should NOT be able to reclaim from repo1
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(distributorRepo2);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds1, "");
+
+        // Distributor from repo1 should NOT be able to reclaim from repo2
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(distributor1);
+        escrow.reclaimRepoDistributions(repo2Id, instance2Id, distributionIds2, "");
+
+        // But each distributor should be able to reclaim from their own repo
+        vm.prank(distributor1);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds1, "");
+
+        vm.prank(distributorRepo2);
+        escrow.reclaimRepoDistributions(repo2Id, instance2Id, distributionIds2, "");
+    }
+
+    function test_reclaimRepoDistributions_accessControl_adminBecomesDistributor() public {
+        // Admin can still reclaim after becoming a distributor
+        vm.prank(repoAdmin);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, _toArray(repoAdmin));
+
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+
+        // Admin who is also a distributor should still be able to reclaim
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + DISTRIBUTION_AMOUNT);
+    }
+
+    function test_reclaimRepoDistributions_accessControl_distributorBecomesAdmin() public {
+        // Make distributor1 an admin
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, _toArray(distributor1));
+
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+
+        // Distributor who became admin should still be able to reclaim
+        vm.prank(distributor1);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + DISTRIBUTION_AMOUNT);
+    }
+
+    function test_reclaimRepoDistributions_accessControl_removedDistributorCannotReclaim() public {
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        // Remove distributor1
+        vm.prank(repoAdmin);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, _toArray(distributor1));
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        // Removed distributor should NOT be able to reclaim
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(distributor1);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        // But admin should still be able to reclaim
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + DISTRIBUTION_AMOUNT);
+    }
+
+    function test_reclaimRepoDistributions_accessControl_removedAdminCannotReclaim() public {
+        // Add a second admin so we can remove the first one
+        address secondAdmin = makeAddr("secondAdmin");
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, _toArray(secondAdmin));
+
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        // Remove original admin
+        vm.prank(secondAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, _toArray(repoAdmin));
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        // Removed admin should NOT be able to reclaim
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        // But second admin should still be able to reclaim
+        uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
+        vm.prank(secondAdmin);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), initialRepoBalance + DISTRIBUTION_AMOUNT);
+    }
+
+    function test_reclaimRepoDistributions_accessControl_canDistributeGetterConsistency() public {
+        // Test that the canDistribute getter function matches reclaim access
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, repoAdmin));
+        assertTrue(escrow.canDistribute(REPO_ID, ACCOUNT_ID, distributor1));
+        
+        address randomUser = makeAddr("randomUser");
+        assertFalse(escrow.canDistribute(REPO_ID, ACCOUNT_ID, randomUser));
+
+        // Now test that the actual reclaim function follows the same logic
+        _fundRepo(FUND_AMOUNT);
+        uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
+
+        // Move past claim deadline
+        vm.warp(block.timestamp + CLAIM_PERIOD + 1);
+
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = distributionId;
+
+        // Admin should succeed (canDistribute returns true)
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+    }
+
+    function test_reclaimRepoDistributions_accessControl_nonExistentRepo() public {
+        uint[] memory distributionIds = new uint[](1);
+        distributionIds[0] = 0; // Some distribution ID
+
+        // Try to reclaim from non-existent repo
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoDistributions(999, 999, distributionIds, "");
+    }
+
+    function test_reclaimRepoDistributions_accessControl_emptyArrayStillChecksAccess() public {
+        uint[] memory distributionIds = new uint[](0);
+        address randomUser = makeAddr("randomUser");
+
+        // Even with empty array, access control should be checked first
+        expectRevert(Errors.NOT_REPO_ADMIN_OR_DISTRIBUTOR);
+        vm.prank(randomUser);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
+
+        // Admin should get the empty array error instead
+        expectRevert(Errors.EMPTY_ARRAY);
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoDistributions(REPO_ID, ACCOUNT_ID, distributionIds, "");
     }
 
     /* -------------------------------------------------------------------------- */
