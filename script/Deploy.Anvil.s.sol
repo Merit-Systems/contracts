@@ -409,6 +409,452 @@ contract DeployAnvil is Script {
         
         // Test configuration changes
         testConfigurationChanges();
+        
+        // Test comprehensive claim scenarios
+        testComprehensiveClaimScenarios();
+        
+        // Test comprehensive reclaim scenarios  
+        testComprehensiveReclaimScenarios();
+    }
+    
+    function testComprehensiveClaimScenarios() internal {
+        // Test various claim scenarios with different tokens, batch sizes, and timings
+        uint repoId = 50;
+        uint accountId = 1;
+        
+        // Initialize repo 50
+        address[] memory admins = new address[](1);
+        admins[0] = USER1;
+        
+        uint setAdminNonce = escrow.setAdminNonce();
+        uint signatureDeadline = block.timestamp + 3600;
+        
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    accountId,
+                    keccak256(abi.encode(admins)),
+                    setAdminNonce,
+                    signatureDeadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PRIVATE_KEY, digest);
+        
+        vm.broadcast(USER1);
+        escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+        
+        // Add USER1 as distributor
+        address[] memory distributors = new address[](1);
+        distributors[0] = USER1;
+        vm.broadcast(USER1);
+        escrow.addDistributors(repoId, accountId, distributors);
+        
+        // Fund repo with both tokens
+        vm.startBroadcast(OWNER_PRIVATE_KEY);
+        token1.mint(OWNER, 10000e18);
+        token2.mint(OWNER, 10000e6);
+        token1.approve(address(escrow), 10000e18);
+        token2.approve(address(escrow), 10000e6);
+        vm.stopBroadcast();
+        
+        vm.broadcast(OWNER);
+        escrow.fundRepo(repoId, accountId, token1, 5000e18, "funding for comprehensive claims");
+        vm.broadcast(OWNER);
+        escrow.fundRepo(repoId, accountId, token2, 5000e6, "funding for comprehensive claims");
+        
+        // Test 1: Single token single distribution claim
+        vm.startBroadcast(USER1);
+        Escrow.DistributionParams[] memory singleDist = new Escrow.DistributionParams[](1);
+        singleDist[0] = Escrow.DistributionParams({
+            amount: 100e18,
+            recipient: RECIPIENT, 
+            claimPeriod: 3600,
+            token: token1
+        });
+        uint[] memory singleDistIds = escrow.distributeFromRepo(repoId, accountId, singleDist, "single claim test");
+        vm.stopBroadcast();
+        
+        // Create claim signature for single distribution
+        uint recipientNonce1 = escrow.recipientClaimNonce(RECIPIENT);
+        uint claimDeadline1 = block.timestamp + 3600;
+        bytes32 claimDigest1 = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.CLAIM_TYPEHASH(),
+                    keccak256(abi.encode(singleDistIds)),
+                    RECIPIENT,
+                    recipientNonce1,
+                    claimDeadline1
+                ))
+            )
+        );
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(SIGNER_PRIVATE_KEY, claimDigest1);
+        
+        vm.broadcast(RECIPIENT);
+        escrow.claim(singleDistIds, claimDeadline1, v1, r1, s1, "single distribution claim");
+        
+        // Test 2: Multi-token batch claim
+        vm.startBroadcast(USER1);
+        Escrow.DistributionParams[] memory multiTokenDist = new Escrow.DistributionParams[](6);
+        for (uint i = 0; i < 3; i++) {
+            multiTokenDist[i * 2] = Escrow.DistributionParams({
+                amount: 200e18,
+                recipient: USER2,
+                claimPeriod: 3600,
+                token: token1
+            });
+            multiTokenDist[i * 2 + 1] = Escrow.DistributionParams({
+                amount: 200e6,
+                recipient: USER2,
+                claimPeriod: 3600,
+                token: token2
+            });
+        }
+        uint[] memory multiTokenIds = escrow.distributeFromRepo(repoId, accountId, multiTokenDist, "multi-token batch");
+        vm.stopBroadcast();
+        
+        // Claim multi-token batch
+        uint recipientNonce2 = escrow.recipientClaimNonce(USER2);
+        uint claimDeadline2 = block.timestamp + 3600;
+        bytes32 claimDigest2 = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.CLAIM_TYPEHASH(),
+                    keccak256(abi.encode(multiTokenIds)),
+                    USER2,
+                    recipientNonce2,
+                    claimDeadline2
+                ))
+            )
+        );
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(SIGNER_PRIVATE_KEY, claimDigest2);
+        
+        vm.broadcast(USER2);
+        escrow.claim(multiTokenIds, claimDeadline2, v2, r2, s2, "multi-token batch claim");
+        
+        // Test 3: Mixed repo + sender distribution claims
+        // Create sender distributions
+        vm.startBroadcast(OWNER_PRIVATE_KEY);
+        token1.mint(OWNER, 1000e18);
+        token2.mint(OWNER, 1000e6);
+        token1.approve(address(escrow), 1000e18);
+        token2.approve(address(escrow), 1000e6);
+        
+        Escrow.DistributionParams[] memory senderDist = new Escrow.DistributionParams[](4);
+        senderDist[0] = Escrow.DistributionParams({
+            amount: 150e18,
+            recipient: OWNER,
+            claimPeriod: 3600,
+            token: token1
+        });
+        senderDist[1] = Escrow.DistributionParams({
+            amount: 150e6,
+            recipient: OWNER,
+            claimPeriod: 3600,
+            token: token2
+        });
+        senderDist[2] = Escrow.DistributionParams({
+            amount: 250e18,
+            recipient: OWNER,
+            claimPeriod: 7200,
+            token: token1
+        });
+        senderDist[3] = Escrow.DistributionParams({
+            amount: 250e6,
+            recipient: OWNER,
+            claimPeriod: 7200,
+            token: token2
+        });
+        
+        uint[] memory senderDistIds = escrow.distributeFromSender(senderDist, "sender distributions for claiming");
+        vm.stopBroadcast();
+        
+        // Claim sender distributions
+        uint recipientNonce3 = escrow.recipientClaimNonce(OWNER);
+        uint claimDeadline3 = block.timestamp + 3600;
+        bytes32 claimDigest3 = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.CLAIM_TYPEHASH(),
+                    keccak256(abi.encode(senderDistIds)),
+                    OWNER,
+                    recipientNonce3,
+                    claimDeadline3
+                ))
+            )
+        );
+        (uint8 v3, bytes32 r3, bytes32 s3) = vm.sign(SIGNER_PRIVATE_KEY, claimDigest3);
+        
+        vm.broadcast(OWNER);
+        escrow.claim(senderDistIds, claimDeadline3, v3, r3, s3, "sender distributions claim");
+        
+        // Test 4: Sequential individual claims
+        vm.startBroadcast(USER1);
+        Escrow.DistributionParams[] memory sequentialDist = new Escrow.DistributionParams[](5);
+        for (uint i = 0; i < 5; i++) {
+            sequentialDist[i] = Escrow.DistributionParams({
+                amount: 80e18,
+                recipient: address(uint160(0xF001 + i)),
+                claimPeriod: 3600,
+                token: token1
+            });
+        }
+        uint[] memory sequentialIds = escrow.distributeFromRepo(repoId, accountId, sequentialDist, "sequential claims test");
+        vm.stopBroadcast();
+        
+        // Claim each distribution individually  
+        for (uint i = 0; i < sequentialIds.length; i++) {
+            address recipient = address(uint160(0xF001 + i));
+            uint[] memory singleId = new uint[](1);
+            singleId[0] = sequentialIds[i];
+            
+            uint recipientNonce = escrow.recipientClaimNonce(recipient);
+            uint claimDeadline = block.timestamp + 3600;
+            bytes32 claimDigest = keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    escrow.DOMAIN_SEPARATOR(),
+                    keccak256(abi.encode(
+                        escrow.CLAIM_TYPEHASH(),
+                        keccak256(abi.encode(singleId)),
+                        recipient,
+                        recipientNonce,
+                        claimDeadline
+                    ))
+                )
+            );
+            (uint8 v4, bytes32 r4, bytes32 s4) = vm.sign(SIGNER_PRIVATE_KEY, claimDigest);
+            
+            vm.broadcast(recipient);
+            escrow.claim(singleId, claimDeadline, v4, r4, s4, bytes(abi.encodePacked("sequential claim ", i)));
+        }
+    }
+    
+    function testComprehensiveReclaimScenarios() internal {
+        // Test various reclaim scenarios
+        uint repoId = 60;
+        uint accountId = 1;
+        
+        // Initialize repo 60
+        address[] memory admins = new address[](1);
+        admins[0] = USER2;
+        
+        uint setAdminNonce = escrow.setAdminNonce();
+        uint signatureDeadline = block.timestamp + 3600;
+        
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    accountId,
+                    keccak256(abi.encode(admins)),
+                    setAdminNonce,
+                    signatureDeadline
+                ))
+            )
+        );
+        
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(SIGNER_PRIVATE_KEY, digest);
+        
+        vm.broadcast(USER2);
+        escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+        
+        // Add USER2 as distributor
+        address[] memory distributors = new address[](1);
+        distributors[0] = USER2;
+        vm.broadcast(USER2);
+        escrow.addDistributors(repoId, accountId, distributors);
+        
+        // Test 1: Reclaim unused repo funds (before any distributions)
+        vm.startBroadcast(OWNER_PRIVATE_KEY);
+        token1.mint(OWNER, 2000e18);
+        token2.mint(OWNER, 2000e6);
+        token1.approve(address(escrow), 2000e18);
+        token2.approve(address(escrow), 2000e6);
+        vm.stopBroadcast();
+        
+        vm.broadcast(OWNER);
+        escrow.fundRepo(repoId, accountId, token1, 1000e18, "funding for reclaim tests");
+        vm.broadcast(OWNER);
+        escrow.fundRepo(repoId, accountId, token2, 1000e6, "funding for reclaim tests");
+        
+        // Reclaim partial funds before distributions
+        vm.broadcast(USER2);
+        escrow.reclaimRepoFunds(repoId, accountId, address(token1), 200e18);
+        vm.broadcast(USER2);
+        escrow.reclaimRepoFunds(repoId, accountId, address(token2), 200e6);
+        
+        // Test 2: Create distributions with immediate expiry for reclaim testing
+        vm.startBroadcast(USER2);
+        
+        Escrow.DistributionParams[] memory immediateExpiry = new Escrow.DistributionParams[](8);
+        for (uint i = 0; i < 4; i++) {
+            immediateExpiry[i * 2] = Escrow.DistributionParams({
+                amount: 50e18,
+                recipient: address(uint160(0xF100 + i)),
+                claimPeriod: 0, // Immediate expiry
+                token: token1
+            });
+            immediateExpiry[i * 2 + 1] = Escrow.DistributionParams({
+                amount: 50e6,
+                recipient: address(uint160(0xF100 + i)),
+                claimPeriod: 0, // Immediate expiry
+                token: token2
+            });
+        }
+        
+        uint[] memory immediateExpiryIds = escrow.distributeFromRepo(repoId, accountId, immediateExpiry, "immediate expiry for reclaim");
+        vm.stopBroadcast();
+        
+        // Reclaim immediately expired distributions
+        vm.broadcast(USER2);
+        escrow.reclaimRepoDistributions(repoId, accountId, immediateExpiryIds, "reclaiming immediate expiry batch");
+        
+        // Test 3: Mixed timing reclaim scenarios
+        vm.startBroadcast(USER2);
+        
+        Escrow.DistributionParams[] memory mixedTiming = new Escrow.DistributionParams[](6);
+        mixedTiming[0] = Escrow.DistributionParams({
+            amount: 75e18,
+            recipient: address(0xF200),
+            claimPeriod: 0, // Immediate
+            token: token1
+        });
+        mixedTiming[1] = Escrow.DistributionParams({
+            amount: 75e6,
+            recipient: address(0xF201),
+            claimPeriod: 0, // Immediate
+            token: token2
+        });
+        mixedTiming[2] = Escrow.DistributionParams({
+            amount: 100e18,
+            recipient: address(0xF202),
+            claimPeriod: 0, // Immediate
+            token: token1
+        });
+        mixedTiming[3] = Escrow.DistributionParams({
+            amount: 100e6,
+            recipient: address(0xF203),
+            claimPeriod: 0, // Immediate
+            token: token2
+        });
+        mixedTiming[4] = Escrow.DistributionParams({
+            amount: 125e18,
+            recipient: address(0xF204),
+            claimPeriod: 0, // Immediate
+            token: token1
+        });
+        mixedTiming[5] = Escrow.DistributionParams({
+            amount: 125e6,
+            recipient: address(0xF205),
+            claimPeriod: 0, // Immediate
+            token: token2
+        });
+        
+        uint[] memory mixedTimingIds = escrow.distributeFromRepo(repoId, accountId, mixedTiming, "mixed timing distributions");
+        vm.stopBroadcast();
+        
+        // Reclaim subset of expired distributions
+        uint[] memory subsetIds = new uint[](3);
+        subsetIds[0] = mixedTimingIds[0];
+        subsetIds[1] = mixedTimingIds[2];
+        subsetIds[2] = mixedTimingIds[4];
+        
+        vm.broadcast(USER2);
+        escrow.reclaimRepoDistributions(repoId, accountId, subsetIds, "reclaiming subset");
+        
+        // Reclaim remaining expired distributions
+        uint[] memory remainingIds = new uint[](3);
+        remainingIds[0] = mixedTimingIds[1];
+        remainingIds[1] = mixedTimingIds[3];
+        remainingIds[2] = mixedTimingIds[5];
+        
+        vm.broadcast(USER2);
+        escrow.reclaimRepoDistributions(repoId, accountId, remainingIds, "reclaiming remaining");
+        
+        // Test 4: Sender distribution reclaim scenarios
+        vm.startBroadcast(OWNER_PRIVATE_KEY);
+        token1.mint(OWNER, 2000e18);
+        token2.mint(OWNER, 2000e6);
+        token1.approve(address(escrow), 2000e18);
+        token2.approve(address(escrow), 2000e6);
+        
+        // Create sender distributions with immediate expiry
+        Escrow.DistributionParams[] memory senderReclaim = new Escrow.DistributionParams[](10);
+        for (uint i = 0; i < 5; i++) {
+            senderReclaim[i * 2] = Escrow.DistributionParams({
+                amount: 80e18,
+                recipient: address(uint160(0xF300 + i)),
+                claimPeriod: 0, // Immediate expiry
+                token: token1
+            });
+            senderReclaim[i * 2 + 1] = Escrow.DistributionParams({
+                amount: 80e6,
+                recipient: address(uint160(0xF300 + i)),
+                claimPeriod: 0, // Immediate expiry
+                token: token2
+            });
+        }
+        
+        uint[] memory senderReclaimIds = escrow.distributeFromSender(senderReclaim, "sender distributions for reclaim");
+        vm.stopBroadcast();
+        
+        // Reclaim sender distributions in batches
+        uint[] memory senderBatch1 = new uint[](4);
+        for (uint i = 0; i < 4; i++) {
+            senderBatch1[i] = senderReclaimIds[i];
+        }
+        
+        vm.broadcast(OWNER);
+        escrow.reclaimSenderDistributions(senderBatch1, "sender reclaim batch 1");
+        
+        uint[] memory senderBatch2 = new uint[](6);
+        for (uint i = 0; i < 6; i++) {
+            senderBatch2[i] = senderReclaimIds[i + 4];
+        }
+        
+        vm.broadcast(OWNER);
+        escrow.reclaimSenderDistributions(senderBatch2, "sender reclaim batch 2");
+        
+        // Test 5: Individual sender distribution reclaims
+        vm.startBroadcast(OWNER_PRIVATE_KEY);
+        
+        Escrow.DistributionParams[] memory individualReclaim = new Escrow.DistributionParams[](5);
+        for (uint i = 0; i < 5; i++) {
+            individualReclaim[i] = Escrow.DistributionParams({
+                amount: 60e18,
+                recipient: address(uint160(0xF400 + i)),
+                claimPeriod: 0, // Immediate expiry
+                token: token1
+            });
+        }
+        
+        uint[] memory individualReclaimIds = escrow.distributeFromSender(individualReclaim, "individual reclaim test");
+        vm.stopBroadcast();
+        
+        // Reclaim each distribution individually
+        for (uint i = 0; i < individualReclaimIds.length; i++) {
+            uint[] memory singleReclaimId = new uint[](1);
+            singleReclaimId[0] = individualReclaimIds[i];
+            
+            vm.broadcast(OWNER);
+            escrow.reclaimSenderDistributions(singleReclaimId, bytes(abi.encodePacked("individual reclaim ", i)));
+        }
     }
     
     function testMultipleTokenWhitelisting() internal {
@@ -565,7 +1011,7 @@ contract DeployAnvil is Script {
         // Test maximum batch size distributions
         vm.startBroadcast(USER2); // USER2 is admin for repo 11
         
-        Escrow.DistributionParams[] memory maxBatchDistributions = new Escrow.DistributionParams[](10); // Assuming batch limit is 10
+        Escrow.DistributionParams[] memory maxBatchDistributions = new Escrow.DistributionParams[](10);
         for (uint i = 0; i < 10; i++) {
             address recipient = address(uint160(0x1000 + i)); // Generate different recipients
             maxBatchDistributions[i] = Escrow.DistributionParams({
