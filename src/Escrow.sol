@@ -81,8 +81,8 @@ contract Escrow is Owned, IEscrow {
     mapping(uint => Distribution) public distributions;      // distributionId → Distribution
     mapping(uint => RepoAccount)  public distributionToRepo; // distributionId → RepoAccount (for repo distributions)
 
-    uint                     public setAdminNonce;
-    mapping(address => uint) public recipientClaimNonce;     // recipient → nonce
+    mapping(uint => mapping(uint => uint)) public repoSetAdminNonce;   // repoId → instanceId → nonce
+    mapping(address => uint)               public recipientClaimNonce; // recipient → nonce
 
     uint    public fee;
     address public feeRecipient;
@@ -170,14 +170,14 @@ contract Escrow is Owned, IEscrow {
                     repoId,
                     instanceId,
                     keccak256(abi.encode(admins)),
-                    setAdminNonce,
+                    repoSetAdminNonce[repoId][instanceId],
                     signatureDeadline
                 ))
             )
         );
         require(ECDSA.recover(digest, v, r, s) == signer, Errors.INVALID_SIGNATURE);
 
-        setAdminNonce++;
+        repoSetAdminNonce[repoId][instanceId]++;
         account.exists = true;
         
         for (uint i; i < admins.length; ++i) {
@@ -734,5 +734,13 @@ contract Escrow is Owned, IEscrow {
         returns (bool) 
     {
         return whitelistedTokens.contains(token);
+    }
+
+    function getRepoSetAdminNonce(uint repoId, uint instanceId) 
+        external 
+        view 
+        returns (uint) 
+    {
+        return repoSetAdminNonce[repoId][instanceId];
     }
 }
