@@ -735,12 +735,4 @@ contract Escrow is Owned, IEscrow {
     {
         return whitelistedTokens.contains(token);
     }
-
-    function getRepoSetAdminNonce(uint repoId, uint instanceId) 
-        external 
-        view 
-        returns (uint) 
-    {
-        return repoSetAdminNonce[repoId][instanceId];
-    }
 }

@@ -201,7 +201,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
             uint256[] memory instanceIds = handler.getTrackedAccountIds(repoId);
             for (uint j = 0; j < instanceIds.length; j++) {
                 uint256 instanceId = instanceIds[j];
-                uint256 currentSetAdminNonce = escrow.getRepoSetAdminNonce(repoId, instanceId);
+                uint256 currentSetAdminNonce = escrow.repoSetAdminNonce(repoId, instanceId);
                 
                 // With per-repo nonces, just verify the nonce is non-negative
                 // Each repo/instance pair maintains its own nonce counter
@@ -436,7 +436,7 @@ contract EscrowInvariants is StdInvariant, Base_Test {
             uint256[] memory instanceIds = handler.getTrackedAccountIds(repoId);
             for (uint j = 0; j < instanceIds.length; j++) {
                 uint256 instanceId = instanceIds[j];
-                uint256 currentSetAdminNonce = escrow.getRepoSetAdminNonce(repoId, instanceId);
+                uint256 currentSetAdminNonce = escrow.repoSetAdminNonce(repoId, instanceId);
                 
                 // With per-repo nonces, just verify the nonce is non-negative
                 // Each repo/instance pair maintains its own nonce counter
@@ -801,7 +801,7 @@ contract EscrowHandler is Test {
                     repoId,
                     instanceId,
                     keccak256(abi.encode(admins)),
-                    escrow.getRepoSetAdminNonce(repoId, instanceId),
+                    escrow.repoSetAdminNonce(repoId, instanceId),
                     deadline
                 ))
             )
