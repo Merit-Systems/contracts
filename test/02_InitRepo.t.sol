@@ -296,13 +296,15 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins2 = new address[](1);
         admins2[0] = admin2;
         
-        uint256 initialNonce = escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID);
+        // With per-repo nonces, each repo/instance pair has its own nonce counter
+        uint256 initialNonce1100 = escrow.getRepoSetAdminNonce(1, 100);
+        uint256 initialNonce2200 = escrow.getRepoSetAdminNonce(2, 200);
         
         _initializeRepo(1, 100, admins1);
-        assertEq(escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID), initialNonce + 1);
+        assertEq(escrow.getRepoSetAdminNonce(1, 100), initialNonce1100 + 1);
         
         _initializeRepo(2, 200, admins2);
-        assertEq(escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID), initialNonce + 2);
+        assertEq(escrow.getRepoSetAdminNonce(2, 200), initialNonce2200 + 1);
     }
 
     function test_initRepo_domainSeparator() public {
@@ -1077,7 +1079,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID),
+                    escrow.getRepoSetAdminNonce(repoId, accountId),
                     signatureDeadline
                 ))
             )
@@ -1208,7 +1210,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID),
+                    escrow.getRepoSetAdminNonce(repoId, accountId),
                     signatureDeadline
                 ))
             )
@@ -1240,7 +1242,8 @@ contract InitRepo_Test is Base_Test {
         _initializeRepo(1, 2, admins2);
         assertEq(escrow.getRepoSetAdminNonce(1, 2), initialNonce12 + 1);
         
-        // Try to initialize with old nonce (should fail)
+        // Try to initialize repo (1,3) with wrong nonce (should fail)
+        // Use nonce 5 which is wrong for a fresh repo
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
@@ -1254,7 +1257,7 @@ contract InitRepo_Test is Base_Test {
                     1,
                     3,
                     keccak256(abi.encode(admins)),
-                    initialNonce11, // Old nonce for a different repo
+                    5, // Wrong nonce - should be 0 for fresh repo (1,3)
                     signatureDeadline
                 ))
             )
@@ -1413,7 +1416,7 @@ contract InitRepo_Test is Base_Test {
                     1,
                     100,
                     keccak256(abi.encode(admins1)),
-                    escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID),
+                    escrow.getRepoSetAdminNonce(1, 100),
                     signatureDeadline1
                 ))
             )
@@ -1436,7 +1439,7 @@ contract InitRepo_Test is Base_Test {
                     2,
                     200,
                     keccak256(abi.encode(admins2)),
-                    escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID),
+                    escrow.getRepoSetAdminNonce(2, 200),
                     signatureDeadline2
                 ))
             )
@@ -1504,7 +1507,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID),
+                    escrow.getRepoSetAdminNonce(repoId, accountId),
                     signatureDeadline
                 ))
             )
