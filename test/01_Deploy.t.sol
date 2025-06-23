@@ -45,7 +45,7 @@ contract Deploy_Test is Base_Test {
         assertEq(deployedEscrow.feeRecipient(), Params.BASE_OWNER);
         assertEq(deployedEscrow.fee(), Params.BASE_FEE_BPS);
         assertEq(deployedEscrow.batchLimit(), Params.BATCH_LIMIT);
-        assertEq(deployedEscrow.setAdminNonce(), 0);
+        assertEq(deployedEscrow.getRepoSetAdminNonce(0, 0), 0);
         assertEq(deployedEscrow.batchCount(), 0);
         assertEq(deployedEscrow.distributionCount(), 0);
 
@@ -85,7 +85,7 @@ contract Deploy_Test is Base_Test {
         assertEq(deployedEscrow.feeRecipient(), testOwner);
         assertEq(deployedEscrow.fee(), feeBps);
         assertEq(deployedEscrow.batchLimit(), batchLimit);
-        assertEq(deployedEscrow.setAdminNonce(), 0);
+        assertEq(deployedEscrow.getRepoSetAdminNonce(0, 0), 0);
         assertEq(deployedEscrow.batchCount(), 0);
         assertEq(deployedEscrow.distributionCount(), 0);
 
