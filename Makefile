@@ -107,3 +107,6 @@ create-payments:
 		--broadcast \
 		-i 1 \
 		-vvvv
+
+coverage:
+	forge coverage --ir-minimum --report lcov
