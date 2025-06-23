@@ -225,7 +225,8 @@ contract Escrow is Owned, IEscrow {
         require(_distributions.length >  0,          Errors.EMPTY_ARRAY);
         require(_distributions.length <= batchLimit, Errors.BATCH_LIMIT_EXCEEDED);
         
-        Account storage account = accounts[repoId][instanceId];
+        Account storage account  = accounts[repoId][instanceId];
+        account.hasDistributions = true;
         
         distributionIds = new uint[](_distributions.length);
         uint batchId    = batchCount++;
@@ -244,7 +245,6 @@ contract Escrow is Owned, IEscrow {
                 repoId:     repoId,
                 instanceId: instanceId
             });
-            account.hasDistributions = true;
 
             emit DistributedFromRepo(
                 batchId,
