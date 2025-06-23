@@ -1586,8 +1586,26 @@ contract InitRepo_Test is Base_Test {
         assertEq(escrow.getRepoSetAdminNonce(repoId, instanceId), 1);
 
         // Second initialization should fail but nonce shouldn't change
+        // Create signature with current nonce for already initialized repo
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    instanceId,
+                    keccak256(abi.encode(admins2)),
+                    escrow.getRepoSetAdminNonce(repoId, instanceId), // Current nonce
+                    signatureDeadline
+                ))
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        
         expectRevert(Errors.REPO_ALREADY_INITIALIZED);
-        _initializeRepo(repoId, instanceId, admins2);
+        escrow.initRepo(repoId, instanceId, admins2, signatureDeadline, v, r, s);
         assertEq(escrow.getRepoSetAdminNonce(repoId, instanceId), 1);
 
         // Initialize different instances of same repo

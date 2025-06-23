@@ -1272,4 +1272,267 @@ contract OnlyRepoAdmin_Test is Base_Test {
         arr[0] = addr;
         return arr;
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                      REPO SET ADMIN NONCE ISOLATION TESTS                  */
+    /* -------------------------------------------------------------------------- */
+
+    function test_repoSetAdminNonce_isolationBetweenRepos() public {
+        address[] memory admins = new address[](1);
+        admins[0] = makeAddr("isolationAdmin");
+
+        // Check initial nonces for different repos
+        assertEq(escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID), 1); // Already initialized in setup
+        assertEq(escrow.getRepoSetAdminNonce(REPO_ID_2, ACCOUNT_ID_2), 1); // Already initialized in setup
+        assertEq(escrow.getRepoSetAdminNonce(99, 99), 0); // Not initialized
+
+        // Initialize new repo
+        _initializeRepo(99, 99, admins);
+        
+        // Only new repo's nonce should change
+        assertEq(escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID), 1);
+        assertEq(escrow.getRepoSetAdminNonce(REPO_ID_2, ACCOUNT_ID_2), 1);
+        assertEq(escrow.getRepoSetAdminNonce(99, 99), 1);
+    }
+
+    function test_repoSetAdminNonce_cannotUseNonceFromDifferentRepo() public {
+        address[] memory admins = new address[](1);
+        admins[0] = makeAddr("nonceTestAdmin");
+
+        uint256 targetRepoId = 777;
+        uint256 targetInstanceId = 888;
+
+        // Try to use nonce from REPO_ID for different repo
+        uint256 wrongNonce = escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID); // This is 1
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    targetRepoId,
+                    targetInstanceId,
+                    keccak256(abi.encode(admins)),
+                    wrongNonce, // Using nonce from different repo
+                    signatureDeadline
+                ))
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(targetRepoId, targetInstanceId, admins, signatureDeadline, v, r, s);
+
+        // Target repo nonce should remain 0
+        assertEq(escrow.getRepoSetAdminNonce(targetRepoId, targetInstanceId), 0);
+    }
+
+    function test_repoSetAdminNonce_crossInstanceIsolation() public {
+        address[] memory admins = new address[](1);
+        admins[0] = makeAddr("instanceTestAdmin");
+
+        uint256 baseRepoId = 555;
+        
+        // Initialize multiple instances of same repo
+        _initializeRepo(baseRepoId, 1, admins);
+        _initializeRepo(baseRepoId, 2, admins);
+        _initializeRepo(baseRepoId, 3, admins);
+
+        // Each instance should have independent nonce
+        assertEq(escrow.getRepoSetAdminNonce(baseRepoId, 1), 1);
+        assertEq(escrow.getRepoSetAdminNonce(baseRepoId, 2), 1);
+        assertEq(escrow.getRepoSetAdminNonce(baseRepoId, 3), 1);
+
+        // Uninitialized instances should still be 0
+        assertEq(escrow.getRepoSetAdminNonce(baseRepoId, 4), 0);
+        assertEq(escrow.getRepoSetAdminNonce(baseRepoId, 0), 0);
+    }
+
+    function test_repoSetAdminNonce_signatureIsolationBetweenInstances() public {
+        address[] memory admins = new address[](1);
+        admins[0] = makeAddr("sigTestAdmin");
+
+        uint256 repoId = 666;
+
+        // Initialize instance 1
+        _initializeRepo(repoId, 1, admins);
+        assertEq(escrow.getRepoSetAdminNonce(repoId, 1), 1);
+
+        // Try to use instance 1's signature for instance 2 (different instance, should fail)
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    1, // Instance 1 (already initialized)
+                    keccak256(abi.encode(admins)),
+                    0, // Should be current nonce for instance 2, but using old nonce
+                    signatureDeadline
+                ))
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        // Should fail - repo (666,1) already initialized
+        expectRevert(Errors.REPO_ALREADY_INITIALIZED);
+        escrow.initRepo(repoId, 1, admins, signatureDeadline, v, r, s);
+
+        // Try to replay same signature for instance 2 - should fail due to wrong context
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(repoId, 2, admins, signatureDeadline, v, r, s);
+
+        // Instance 2 should still be uninitialized
+        assertEq(escrow.getRepoSetAdminNonce(repoId, 2), 0);
+    }
+
+    function test_repoSetAdminNonce_adminManagementDoesNotAffectNonce() public {
+        // Admin management operations should not affect the repo nonce
+        address testAdmin = makeAddr("newAdminForNonce");
+        
+        uint256 nonceBefore = escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID);
+        
+        // Add admin
+        address[] memory adminsToAdd = new address[](1);
+        adminsToAdd[0] = testAdmin;
+        vm.prank(repoAdmin);
+        escrow.addAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+        
+        // Nonce should be unchanged
+        assertEq(escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID), nonceBefore);
+        
+        // Remove admin
+        vm.prank(repoAdmin);
+        escrow.removeAdmins(REPO_ID, ACCOUNT_ID, adminsToAdd);
+        
+        // Nonce should still be unchanged
+        assertEq(escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID), nonceBefore);
+    }
+
+    function test_repoSetAdminNonce_distributorManagementDoesNotAffectNonce() public {
+        // Distributor management operations should not affect the repo nonce
+        address newDistributor = makeAddr("newDistributorForNonce");
+        
+        uint256 nonceBefore = escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID);
+        
+        // Add distributor
+        address[] memory distributorsToAdd = new address[](1);
+        distributorsToAdd[0] = newDistributor;
+        vm.prank(repoAdmin);
+        escrow.addDistributors(REPO_ID, ACCOUNT_ID, distributorsToAdd);
+        
+        // Nonce should be unchanged
+        assertEq(escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID), nonceBefore);
+        
+        // Remove distributor
+        vm.prank(repoAdmin);
+        escrow.removeDistributors(REPO_ID, ACCOUNT_ID, distributorsToAdd);
+        
+        // Nonce should still be unchanged
+        assertEq(escrow.getRepoSetAdminNonce(REPO_ID, ACCOUNT_ID), nonceBefore);
+    }
+
+    function test_repoSetAdminNonce_massivelyCrossRepoNonceTest() public {
+        // Test that initializing many repos doesn't affect each other's nonces
+        address[] memory admins = new address[](1);
+        admins[0] = makeAddr("massiveTestAdmin");
+        
+        uint256 numRepos = 5;
+        uint256[] memory repoIds = new uint256[](numRepos);
+        uint256[] memory instanceIds = new uint256[](numRepos);
+        
+        // Setup repo IDs
+        for (uint256 i = 0; i < numRepos; i++) {
+            repoIds[i] = 10000 + i;
+            instanceIds[i] = 20000 + i;
+            
+            // Verify initial nonce is 0
+            assertEq(escrow.getRepoSetAdminNonce(repoIds[i], instanceIds[i]), 0);
+        }
+        
+        // Initialize all repos
+        for (uint256 i = 0; i < numRepos; i++) {
+            _initializeRepo(repoIds[i], instanceIds[i], admins);
+            
+            // Verify this repo's nonce is now 1
+            assertEq(escrow.getRepoSetAdminNonce(repoIds[i], instanceIds[i]), 1);
+            
+            // Verify all other repos still have correct nonces
+            for (uint256 j = 0; j < numRepos; j++) {
+                if (i != j) {
+                    uint256 expectedNonce = j < i ? 1 : 0; // Already initialized or not yet
+                    assertEq(escrow.getRepoSetAdminNonce(repoIds[j], instanceIds[j]), expectedNonce);
+                }
+            }
+        }
+        
+        // Final verification - all should be 1
+        for (uint256 i = 0; i < numRepos; i++) {
+            assertEq(escrow.getRepoSetAdminNonce(repoIds[i], instanceIds[i]), 1);
+        }
+    }
+
+    function test_repoSetAdminNonce_fuzzRepoIsolation(
+        uint256 repo1, 
+        uint256 instance1, 
+        uint256 repo2, 
+        uint256 instance2
+    ) public {
+        // Ensure different combinations
+        vm.assume(repo1 != repo2 || instance1 != instance2);
+        vm.assume(repo1 <= type(uint64).max && instance1 <= type(uint64).max);
+        vm.assume(repo2 <= type(uint64).max && instance2 <= type(uint64).max);
+        
+        address[] memory admins = new address[](1);
+        admins[0] = makeAddr("fuzzIsolationAdmin");
+        
+        // Both should start at 0
+        assertEq(escrow.getRepoSetAdminNonce(repo1, instance1), 0);
+        assertEq(escrow.getRepoSetAdminNonce(repo2, instance2), 0);
+        
+        // Initialize first
+        _initializeRepo(repo1, instance1, admins);
+        
+        // First should be 1, second should still be 0
+        assertEq(escrow.getRepoSetAdminNonce(repo1, instance1), 1);
+        assertEq(escrow.getRepoSetAdminNonce(repo2, instance2), 0);
+        
+        // Try to use first repo's incremented nonce for second repo (should fail)
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repo2,
+                    instance2,
+                    keccak256(abi.encode(admins)),
+                    1, // Wrong nonce for repo2 (should be 0)
+                    signatureDeadline
+                ))
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(repo2, instance2, admins, signatureDeadline, v, r, s);
+        
+        // Second repo should still be 0
+        assertEq(escrow.getRepoSetAdminNonce(repo2, instance2), 0);
+        
+        // Properly initialize second repo
+        _initializeRepo(repo2, instance2, admins);
+        
+        // Now both should be 1, independently
+        assertEq(escrow.getRepoSetAdminNonce(repo1, instance1), 1);
+        assertEq(escrow.getRepoSetAdminNonce(repo2, instance2), 1);
+    }
 } 
