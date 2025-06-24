@@ -400,8 +400,8 @@ contract Escrow is Owned, IEscrow {
         uint balance = accounts[repoId][instanceId].balance[token];
         require(balance >= amount, Errors.INSUFFICIENT_BALANCE);
         
-        accounts[repoId][instanceId].balance[token]     = balance - amount;
-        fundings[repoId][instanceId][token][msg.sender] = funding - amount;
+        accounts[repoId][instanceId].balance[token]     -= amount;
+        fundings[repoId][instanceId][token][msg.sender] -= amount;
         
         ERC20(token).safeTransfer(msg.sender, amount);
         
