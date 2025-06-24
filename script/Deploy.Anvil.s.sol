@@ -119,7 +119,7 @@ contract DeployAnvil is Script {
         
         // Create signature for initRepo
         uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
-        uint signatureDeadline = block.timestamp + 3600;
+        uint signatureDeadline = block.timestamp + 7200; // Increased buffer to prevent expiration
         
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -296,7 +296,7 @@ contract DeployAnvil is Script {
         admins[0] = USER1;
         
         uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
-        uint signatureDeadline = block.timestamp + 3600;
+        uint signatureDeadline = block.timestamp + 7200; // Increased buffer to 2 hours
         
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -427,7 +427,7 @@ contract DeployAnvil is Script {
         admins[0] = USER1;
         
         uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
-        uint signatureDeadline = block.timestamp + 3600;
+        uint signatureDeadline = block.timestamp + 7200; // Increased buffer to prevent expiration
         
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -652,7 +652,7 @@ contract DeployAnvil is Script {
         admins[0] = USER2;
         
         uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
-        uint signatureDeadline = block.timestamp + 3600;
+        uint signatureDeadline = block.timestamp + 7200; // Increased buffer to prevent expiration
         
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -892,7 +892,7 @@ contract DeployAnvil is Script {
             }
             
             uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
-            uint signatureDeadline = block.timestamp + 3600;
+            uint signatureDeadline = block.timestamp + 7200; // Increased buffer to prevent expiration
             
             bytes32 digest = keccak256(
                 abi.encodePacked(
@@ -1197,7 +1197,7 @@ contract DeployAnvil is Script {
         admins[0] = USER1;
         
         uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
-        uint signatureDeadline = block.timestamp + 3600;
+        uint signatureDeadline = block.timestamp + 7200; // Increased buffer to prevent expiration
         
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -1284,7 +1284,7 @@ contract DeployAnvil is Script {
         admins[0] = USER1;
         
         uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
-        uint signatureDeadline = block.timestamp + 3600;
+        uint signatureDeadline = block.timestamp + 7200; // Increased buffer to prevent expiration
         
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -1488,7 +1488,7 @@ contract DeployAnvil is Script {
         admins[0] = USER1;
         
         uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
-        uint signatureDeadline = block.timestamp + 3600;
+        uint signatureDeadline = block.timestamp + 7200; // Increased buffer to prevent expiration
         
         bytes32 digest = keccak256(
             abi.encodePacked(

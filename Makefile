@@ -74,7 +74,7 @@ deploy-anvil:
 		--fork-url http://localhost:8545 \
 		--broadcast \
 		--unlocked \
-		-v \
+		-vvvv \
 		--via-ir
 
 # ----------------------
