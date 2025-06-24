@@ -394,14 +394,14 @@ contract Escrow is Owned, IEscrow {
         require(amount > 0,                                     Errors.INVALID_AMOUNT);
         require(!accounts[repoId][instanceId].hasDistributions, Errors.REPO_HAS_DISTRIBUTIONS);
         
-        uint funderContribution = fundings[repoId][instanceId][token][msg.sender];
-        require(funderContribution >= amount, Errors.INSUFFICIENT_BALANCE);
+        uint funding = fundings[repoId][instanceId][token][msg.sender];
+        require(funding >= amount, Errors.INSUFFICIENT_BALANCE);
         
         uint balance = accounts[repoId][instanceId].balance[token];
         require(balance >= amount, Errors.INSUFFICIENT_BALANCE);
         
         accounts[repoId][instanceId].balance[token]     = balance - amount;
-        fundings[repoId][instanceId][token][msg.sender] = funderContribution - amount;
+        fundings[repoId][instanceId][token][msg.sender] = funding - amount;
         
         ERC20(token).safeTransfer(msg.sender, amount);
         

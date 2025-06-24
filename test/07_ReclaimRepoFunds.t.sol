@@ -60,6 +60,14 @@ contract ReclaimFund_Test is Base_Test {
         escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, "");
     }
 
+    function _fundRepoAs(address funder, uint256 repoId, uint256 instanceId, uint256 amount) internal {
+        wETH.mint(funder, amount);
+        vm.prank(funder);
+        wETH.approve(address(escrow), amount);
+        vm.prank(funder);
+        escrow.fundRepo(repoId, instanceId, wETH, amount, "");
+    }
+
     function _createRepoDistribution(address _recipient, uint256 amount, uint32 claimPeriod) internal returns (uint256 distributionId) {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
@@ -166,8 +174,8 @@ contract ReclaimFund_Test is Base_Test {
         escrow.initRepo(repoId2, instanceId2, _toArray(admin2), deadline, v, r, s);
         
         // Fund both repos with respective funders
-        _fundRepoAs(repoAdmin, FUND_AMOUNT);
-        _fundRepoAs(admin2, FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, REPO_ID, ACCOUNT_ID, FUND_AMOUNT);
+        _fundRepoAs(admin2, repoId2, instanceId2, FUND_AMOUNT);
         
         // Reclaim from both repos
         vm.prank(repoAdmin);
@@ -303,7 +311,7 @@ contract ReclaimFund_Test is Base_Test {
         escrow.initRepo(repoId, instanceId, _toArray(admin), deadline, v, r, s);
         
         // Fund the repo with the admin as the funder
-        _fundRepoAs(admin, amount);
+        _fundRepoAs(admin, repoId, instanceId, amount);
         
         uint256 initialAdminBalance = wETH.balanceOf(admin);
         
@@ -346,8 +354,8 @@ contract ReclaimFund_Test is Base_Test {
         _fundRepoAs(funder2, amount2);
         
         // Check contributions
-        assertEq(escrow.getFunderContribution(REPO_ID, ACCOUNT_ID, address(wETH), funder1), amount1);
-        assertEq(escrow.getFunderContribution(REPO_ID, ACCOUNT_ID, address(wETH), funder2), amount2);
+        assertEq(escrow.getFunding(REPO_ID, ACCOUNT_ID, address(wETH), funder1), amount1);
+        assertEq(escrow.getFunding(REPO_ID, ACCOUNT_ID, address(wETH), funder2), amount2);
         
         // Each funder can only reclaim their own contribution
         vm.prank(funder1);
