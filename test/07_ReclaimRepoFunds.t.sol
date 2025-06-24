@@ -52,6 +52,14 @@ contract ReclaimFund_Test is Base_Test {
         escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, "");
     }
 
+    function _fundRepoAs(address funder, uint256 amount) internal {
+        wETH.mint(funder, amount);
+        vm.prank(funder);
+        wETH.approve(address(escrow), amount);
+        vm.prank(funder);
+        escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, "");
+    }
+
     function _createRepoDistribution(address _recipient, uint256 amount, uint32 claimPeriod) internal returns (uint256 distributionId) {
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
         distributions[0] = Escrow.DistributionParams({
@@ -71,7 +79,7 @@ contract ReclaimFund_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     function test_reclaimFund_success() public {
-        _fundRepo(FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
         
         uint256 reclaimAmount = 2000e18;
         uint256 initialAdminBalance = wETH.balanceOf(repoAdmin);
@@ -89,7 +97,7 @@ contract ReclaimFund_Test is Base_Test {
     }
 
     function test_reclaimFund_fullAmount() public {
-        _fundRepo(FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
 
         vm.prank(repoAdmin);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
@@ -100,7 +108,7 @@ contract ReclaimFund_Test is Base_Test {
     }
 
     function test_reclaimFund_partialAmount() public {
-        _fundRepo(FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
         
         uint256 reclaimAmount = FUND_AMOUNT / 2;
         uint256 expectedRemainingBalance = FUND_AMOUNT - reclaimAmount;
@@ -114,7 +122,7 @@ contract ReclaimFund_Test is Base_Test {
     }
 
     function test_reclaimFund_multipleReclaimsBeforeDistributions() public {
-        _fundRepo(FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
         
         uint256 firstReclaim = 1000e18;
         uint256 secondReclaim = 500e18;
@@ -157,11 +165,9 @@ contract ReclaimFund_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
         escrow.initRepo(repoId2, instanceId2, _toArray(admin2), deadline, v, r, s);
         
-        // Fund both repos
-        _fundRepo(FUND_AMOUNT);
-        wETH.mint(address(this), FUND_AMOUNT);
-        wETH.approve(address(escrow), FUND_AMOUNT);
-        escrow.fundRepo(repoId2, instanceId2, wETH, FUND_AMOUNT, "");
+        // Fund both repos with respective funders
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
+        _fundRepoAs(admin2, FUND_AMOUNT);
         
         // Reclaim from both repos
         vm.prank(repoAdmin);
@@ -175,17 +181,17 @@ contract ReclaimFund_Test is Base_Test {
         assertEq(wETH.balanceOf(admin2), FUND_AMOUNT);
     }
 
-    function test_reclaimFund_revert_notRepoAdmin() public {
-        _fundRepo(FUND_AMOUNT);
+    function test_reclaimFund_revert_notFunder() public {
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
 
-        address unauthorized = makeAddr("unauthorized");
-        expectRevert(Errors.NOT_REPO_ADMIN);
-        vm.prank(unauthorized);
+        address nonFunder = makeAddr("nonFunder");
+        expectRevert(Errors.INSUFFICIENT_BALANCE); // Non-funder has no contribution to reclaim
+        vm.prank(nonFunder);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
     }
 
     function test_reclaimFund_revert_invalidToken() public {
-        _fundRepo(FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
         
         MockERC20 nonWhitelistedToken = new MockERC20("Non-Whitelisted", "NWT", 18);
 
@@ -195,7 +201,7 @@ contract ReclaimFund_Test is Base_Test {
     }
 
     function test_reclaimFund_revert_zeroAmount() public {
-        _fundRepo(FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
 
         expectRevert(Errors.INVALID_AMOUNT);
         vm.prank(repoAdmin);
@@ -203,7 +209,7 @@ contract ReclaimFund_Test is Base_Test {
     }
 
     function test_reclaimFund_revert_repoHasDistributions() public {
-        _fundRepo(FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
         
         // Create a distribution (this sets hasDistributions flag)
         _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT, 7 days);
@@ -214,7 +220,7 @@ contract ReclaimFund_Test is Base_Test {
     }
 
     function test_reclaimFund_revert_insufficientBalance() public {
-        _fundRepo(FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
 
         expectRevert(Errors.INSUFFICIENT_BALANCE);
         vm.prank(repoAdmin);
@@ -230,7 +236,7 @@ contract ReclaimFund_Test is Base_Test {
     }
 
     function test_reclaimFund_revert_afterFullReclaim() public {
-        _fundRepo(FUND_AMOUNT);
+        _fundRepoAs(repoAdmin, FUND_AMOUNT);
         
         // Reclaim all funds first
         vm.prank(repoAdmin);
@@ -246,7 +252,7 @@ contract ReclaimFund_Test is Base_Test {
         vm.assume(fundAmount > 0 && fundAmount <= 1000000e18);
         vm.assume(reclaimAmount > 0 && reclaimAmount <= fundAmount);
         
-        _fundRepo(fundAmount);
+        _fundRepoAs(repoAdmin, fundAmount);
         
         uint256 initialAdminBalance = wETH.balanceOf(repoAdmin);
         uint256 initialRepoBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
@@ -262,7 +268,7 @@ contract ReclaimFund_Test is Base_Test {
         vm.assume(fundAmount > 0 && fundAmount <= 1000000e18);
         vm.assume(reclaimAmount > fundAmount && reclaimAmount <= type(uint128).max);
         
-        _fundRepo(fundAmount);
+        _fundRepoAs(repoAdmin, fundAmount);
         
         expectRevert(Errors.INSUFFICIENT_BALANCE);
         vm.prank(repoAdmin);
@@ -296,10 +302,8 @@ contract ReclaimFund_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
         escrow.initRepo(repoId, instanceId, _toArray(admin), deadline, v, r, s);
         
-        // Fund the repo
-        wETH.mint(address(this), amount);
-        wETH.approve(address(escrow), amount);
-        escrow.fundRepo(repoId, instanceId, wETH, amount, "");
+        // Fund the repo with the admin as the funder
+        _fundRepoAs(admin, amount);
         
         uint256 initialAdminBalance = wETH.balanceOf(admin);
         
@@ -316,7 +320,7 @@ contract ReclaimFund_Test is Base_Test {
         vm.assume(baseAmount > 0 && baseAmount <= 100e18);
         
         uint256 totalFundAmount = baseAmount * numReclaims;
-        _fundRepo(totalFundAmount);
+        _fundRepoAs(repoAdmin, totalFundAmount);
         
         uint256 totalReclaimed = 0;
         uint256 initialAdminBalance = wETH.balanceOf(repoAdmin);
@@ -329,6 +333,54 @@ contract ReclaimFund_Test is Base_Test {
         
         assertEq(wETH.balanceOf(repoAdmin), initialAdminBalance + totalReclaimed);
         assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), totalFundAmount - totalReclaimed);
+    }
+
+    function test_reclaimFund_multipleFunders() public {
+        address funder1 = makeAddr("funder1");
+        address funder2 = makeAddr("funder2");
+        uint256 amount1 = 2000e18;
+        uint256 amount2 = 3000e18;
+        
+        // Fund with multiple addresses
+        _fundRepoAs(funder1, amount1);
+        _fundRepoAs(funder2, amount2);
+        
+        // Check contributions
+        assertEq(escrow.getFunderContribution(REPO_ID, ACCOUNT_ID, address(wETH), funder1), amount1);
+        assertEq(escrow.getFunderContribution(REPO_ID, ACCOUNT_ID, address(wETH), funder2), amount2);
+        
+        // Each funder can only reclaim their own contribution
+        vm.prank(funder1);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), amount1);
+        
+        vm.prank(funder2);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), amount2);
+        
+        // Check balances
+        assertEq(wETH.balanceOf(funder1), amount1);
+        assertEq(wETH.balanceOf(funder2), amount2);
+        assertEq(escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH)), 0);
+    }
+
+    function test_reclaimFund_revert_exceedOwnContribution() public {
+        address funder1 = makeAddr("funder1");
+        address funder2 = makeAddr("funder2");
+        uint256 amount1 = 2000e18;
+        uint256 amount2 = 3000e18;
+        
+        // Fund with multiple addresses
+        _fundRepoAs(funder1, amount1);
+        _fundRepoAs(funder2, amount2);
+        
+        // Funder1 tries to reclaim more than their contribution
+        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        vm.prank(funder1);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), amount1 + 1);
+        
+        // Funder2 tries to reclaim amount2 + amount1 (more than their contribution)
+        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        vm.prank(funder2);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), amount1 + amount2);
     }
 
     /* -------------------------------------------------------------------------- */

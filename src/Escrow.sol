@@ -76,7 +76,8 @@ contract Escrow is Owned, IEscrow {
     /* -------------------------------------------------------------------------- */
     /*                                STATE VARIABLES                             */
     /* -------------------------------------------------------------------------- */
-    mapping(uint => mapping(uint => Account)) accounts;      // repoId → instanceId → Account
+    mapping(uint => mapping(uint => Account)) accounts;                                             // repoId → instanceId → Account
+    mapping(uint => mapping(uint => mapping(address => mapping(address => uint)))) public fundings; // repoId → instanceId → token → funder → amount
 
     mapping(uint => Distribution) public distributions;      // distributionId → Distribution
     mapping(uint => RepoAccount)  public distributionToRepo; // distributionId → RepoAccount (for repo distributions)
@@ -204,7 +205,8 @@ contract Escrow is Owned, IEscrow {
 
         token.safeTransferFrom(msg.sender, address(this), amount);
 
-        accounts[repoId][instanceId].balance[address(token)] += amount;
+        accounts[repoId][instanceId].balance[address(token)]     += amount;
+        fundings[repoId][instanceId][address(token)][msg.sender] += amount;
 
         emit FundedRepo(repoId, instanceId, address(token), msg.sender, amount, data);
     }
@@ -387,16 +389,20 @@ contract Escrow is Owned, IEscrow {
         uint    amount
     ) 
         external 
-        onlyRepoAdmin(repoId, instanceId) 
     {
         require(whitelistedTokens.contains(token),              Errors.INVALID_TOKEN);
         require(amount > 0,                                     Errors.INVALID_AMOUNT);
         require(!accounts[repoId][instanceId].hasDistributions, Errors.REPO_HAS_DISTRIBUTIONS);
         
+        uint funderContribution = fundings[repoId][instanceId][token][msg.sender];
+        require(funderContribution >= amount, Errors.INSUFFICIENT_BALANCE);
+        
         uint balance = accounts[repoId][instanceId].balance[token];
         require(balance >= amount, Errors.INSUFFICIENT_BALANCE);
         
-        accounts[repoId][instanceId].balance[token] = balance - amount;
+        accounts[repoId][instanceId].balance[token]     = balance - amount;
+        fundings[repoId][instanceId][token][msg.sender] = funderContribution - amount;
+        
         ERC20(token).safeTransfer(msg.sender, amount);
         
         emit ReclaimedRepoFunds(repoId, instanceId, msg.sender, amount);
@@ -730,5 +736,13 @@ contract Escrow is Owned, IEscrow {
         returns (bool) 
     {
         return whitelistedTokens.contains(token);
+    }
+
+    function getFunding(uint repoId, uint instanceId, address token, address funder) 
+        external 
+        view 
+        returns (uint) 
+    {
+        return fundings[repoId][instanceId][token][funder];
     }
 }
