@@ -430,11 +430,15 @@ contract Escrow is Owned, IEscrow {
             Distribution storage distribution = distributions     [distributionId];
             RepoAccount  memory repoAccount   = distributionToRepo[distributionId];
             
-            require(distribution.exists,                                                  Errors.INVALID_DISTRIBUTION_ID);
-            require(distribution._type  == DistributionType.Repo,                         Errors.NOT_REPO_DISTRIBUTION);
-            require(distribution.status == DistributionStatus.Distributed,                Errors.ALREADY_CLAIMED);
-            require(block.timestamp     >= distribution.claimDeadline,                    Errors.STILL_CLAIMABLE);
-            require(repoAccount.repoId == repoId && repoAccount.instanceId == instanceId, Errors.DISTRIBUTION_NOT_FROM_REPO);
+            require(distribution.exists, Errors.INVALID_DISTRIBUTION_ID);
+            require(distribution._type == DistributionType.Repo, 
+                   Errors.NOT_REPO_DISTRIBUTION);
+            require(distribution.status == DistributionStatus.Distributed, 
+                   Errors.ALREADY_CLAIMED);
+            require(block.timestamp >= distribution.claimDeadline, 
+                   Errors.STILL_CLAIMABLE);
+            require(repoAccount.repoId == repoId && repoAccount.instanceId == instanceId, 
+                   Errors.DISTRIBUTION_NOT_FROM_REPO);
 
             distribution.status = DistributionStatus.Reclaimed;
             

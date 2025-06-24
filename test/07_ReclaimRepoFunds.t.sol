@@ -193,7 +193,7 @@ contract ReclaimFund_Test is Base_Test {
         _fundRepoAs(repoAdmin, FUND_AMOUNT);
 
         address nonFunder = makeAddr("nonFunder");
-        expectRevert(Errors.INSUFFICIENT_BALANCE); // Non-funder has no contribution to reclaim
+        expectRevert(Errors.INSUFFICIENT_FUNDS); // Non-funder has no contribution to reclaim
         vm.prank(nonFunder);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
     }
@@ -229,31 +229,35 @@ contract ReclaimFund_Test is Base_Test {
 
     function test_reclaimFund_revert_insufficientBalance() public {
         _fundRepoAs(repoAdmin, FUND_AMOUNT);
-
-        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        
+        // First reclaim most funds
         vm.prank(repoAdmin);
-        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT + 1);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT - 100e18);
+        
+        // Try to reclaim more than remaining
+        expectRevert(Errors.INSUFFICIENT_FUNDS);
+        vm.prank(repoAdmin);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), 200e18);
     }
 
     function test_reclaimFund_revert_noFundsToReclaim() public {
-        // Don't fund the repo
-        
-        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        // Try to reclaim without funding
+        expectRevert(Errors.INSUFFICIENT_FUNDS);
         vm.prank(repoAdmin);
-        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), 1);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), 1000e18);
     }
 
     function test_reclaimFund_revert_afterFullReclaim() public {
         _fundRepoAs(repoAdmin, FUND_AMOUNT);
         
-        // Reclaim all funds first
+        // Reclaim all funds
         vm.prank(repoAdmin);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), FUND_AMOUNT);
         
         // Try to reclaim again
-        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        expectRevert(Errors.INSUFFICIENT_FUNDS);
         vm.prank(repoAdmin);
-        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), 1);
+        escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), 1000e18);
     }
 
     function test_reclaimFund_fuzz_amounts(uint256 fundAmount, uint256 reclaimAmount) public {
@@ -278,7 +282,7 @@ contract ReclaimFund_Test is Base_Test {
         
         _fundRepoAs(repoAdmin, fundAmount);
         
-        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        expectRevert(Errors.INSUFFICIENT_FUNDS);
         vm.prank(repoAdmin);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), reclaimAmount);
     }
@@ -381,12 +385,12 @@ contract ReclaimFund_Test is Base_Test {
         _fundRepoAs(funder2, amount2);
         
         // Funder1 tries to reclaim more than their contribution
-        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        expectRevert(Errors.INSUFFICIENT_FUNDS);
         vm.prank(funder1);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), amount1 + 1);
         
         // Funder2 tries to reclaim amount2 + amount1 (more than their contribution)
-        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        expectRevert(Errors.INSUFFICIENT_FUNDS);
         vm.prank(funder2);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), amount1 + amount2);
     }
@@ -460,7 +464,7 @@ contract ReclaimFund_Test is Base_Test {
         assertEq(escrow.getFunding(repoId2, instanceId2, address(wETH), funder), 0);
         
         // Funder tries to reclaim from repo2 (which they never funded)
-        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        expectRevert(Errors.INSUFFICIENT_FUNDS);
         vm.prank(funder);
         escrow.reclaimRepoFunds(repoId2, instanceId2, address(wETH), amount);
         
@@ -656,7 +660,7 @@ contract ReclaimFund_Test is Base_Test {
         assertEq(escrow.getFunding(REPO_ID, ACCOUNT_ID, address(wETH), funder), 0);
         
         // Cannot reclaim anything more
-        expectRevert(Errors.INSUFFICIENT_BALANCE);
+        expectRevert(Errors.INSUFFICIENT_FUNDS);
         vm.prank(funder);
         escrow.reclaimRepoFunds(REPO_ID, ACCOUNT_ID, address(wETH), 1);
         
