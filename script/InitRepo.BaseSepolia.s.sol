@@ -16,13 +16,11 @@ contract InitRepoBaseSepolia is Script {
         // Get the Escrow contract instance
         Escrow escrow = Escrow(ESCROW_ADDRESS);
 
-        // Get current nonce from the contract
-        uint256 currentNonce = escrow.setAdminNonce();
-        console.log("Current setAdminNonce:", currentNonce);
-
         // Parameters for initRepo
         uint256 repoId = 1;
         uint256 instanceId = 1;
+        uint256 currentNonce = escrow.repoSetAdminNonce(repoId, instanceId);
+        console.log("Current setAdminNonce:", currentNonce);
         address[] memory admins = new address[](1);
         admins[0] = 0x99ecA80b4Ebf8fDACe6627BEcb75EF1e620E6956;
 

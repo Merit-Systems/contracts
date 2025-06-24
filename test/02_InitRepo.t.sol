@@ -36,7 +36,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -58,7 +58,7 @@ contract InitRepo_Test is Base_Test {
         assertTrue(escrow.getIsAuthorizedAdmin(REPO_ID, ACCOUNT_ID, repoAdmin));
         
         // Verify nonce was incremented
-        assertEq(escrow.setAdminNonce(), 1);
+        assertEq(escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID), 1);
     }
 
     function test_initRepo_multipleAdmins() public {
@@ -81,7 +81,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -133,7 +133,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -158,7 +158,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -185,7 +185,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -211,7 +211,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -239,7 +239,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -296,13 +296,15 @@ contract InitRepo_Test is Base_Test {
         address[] memory admins2 = new address[](1);
         admins2[0] = admin2;
         
-        uint256 initialNonce = escrow.setAdminNonce();
+        // With per-repo nonces, each repo/instance pair has its own nonce counter
+        uint256 initialNonce1100 = escrow.repoSetAdminNonce(1, 100);
+        uint256 initialNonce2200 = escrow.repoSetAdminNonce(2, 200);
         
         _initializeRepo(1, 100, admins1);
-        assertEq(escrow.setAdminNonce(), initialNonce + 1);
+        assertEq(escrow.repoSetAdminNonce(1, 100), initialNonce1100 + 1);
         
         _initializeRepo(2, 200, admins2);
-        assertEq(escrow.setAdminNonce(), initialNonce + 2);
+        assertEq(escrow.repoSetAdminNonce(2, 200), initialNonce2200 + 1);
     }
 
     function test_initRepo_domainSeparator() public {
@@ -322,7 +324,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -339,7 +341,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -407,7 +409,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -437,7 +439,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -480,7 +482,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce() + 1, // Wrong nonce
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID) + 1, // Wrong nonce
                     signatureDeadline
                 ))
             )
@@ -508,7 +510,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID + 1, // Wrong repo ID
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -536,7 +538,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID + 1, // Wrong account ID
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -567,7 +569,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(wrongAdmins)), // Wrong admins
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -596,7 +598,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     wrongDeadline // Wrong deadline
                 ))
             )
@@ -625,7 +627,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -666,7 +668,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -700,7 +702,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins1)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -725,7 +727,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID + 1,
                     ACCOUNT_ID + 1,
                     keccak256(abi.encode(admins2)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID + 1, ACCOUNT_ID + 1),
                     signatureDeadline
                 ))
             )
@@ -762,7 +764,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -864,7 +866,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline_param
                 ))
             )
@@ -891,7 +893,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(repoId, accountId),
                     signatureDeadline
                 ))
             )
@@ -919,7 +921,7 @@ contract InitRepo_Test is Base_Test {
     }
 
     function test_initRepo_fuzz_signatures(uint256 wrongNonce, uint256 wrongDeadline) public {
-        vm.assume(wrongNonce != escrow.setAdminNonce());
+        vm.assume(wrongNonce != escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID));
         vm.assume(wrongDeadline != block.timestamp + 1 hours);
         vm.assume(wrongDeadline > block.timestamp); // Must be future timestamp
         
@@ -958,7 +960,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     wrongDeadline
                 ))
             )
@@ -991,7 +993,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -1035,7 +1037,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -1077,7 +1079,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(repoId, accountId),
                     signatureDeadline
                 ))
             )
@@ -1123,7 +1125,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -1170,7 +1172,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -1208,7 +1210,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(repoId, accountId),
                     signatureDeadline
                 ))
             )
@@ -1224,21 +1226,24 @@ contract InitRepo_Test is Base_Test {
 
     /// @dev Test nonce increment behavior under various conditions
     function test_initRepo_nonceIncrementConsistency() public {
-        uint256 initialNonce = escrow.setAdminNonce();
+        // With per-repo nonces, each repo/instance pair has its own nonce counter
+        uint256 initialNonce11 = escrow.repoSetAdminNonce(1, 1);
+        uint256 initialNonce12 = escrow.repoSetAdminNonce(1, 2);
         
-        // Initialize first repo
+        // Initialize first repo (1,1)
         address[] memory admins1 = new address[](1);
         admins1[0] = repoAdmin;
         _initializeRepo(1, 1, admins1);
-        assertEq(escrow.setAdminNonce(), initialNonce + 1);
+        assertEq(escrow.repoSetAdminNonce(1, 1), initialNonce11 + 1);
         
-        // Initialize second repo
+        // Initialize second repo (1,2) - this should have its own nonce counter
         address[] memory admins2 = new address[](1);
         admins2[0] = repoAdmin;
         _initializeRepo(1, 2, admins2);
-        assertEq(escrow.setAdminNonce(), initialNonce + 2);
+        assertEq(escrow.repoSetAdminNonce(1, 2), initialNonce12 + 1);
         
-        // Try to initialize with old nonce (should fail)
+        // Try to initialize repo (1,3) with wrong nonce (should fail)
+        // Use nonce 5 which is wrong for a fresh repo
         address[] memory admins = new address[](1);
         admins[0] = repoAdmin;
         
@@ -1252,7 +1257,7 @@ contract InitRepo_Test is Base_Test {
                     1,
                     3,
                     keccak256(abi.encode(admins)),
-                    initialNonce, // Old nonce
+                    5, // Wrong nonce - should be 0 for fresh repo (1,3)
                     signatureDeadline
                 ))
             )
@@ -1283,7 +1288,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(maxAdmins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -1312,7 +1317,7 @@ contract InitRepo_Test is Base_Test {
                     2,
                     ACCOUNT_ID,
                     keccak256(abi.encode(tooManyAdmins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -1341,7 +1346,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -1376,7 +1381,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -1411,7 +1416,7 @@ contract InitRepo_Test is Base_Test {
                     1,
                     100,
                     keccak256(abi.encode(admins1)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(1, 100),
                     signatureDeadline1
                 ))
             )
@@ -1434,7 +1439,7 @@ contract InitRepo_Test is Base_Test {
                     2,
                     200,
                     keccak256(abi.encode(admins2)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(2, 200),
                     signatureDeadline2
                 ))
             )
@@ -1466,7 +1471,7 @@ contract InitRepo_Test is Base_Test {
                     REPO_ID,
                     ACCOUNT_ID,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(REPO_ID, ACCOUNT_ID),
                     signatureDeadline
                 ))
             )
@@ -1502,7 +1507,7 @@ contract InitRepo_Test is Base_Test {
                     repoId,
                     accountId,
                     keccak256(abi.encode(admins)),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(repoId, accountId),
                     signatureDeadline
                 ))
             )
@@ -1515,6 +1520,358 @@ contract InitRepo_Test is Base_Test {
         emit InitializedRepo(repoId, accountId, admins);
 
         escrow.initRepo(repoId, accountId, admins, signatureDeadline, v, r, s);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                           REPO SET ADMIN NONCE TESTS                       */
+    /* -------------------------------------------------------------------------- */
+
+    function test_repoSetAdminNonce_initialValues() public {
+        // Fresh repos should have nonce 0
+        assertEq(escrow.repoSetAdminNonce(1, 1), 0);
+        assertEq(escrow.repoSetAdminNonce(1, 2), 0);
+        assertEq(escrow.repoSetAdminNonce(2, 1), 0);
+        assertEq(escrow.repoSetAdminNonce(999, 999), 0);
+        assertEq(escrow.repoSetAdminNonce(type(uint256).max, type(uint256).max), 0);
+    }
+
+    function test_repoSetAdminNonce_incrementsAfterInitRepo() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+
+        // Check initial nonce
+        assertEq(escrow.repoSetAdminNonce(1, 1), 0);
+
+        // Initialize repo
+        _initializeRepo(1, 1, admins);
+
+        // Nonce should increment
+        assertEq(escrow.repoSetAdminNonce(1, 1), 1);
+    }
+
+    function test_repoSetAdminNonce_independentCounters() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+
+        // Initialize different repo/instance combinations
+        _initializeRepo(1, 1, admins);
+        _initializeRepo(1, 2, admins);
+        _initializeRepo(2, 1, admins);
+        _initializeRepo(2, 2, admins);
+
+        // Each should have independent nonce counter
+        assertEq(escrow.repoSetAdminNonce(1, 1), 1);
+        assertEq(escrow.repoSetAdminNonce(1, 2), 1);
+        assertEq(escrow.repoSetAdminNonce(2, 1), 1);
+        assertEq(escrow.repoSetAdminNonce(2, 2), 1);
+
+        // Uninitialized repos should still be 0
+        assertEq(escrow.repoSetAdminNonce(3, 1), 0);
+        assertEq(escrow.repoSetAdminNonce(1, 3), 0);
+    }
+
+    function test_repoSetAdminNonce_multipleInitializations() public {
+        address[] memory admins1 = new address[](1);
+        admins1[0] = repoAdmin;
+        address[] memory admins2 = new address[](1);
+        admins2[0] = makeAddr("admin2");
+        address[] memory admins3 = new address[](1);
+        admins3[0] = makeAddr("admin3");
+
+        uint256 repoId = 5;
+        uint256 instanceId = 10;
+
+        // Initialize same repo multiple times (should fail after first)
+        _initializeRepo(repoId, instanceId, admins1);
+        assertEq(escrow.repoSetAdminNonce(repoId, instanceId), 1);
+
+        // Second initialization should fail but nonce shouldn't change
+        // Create signature with current nonce for already initialized repo
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    instanceId,
+                    keccak256(abi.encode(admins2)),
+                    escrow.repoSetAdminNonce(repoId, instanceId), // Current nonce
+                    signatureDeadline
+                ))
+            )
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+        
+        expectRevert(Errors.REPO_ALREADY_INITIALIZED);
+        escrow.initRepo(repoId, instanceId, admins2, signatureDeadline, v, r, s);
+        assertEq(escrow.repoSetAdminNonce(repoId, instanceId), 1);
+
+        // Initialize different instances of same repo
+        _initializeRepo(repoId, instanceId + 1, admins2);
+        _initializeRepo(repoId, instanceId + 2, admins3);
+
+        // Check nonces
+        assertEq(escrow.repoSetAdminNonce(repoId, instanceId), 1);
+        assertEq(escrow.repoSetAdminNonce(repoId, instanceId + 1), 1);
+        assertEq(escrow.repoSetAdminNonce(repoId, instanceId + 2), 1);
+    }
+
+    function test_repoSetAdminNonce_wrongNonceFailsSignature() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+
+        uint256 repoId = 7;
+        uint256 instanceId = 8;
+
+        // Try to initialize with wrong nonce (should be 0, but use 1)
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    instanceId,
+                    keccak256(abi.encode(admins)),
+                    1, // Wrong nonce - should be 0
+                    signatureDeadline
+                ))
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(repoId, instanceId, admins, signatureDeadline, v, r, s);
+
+        // Nonce should remain 0
+        assertEq(escrow.repoSetAdminNonce(repoId, instanceId), 0);
+    }
+
+    function test_repoSetAdminNonce_replayAttackPrevention() public {
+        address[] memory admins1 = new address[](1);
+        admins1[0] = repoAdmin;
+        address[] memory admins2 = new address[](1);  
+        admins2[0] = makeAddr("admin2");
+
+        uint256 repoId = 100;
+
+        // Initialize repo (1, 100)
+        _initializeRepo(repoId, 100, admins1);
+        assertEq(escrow.repoSetAdminNonce(repoId, 100), 1);
+
+        // Try to use the same signature for different instance (should fail)
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    100, // Same instance
+                    keccak256(abi.encode(admins1)),
+                    0, // Old nonce (was incremented to 1)
+                    signatureDeadline
+                ))
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        // Should fail - repo already initialized
+        expectRevert(Errors.REPO_ALREADY_INITIALIZED);
+        escrow.initRepo(repoId, 100, admins1, signatureDeadline, v, r, s);
+
+        // Try to replay for different instance - should also fail due to wrong nonce
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(repoId, 101, admins2, signatureDeadline, v, r, s);
+    }
+
+    function test_repoSetAdminNonce_crossRepoIsolation() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+
+        // Initialize repo (5, 5)
+        _initializeRepo(5, 5, admins);
+        assertEq(escrow.repoSetAdminNonce(5, 5), 1);
+
+        // Try to use repo (5,5)'s nonce for repo (6,6) - should fail
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    6,
+                    6,
+                    keccak256(abi.encode(admins)),
+                    1, // Using nonce from different repo
+                    signatureDeadline
+                ))
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        expectRevert(Errors.INVALID_SIGNATURE);
+        escrow.initRepo(6, 6, admins, signatureDeadline, v, r, s);
+
+        // Repo (6,6) should still have nonce 0
+        assertEq(escrow.repoSetAdminNonce(6, 6), 0);
+    }
+
+    function test_repoSetAdminNonce_extremeValues() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+
+        // Test with maximum values
+        uint256 maxRepoId = type(uint256).max;
+        uint256 maxInstanceId = type(uint256).max;
+
+        assertEq(escrow.repoSetAdminNonce(maxRepoId, maxInstanceId), 0);
+
+        _initializeRepo(maxRepoId, maxInstanceId, admins);
+        assertEq(escrow.repoSetAdminNonce(maxRepoId, maxInstanceId), 1);
+
+        // Test with zero values
+        assertEq(escrow.repoSetAdminNonce(0, 0), 0);
+        _initializeRepo(0, 0, admins);
+        assertEq(escrow.repoSetAdminNonce(0, 0), 1);
+
+        // Test with mixed extreme values
+        assertEq(escrow.repoSetAdminNonce(0, maxInstanceId), 0);
+        assertEq(escrow.repoSetAdminNonce(maxRepoId, 0), 0);
+
+        _initializeRepo(0, maxInstanceId, admins);
+        _initializeRepo(maxRepoId, 0, admins);
+
+        assertEq(escrow.repoSetAdminNonce(0, maxInstanceId), 1);
+        assertEq(escrow.repoSetAdminNonce(maxRepoId, 0), 1);
+    }
+
+    function test_repoSetAdminNonce_fuzzSequentialInits(uint256 numRepos) public {
+        vm.assume(numRepos > 0 && numRepos <= 10); // Reasonable limit
+
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+
+        // Initialize sequential repos
+        for (uint256 i = 0; i < numRepos; i++) {
+            uint256 repoId = 1000 + i;
+            uint256 instanceId = 2000 + i;
+            
+            // Check initial nonce
+            assertEq(escrow.repoSetAdminNonce(repoId, instanceId), 0);
+            
+            // Initialize repo
+            _initializeRepo(repoId, instanceId, admins);
+            
+            // Check nonce incremented
+            assertEq(escrow.repoSetAdminNonce(repoId, instanceId), 1);
+        }
+
+        // Verify all nonces are still correct
+        for (uint256 i = 0; i < numRepos; i++) {
+            uint256 repoId = 1000 + i;
+            uint256 instanceId = 2000 + i;
+            assertEq(escrow.repoSetAdminNonce(repoId, instanceId), 1);
+        }
+    }
+
+    function test_repoSetAdminNonce_fuzzCrossContamination(
+        uint256 repoId1, 
+        uint256 instanceId1,
+        uint256 repoId2, 
+        uint256 instanceId2
+    ) public {
+        // Ensure different repo/instance combinations
+        vm.assume(repoId1 != repoId2 || instanceId1 != instanceId2);
+        vm.assume(repoId1 <= type(uint128).max && instanceId1 <= type(uint128).max);
+        vm.assume(repoId2 <= type(uint128).max && instanceId2 <= type(uint128).max);
+
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+
+        // Both should start at 0
+        assertEq(escrow.repoSetAdminNonce(repoId1, instanceId1), 0);
+        assertEq(escrow.repoSetAdminNonce(repoId2, instanceId2), 0);
+
+        // Initialize first repo
+        _initializeRepo(repoId1, instanceId1, admins);
+
+        // First repo nonce should be 1, second should still be 0
+        assertEq(escrow.repoSetAdminNonce(repoId1, instanceId1), 1);
+        assertEq(escrow.repoSetAdminNonce(repoId2, instanceId2), 0);
+
+        // Initialize second repo
+        _initializeRepo(repoId2, instanceId2, admins);
+
+        // Both should now be 1, independently
+        assertEq(escrow.repoSetAdminNonce(repoId1, instanceId1), 1);
+        assertEq(escrow.repoSetAdminNonce(repoId2, instanceId2), 1);
+    }
+
+    function test_repoSetAdminNonce_getterConsistency() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+
+        uint256 repoId = 42;
+        uint256 instanceId = 24;
+
+        // Test getter before and after initialization
+        uint256 nonceBefore = escrow.repoSetAdminNonce(repoId, instanceId);
+        assertEq(nonceBefore, 0);
+
+        _initializeRepo(repoId, instanceId, admins);
+
+        uint256 nonceAfter = escrow.repoSetAdminNonce(repoId, instanceId);
+        assertEq(nonceAfter, 1);
+        assertEq(nonceAfter, nonceBefore + 1);
+    }
+
+    function test_repoSetAdminNonce_signatureValidationIntegration() public {
+        address[] memory admins = new address[](1);
+        admins[0] = repoAdmin;
+
+        uint256 repoId = 99;
+        uint256 instanceId = 88;
+
+        // Get current nonce and create valid signature
+        uint256 currentNonce = escrow.repoSetAdminNonce(repoId, instanceId);
+        assertEq(currentNonce, 0);
+
+        uint256 signatureDeadline = block.timestamp + 1 hours;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                escrow.DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(
+                    escrow.SET_ADMIN_TYPEHASH(),
+                    repoId,
+                    instanceId,
+                    keccak256(abi.encode(admins)),
+                    currentNonce, // Correct nonce
+                    signatureDeadline
+                ))
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, digest);
+
+        // Should succeed
+        escrow.initRepo(repoId, instanceId, admins, signatureDeadline, v, r, s);
+
+        // Nonce should be incremented
+        assertEq(escrow.repoSetAdminNonce(repoId, instanceId), 1);
+
+        // Using the same signature again should fail (repo already initialized)
+        expectRevert(Errors.REPO_ALREADY_INITIALIZED);
+        escrow.initRepo(repoId, instanceId, admins, signatureDeadline, v, r, s);
     }
 
     /* -------------------------------------------------------------------------- */

@@ -118,7 +118,7 @@ contract DeployAnvil is Script {
         admins[1] = USER2;
         
         // Create signature for initRepo
-        uint setAdminNonce = escrow.setAdminNonce();
+        uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(
@@ -295,7 +295,7 @@ contract DeployAnvil is Script {
         address[] memory admins = new address[](1);
         admins[0] = USER1;
         
-        uint setAdminNonce = escrow.setAdminNonce();
+        uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(
@@ -891,7 +891,7 @@ contract DeployAnvil is Script {
                 if (admins.length > 2) admins[2] = RECIPIENT;
             }
             
-            uint setAdminNonce = escrow.setAdminNonce();
+            uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
             uint signatureDeadline = block.timestamp + 3600;
             
             bytes32 digest = keccak256(
@@ -1196,7 +1196,7 @@ contract DeployAnvil is Script {
         address[] memory admins = new address[](1);
         admins[0] = USER1;
         
-        uint setAdminNonce = escrow.setAdminNonce();
+        uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(
@@ -1283,7 +1283,7 @@ contract DeployAnvil is Script {
         address[] memory admins = new address[](1);
         admins[0] = USER1;
         
-        uint setAdminNonce = escrow.setAdminNonce();
+        uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(
@@ -1487,7 +1487,7 @@ contract DeployAnvil is Script {
         address[] memory admins = new address[](1);
         admins[0] = USER1;
         
-        uint setAdminNonce = escrow.setAdminNonce();
+        uint setAdminNonce = escrow.repoSetAdminNonce(repoId, accountId);
         uint signatureDeadline = block.timestamp + 3600;
         
         bytes32 digest = keccak256(

@@ -602,7 +602,7 @@ contract OnlyOwner_Test is Base_Test {
                     repoId,
                     instanceId,
                     keccak256(abi.encode(_toArray(admin))),
-                    escrow.setAdminNonce(),
+                    escrow.repoSetAdminNonce(repoId, instanceId),
                     deadline
                 ))
             )
@@ -756,7 +756,7 @@ contract OnlyOwner_Test is Base_Test {
                         1,
                         1,
                         keccak256(abi.encode(admins)),
-                        escrow.setAdminNonce(),
+                        escrow.repoSetAdminNonce(1, 1),
                         deadline
                     ))
                 )
@@ -773,7 +773,7 @@ contract OnlyOwner_Test is Base_Test {
                             1,
                             1,
                             keccak256(abi.encode(admins)),
-                            escrow.setAdminNonce(),
+                            escrow.repoSetAdminNonce(1, 1),
                             deadline
                         ))
                     )
@@ -852,7 +852,7 @@ contract OnlyOwner_Test is Base_Test {
                         1,
                         1,
                         keccak256(abi.encode(admins)),
-                        escrow.setAdminNonce(),
+                        escrow.repoSetAdminNonce(1, 1),
                         deadline
                     ))
                 )
@@ -869,7 +869,7 @@ contract OnlyOwner_Test is Base_Test {
                             1,
                             1,
                             keccak256(abi.encode(admins)),
-                            escrow.setAdminNonce(),
+                            escrow.repoSetAdminNonce(1, 1),
                             deadline
                         ))
                     )
