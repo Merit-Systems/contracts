@@ -37,4 +37,5 @@ library Errors {
     string internal constant CANNOT_REMOVE_ALL_ADMINS       = "Cannot Remove All Admins";
     string internal constant DISTRIBUTION_NOT_FROM_REPO     = "Distribution Not From Repo";
     string internal constant EMPTY_ARRAY                    = "Empty Array";
+    string internal constant INSUFFICIENT_FUNDS             = "Insufficient Funds";
 } 

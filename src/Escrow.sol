@@ -395,7 +395,7 @@ contract Escrow is Owned, IEscrow {
         require(!accounts[repoId][instanceId].hasDistributions, Errors.REPO_HAS_DISTRIBUTIONS);
         
         uint funding = fundings[repoId][instanceId][token][msg.sender];
-        require(funding >= amount, Errors.INSUFFICIENT_BALANCE);
+        require(funding >= amount, Errors.INSUFFICIENT_FUNDS);
         
         uint balance = accounts[repoId][instanceId].balance[token];
         require(balance >= amount, Errors.INSUFFICIENT_BALANCE);
