@@ -131,7 +131,7 @@ contract Claim_Test is Base_Test {
         uint256 initialFeeRecipientBalance = wETH.balanceOf(escrow.feeRecipient());
 
         vm.expectEmit(true, true, true, true);
-        emit Claimed(escrow.batchCount(), distributionId, recipient, expectedNetAmount, escrow.fee());
+        emit Claimed(escrow.batchCount(), distributionId, recipient, expectedNetAmount, expectedFee);
 
         vm.prank(recipient);
         escrow.claim(distributionIds, deadline, v, r, s, "");
