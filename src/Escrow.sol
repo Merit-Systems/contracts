@@ -374,7 +374,7 @@ contract Escrow is Owned, IEscrow {
             if (feeAmount > 0) distribution.token.safeTransfer(feeRecipient, feeAmount);
             distribution.token.safeTransfer(msg.sender, netAmount);
             
-            emit Claimed(batchId, distributionId, msg.sender, netAmount, distribution.fee);
+            emit Claimed(batchId, distributionId, msg.sender, netAmount, feeAmount);
         }
         emit ClaimedBatch(batchId, distributionIds, msg.sender, data);
     }
