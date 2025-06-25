@@ -23,7 +23,7 @@ library Params {
     address constant SEPOLIA_TESTER       = 0x99ecA80b4Ebf8fDACe6627BEcb75EF1e620E6956;
     address constant SEPOLIA_TESTER_JSON  = 0x5C87eA705eE49a96532F45f5db606A5f5fEF9780;
     address constant SEPOLIA_TESTER_SHAFU = 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec;
-    uint    constant SEPOLIA_FEE_BPS      = 0;
+    uint    constant SEPOLIA_FEE_BPS      = 250;
 
     /*//////////////////////////////////////////////////////////////
                               BASE SEPOLIA
@@ -35,5 +35,5 @@ library Params {
     address constant BASESEPOLIA_TESTER       = 0x5C87eA705eE49a96532F45f5db606A5f5fEF9780;
     address constant BASESEPOLIA_TESTER_SHAFU = 0x39053B170bBD9580d0b86e8317c685aEFB65f1ec;
     address constant BASESEPOLIA_TESTER_JSON  = 0x5C87eA705eE49a96532F45f5db606A5f5fEF9780;
-    uint    constant BASESEPOLIA_FEE_BPS      = 0;
+    uint    constant BASESEPOLIA_FEE_BPS      = 250;
 }
