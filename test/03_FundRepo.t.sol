@@ -26,7 +26,7 @@ contract FundRepo_Test is Base_Test {
         uint256 initialAccountBalance = escrow.getAccountBalance(REPO_ID, ACCOUNT_ID, address(wETH));
 
         vm.expectEmit(true, true, true, true);
-        emit FundedRepo(REPO_ID, ACCOUNT_ID, address(wETH), alice, FUND_AMOUNT, "");
+        emit FundedRepo(REPO_ID, ACCOUNT_ID, address(wETH), alice, FUND_AMOUNT, 0, "");
 
         vm.prank(alice);
         escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, FUND_AMOUNT, "");
@@ -392,7 +392,7 @@ contract FundRepo_Test is Base_Test {
         uint256 amount = 100e18;
         
         vm.expectEmit(true, true, true, true);
-        emit FundedRepo(REPO_ID, ACCOUNT_ID, address(wETH), alice, amount, data);
+        emit FundedRepo(REPO_ID, ACCOUNT_ID, address(wETH), alice, amount, 0, data);
         
         vm.prank(alice);
         escrow.fundRepo(REPO_ID, ACCOUNT_ID, wETH, amount, data);
@@ -422,5 +422,5 @@ contract FundRepo_Test is Base_Test {
     }
 
     // Event for testing
-    event FundedRepo(uint256 indexed repoId, uint256 indexed instanceId, address indexed token, address sender, uint256 amount, bytes data);
+    event FundedRepo(uint256 indexed repoId, uint256 indexed instanceId, address indexed token, address sender, uint256 amount, uint256 feeAmount, bytes data);
 } 

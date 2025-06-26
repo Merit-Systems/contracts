@@ -43,7 +43,7 @@ contract Deploy_Test is Base_Test {
         assertEq(deployedEscrow.owner(), Params.BASE_OWNER);
         assertEq(deployedEscrow.signer(), Params.BASE_SIGNER);
         assertEq(deployedEscrow.feeRecipient(), Params.BASE_OWNER);
-        assertEq(deployedEscrow.fee(), Params.BASE_FEE_BPS);
+        assertEq(deployedEscrow.feeOnClaim(), Params.BASE_FEE_ON_CLAIM_BPS);
         assertEq(deployedEscrow.batchLimit(), Params.BATCH_LIMIT);
         assertEq(deployedEscrow.repoSetAdminNonce(0, 0), 0);
         assertEq(deployedEscrow.batchCount(), 0);
@@ -83,7 +83,7 @@ contract Deploy_Test is Base_Test {
         assertEq(deployedEscrow.owner(), testOwner);
         assertEq(deployedEscrow.signer(), testSigner);
         assertEq(deployedEscrow.feeRecipient(), testOwner);
-        assertEq(deployedEscrow.fee(), feeBps);
+        assertEq(deployedEscrow.feeOnClaim(), feeBps);
         assertEq(deployedEscrow.batchLimit(), batchLimit);
         assertEq(deployedEscrow.repoSetAdminNonce(0, 0), 0);
         assertEq(deployedEscrow.batchCount(), 0);
@@ -131,7 +131,7 @@ contract Deploy_Test is Base_Test {
             batchLimit
         );
 
-        assertEq(deployedEscrow.fee(), maxFeeBps);
+        assertEq(deployedEscrow.feeOnClaim(), maxFeeBps);
     }
 
     function test_deploy_revert_invalidFeeBps() public {
@@ -312,7 +312,7 @@ contract Deploy_Test is Base_Test {
         assertEq(deployedEscrow.owner(), _owner);
         assertEq(deployedEscrow.signer(), _signer);
         assertEq(deployedEscrow.feeRecipient(), _owner);
-        assertEq(deployedEscrow.fee(), _feeBps);
+        assertEq(deployedEscrow.feeOnClaim(), _feeBps);
         assertEq(deployedEscrow.batchLimit(), _batchLimit);
     }
 

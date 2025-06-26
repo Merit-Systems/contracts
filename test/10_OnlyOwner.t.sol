@@ -103,68 +103,68 @@ contract OnlyOwner_Test is Base_Test {
     /*                                SET FEE TESTS                               */
     /* -------------------------------------------------------------------------- */
 
-    function test_setFee_success() public {
+    function test_setFeeOnClaim_success() public {
         uint256 newFee = 500; // 5%
-        assertEq(escrow.fee(), 250); // Initial fee from setup
+        assertEq(escrow.feeOnClaim(), 250); // Initial fee from setup
 
         vm.prank(owner);
-        escrow.setFee(newFee);
+        escrow.setFeeOnClaim(newFee);
 
-        assertEq(escrow.fee(), newFee);
+        assertEq(escrow.feeOnClaim(), newFee);
     }
 
-    function test_setFee_zeroFee() public {
+    function test_setFeeOnClaim_zeroFee() public {
         vm.prank(owner);
-        escrow.setFee(0);
+        escrow.setFeeOnClaim(0);
 
-        assertEq(escrow.fee(), 0);
+        assertEq(escrow.feeOnClaim(), 0);
     }
 
-    function test_setFee_maxFee() public {
+    function test_setFeeOnClaim_maxFee() public {
         uint256 maxFee = escrow.MAX_FEE(); // 10%
 
         vm.prank(owner);
-        escrow.setFee(maxFee);
+        escrow.setFeeOnClaim(maxFee);
 
-        assertEq(escrow.fee(), maxFee);
+        assertEq(escrow.feeOnClaim(), maxFee);
     }
 
-    function test_setFee_revert_notOwner() public {
+    function test_setFeeOnClaim_revert_notOwner() public {
         expectRevert("UNAUTHORIZED");
         vm.prank(unauthorized);
-        escrow.setFee(500);
+        escrow.setFeeOnClaim(500);
     }
 
-    function test_setFee_revert_exceedsMaxFee() public {
+    function test_setFeeOnClaim_revert_exceedsMaxFee() public {
         uint256 invalidFee = escrow.MAX_FEE() + 1;
 
         expectRevert(Errors.INVALID_FEE);
         vm.prank(owner);
-        escrow.setFee(invalidFee);
+        escrow.setFeeOnClaim(invalidFee);
     }
 
-    function test_setFee_fuzz(uint256 fee) public {
+    function test_setFeeOnClaim_fuzz(uint256 fee) public {
         vm.assume(fee <= escrow.MAX_FEE());
 
         vm.prank(owner);
-        escrow.setFee(fee);
+        escrow.setFeeOnClaim(fee);
 
-        assertEq(escrow.fee(), fee);
+        assertEq(escrow.feeOnClaim(), fee);
     }
 
-    function test_setFee_emitsEvent() public {
+    function test_setFeeOnClaim_emitsEvent() public {
         uint256 newFee = 500; // 5%
         vm.expectEmit(true, true, true, true);
-        emit FeeSet(escrow.fee(), newFee);
+        emit FeeOnClaimSet(escrow.feeOnClaim(), newFee);
         vm.prank(owner);
-        escrow.setFee(newFee);
+        escrow.setFeeOnClaim(newFee);
     }
 
     /* -------------------------------------------------------------------------- */
     /*                           SET FEE RECIPIENT TESTS                          */
     /* -------------------------------------------------------------------------- */
 
-    function test_setFeeRecipient_success() public {
+    function test_setFeeOnClaimRecipient_success() public {
         assertEq(escrow.feeRecipient(), owner); // Initial from setup
 
         vm.prank(owner);
@@ -173,7 +173,7 @@ contract OnlyOwner_Test is Base_Test {
         assertEq(escrow.feeRecipient(), newRecipient);
     }
 
-    function test_setFeeRecipient_setToZeroAddress() public {
+    function test_setFeeOnClaimRecipient_setToZeroAddress() public {
         // Contract allows setting to zero address (might be intentional)
         vm.prank(owner);
         escrow.setFeeRecipient(address(0));
@@ -181,7 +181,7 @@ contract OnlyOwner_Test is Base_Test {
         assertEq(escrow.feeRecipient(), address(0));
     }
 
-    function test_setFeeRecipient_setBackToOwner() public {
+    function test_setFeeOnClaimRecipient_setBackToOwner() public {
         vm.prank(owner);
         escrow.setFeeRecipient(newRecipient);
 
@@ -191,13 +191,13 @@ contract OnlyOwner_Test is Base_Test {
         assertEq(escrow.feeRecipient(), owner);
     }
 
-    function test_setFeeRecipient_revert_notOwner() public {
+    function test_setFeeOnClaimRecipient_revert_notOwner() public {
         expectRevert("UNAUTHORIZED");
         vm.prank(unauthorized);
         escrow.setFeeRecipient(newRecipient);
     }
 
-    function test_setFeeRecipient_emitsEvent() public {
+    function test_setFeeOnClaimRecipient_emitsEvent() public {
         address differentRecipient = makeAddr("differentRecipient");
         vm.expectEmit(true, true, true, true);
         emit FeeRecipientSet(escrow.feeRecipient(), differentRecipient);
@@ -345,7 +345,7 @@ contract OnlyOwner_Test is Base_Test {
         assertEq(finalTokens.length, initialCount + numTokens);
     }
 
-    function test_setFeeRecipient_fuzz(address recipient) public {
+    function test_setFeeOnClaimRecipient_fuzz(address recipient) public {
         vm.prank(owner);
         escrow.setFeeRecipient(recipient);
         
@@ -369,13 +369,13 @@ contract OnlyOwner_Test is Base_Test {
         vm.assume(newBatchLimit > 0);
         
         vm.startPrank(owner);
-        escrow.setFee(newFee);
+        escrow.setFeeOnClaim(newFee);
         escrow.setFeeRecipient(newFeeRecipient);
         escrow.setSigner(fuzzSigner);
         escrow.setBatchLimit(newBatchLimit);
         vm.stopPrank();
         
-        assertEq(escrow.fee(), newFee);
+        assertEq(escrow.feeOnClaim(), newFee);
         assertEq(escrow.feeRecipient(), newFeeRecipient);
         assertEq(escrow.signer(), fuzzSigner);
         assertEq(escrow.batchLimit(), newBatchLimit);
@@ -389,7 +389,7 @@ contract OnlyOwner_Test is Base_Test {
         
         // Set initial fee
         vm.prank(owner);
-        escrow.setFee(oldFee);
+        escrow.setFeeOnClaim(oldFee);
         
         // Create distribution with old fee
         address recipient = makeAddr("recipient");
@@ -397,12 +397,12 @@ contract OnlyOwner_Test is Base_Test {
         
         // Change fee
         vm.prank(owner);
-        escrow.setFee(newFee);
+        escrow.setFeeOnClaim(newFee);
         
         // Verify distribution retains old fee but global fee is new
         Escrow.Distribution memory distribution = escrow.getDistribution(0);
         assertEq(distribution.fee, oldFee, "Distribution should retain creation-time fee");
-        assertEq(escrow.fee(), newFee, "Global fee should be updated");
+        assertEq(escrow.feeOnClaim(), newFee, "Global fee should be updated");
     }
 
     /* -------------------------------------------------------------------------- */
@@ -415,14 +415,14 @@ contract OnlyOwner_Test is Base_Test {
         vm.startPrank(owner);
         escrow.whitelistToken(token1);
         escrow.whitelistToken(token2);
-        escrow.setFee(750);
+        escrow.setFeeOnClaim(750);
         escrow.setFeeRecipient(newRecipient);
         escrow.setSigner(newSignerAddr);
         escrow.setBatchLimit(25);
         vm.stopPrank();
         assertTrue(escrow.isTokenWhitelisted(token1));
         assertTrue(escrow.isTokenWhitelisted(token2));
-        assertEq(escrow.fee(), 750);
+        assertEq(escrow.feeOnClaim(), 750);
         assertEq(escrow.feeRecipient(), newRecipient);
         assertEq(escrow.signer(), newSignerAddr);
         assertEq(escrow.batchLimit(), 25);
@@ -438,13 +438,13 @@ contract OnlyOwner_Test is Base_Test {
         // Old owner should not be able to make changes
         expectRevert("UNAUTHORIZED");
         vm.prank(owner);
-        escrow.setFee(500);
+        escrow.setFeeOnClaim(500);
 
         // New owner should be able to make changes
         vm.prank(newOwner);
-        escrow.setFee(500);
+        escrow.setFeeOnClaim(500);
         
-        assertEq(escrow.fee(), 500);
+        assertEq(escrow.feeOnClaim(), 500);
         assertEq(escrow.owner(), newOwner);
     }
 
@@ -463,7 +463,7 @@ contract OnlyOwner_Test is Base_Test {
 
             expectRevert("UNAUTHORIZED");
             vm.prank(user);
-            escrow.setFee(500);
+            escrow.setFeeOnClaim(500);
 
             expectRevert("UNAUTHORIZED");
             vm.prank(user);
@@ -484,7 +484,7 @@ contract OnlyOwner_Test is Base_Test {
     /* -------------------------------------------------------------------------- */
 
     event WhitelistedToken(address indexed token);
-    event FeeSet(uint256 oldFee, uint256 newFee);
+    event FeeOnClaimSet(uint256 oldFee, uint256 newFee);
     event FeeRecipientSet(address indexed oldRecipient, address indexed newRecipient);
     event SignerSet(address indexed oldSigner, address indexed newSigner);
     event BatchLimitSet(uint256 newBatchLimit);
@@ -493,36 +493,36 @@ contract OnlyOwner_Test is Base_Test {
     /*                        FEE SNAPSHOT INTERACTION TESTS                      */
     /* -------------------------------------------------------------------------- */
 
-    function test_setFee_doesNotAffectExistingDistributions() public {
+    function test_setFeeOnClaim_doesNotAffectExistingDistributions() public {
         // Create distributions with initial fee
         vm.prank(owner);
-        escrow.setFee(300); // 3%
+        escrow.setFeeOnClaim(300); // 3%
 
         // Setup repo and create distributions
         _setupRepoAndCreateDistributions(300); // This creates distributions with 3% fee
 
         // Change fee after distributions are created
         vm.prank(owner);
-        escrow.setFee(800); // 8%
+        escrow.setFeeOnClaim(800); // 8%
 
         // Check that global fee changed
-        assertEq(escrow.fee(), 800, "Global fee should have changed");
+        assertEq(escrow.feeOnClaim(), 800, "Global fee should have changed");
 
         // Check that existing distributions retain their original fee
         _verifyDistributionFeesUnchanged(300); // Verify they still have 3% fee
     }
 
-    function test_setFee_newDistributionsUseNewFee() public {
+    function test_setFeeOnClaim_newDistributionsUseNewFee() public {
         // Start with one fee
         vm.prank(owner);
-        escrow.setFee(200); // 2%
+        escrow.setFeeOnClaim(200); // 2%
 
         // Create first distribution
         _setupRepoAndCreateDistributions(200);
 
         // Change fee
         vm.prank(owner);
-        escrow.setFee(700); // 7%
+        escrow.setFeeOnClaim(700); // 7%
 
         // Create second distribution with new fee
         address recipient2 = makeAddr("recipient2");
@@ -537,7 +537,7 @@ contract OnlyOwner_Test is Base_Test {
         assertEq(dist2.fee, 700, "New distribution should use current fee");
     }
 
-    function test_setFee_multipleChangesCreateHistoricalSnapshot() public {
+    function test_setFeeOnClaim_multipleChangesCreateHistoricalSnapshot() public {
         // Test that multiple fee changes create a historical record in distributions
         address recipient1 = makeAddr("recipient1");
         address recipient2 = makeAddr("recipient2");
@@ -545,15 +545,15 @@ contract OnlyOwner_Test is Base_Test {
 
         // Create distributions with different fees over time
         vm.prank(owner);
-        escrow.setFee(100); // 1%
+        escrow.setFeeOnClaim(100); // 1%
         _createSingleDistribution(recipient1, 1000e18);
 
         vm.prank(owner);
-        escrow.setFee(500); // 5%
+        escrow.setFeeOnClaim(500); // 5%
         _createSingleDistribution(recipient2, 1000e18);
 
         vm.prank(owner);
-        escrow.setFee(900); // 9%
+        escrow.setFeeOnClaim(900); // 9%
         _createSingleDistribution(recipient3, 1000e18);
 
         // Verify each distribution preserved its creation-time fee
@@ -566,23 +566,23 @@ contract OnlyOwner_Test is Base_Test {
         assertEq(dist3.fee, 900, "Third distribution should have 9% fee");
 
         // Verify global fee is the latest
-        assertEq(escrow.fee(), 900, "Global fee should be latest value");
+        assertEq(escrow.feeOnClaim(), 900, "Global fee should be latest value");
     }
 
-    function test_setFee_zeroToNonZeroDoesNotAffectExisting() public {
+    function test_setFeeOnClaim_zeroToNonZeroDoesNotAffectExisting() public {
         // Start with zero fee
         vm.prank(owner);
-        escrow.setFee(0); // 0%
+        escrow.setFeeOnClaim(0); // 0%
 
         _setupRepoAndCreateDistributions(0);
 
         // Change to non-zero fee
         vm.prank(owner);
-        escrow.setFee(1000); // 10%
+        escrow.setFeeOnClaim(1000); // 10%
 
         // Existing distributions should still have 0% fee
         _verifyDistributionFeesUnchanged(0);
-        assertEq(escrow.fee(), 1000, "Global fee should be 10%");
+        assertEq(escrow.feeOnClaim(), 1000, "Global fee should be 10%");
     }
 
     // Helper functions for fee snapshot tests
@@ -687,7 +687,7 @@ contract OnlyOwner_Test is Base_Test {
     }
 
     /// @dev Test fee setting with rapid changes to verify state consistency
-    function test_setFee_rapidChanges() public {
+    function test_setFeeOnClaim_rapidChanges() public {
         uint16[] memory feeRates = new uint16[](10);
         feeRates[0] = 0;
         feeRates[1] = 50;
@@ -701,15 +701,15 @@ contract OnlyOwner_Test is Base_Test {
         feeRates[9] = 100;
         
         for (uint256 i = 0; i < feeRates.length; i++) {
-            uint256 previousFee = escrow.fee();
+            uint256 previousFee = escrow.feeOnClaim();
             
             vm.expectEmit(true, true, true, true);
-            emit FeeSet(previousFee, feeRates[i]);
+            emit FeeOnClaimSet(previousFee, feeRates[i]);
             
             vm.prank(owner);
-            escrow.setFee(feeRates[i]);
+            escrow.setFeeOnClaim(feeRates[i]);
             
-            assertEq(escrow.fee(), feeRates[i]);
+            assertEq(escrow.feeOnClaim(), feeRates[i]);
         }
     }
 
@@ -900,11 +900,11 @@ contract OnlyOwner_Test is Base_Test {
     }
 
     /// @dev Test extreme fee rate changes and their mathematical consistency
-    function testFuzz_setFee_extremeRatesConsistency(uint16 feeRate) public {
+    function testFuzz_setFeeOnClaim_extremeRatesConsistency(uint16 feeRate) public {
         feeRate = uint16(bound(feeRate, 0, 1000)); // 0-10%
         
         vm.prank(owner);
-        escrow.setFee(feeRate);
+        escrow.setFeeOnClaim(feeRate);
         
         // Test that fee calculations remain mathematically sound
         uint256[] memory testAmounts = new uint256[](5);

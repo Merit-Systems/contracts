@@ -12,7 +12,7 @@ contract Deploy is Script {
       address          owner,
       address          signer,
       address[] memory initialWhitelistedTokens,
-      uint             feeBps,
+      uint             feeOnClaimBps,
       uint             batchLimit
     )
       public
@@ -26,7 +26,7 @@ contract Deploy is Script {
           owner,
           signer,
           initialWhitelistedTokens,
-          feeBps,
+          feeOnClaimBps,
           batchLimit
       );
 
@@ -42,7 +42,7 @@ contract Deploy is Script {
           owner,
           signer,
           initialWhitelistedTokens,
-          feeBps,
+          feeOnClaimBps,
           batchLimit
       );
 
