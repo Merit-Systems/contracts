@@ -68,7 +68,8 @@ interface IEscrow {
     event ReclaimedRepoFunds(
         uint256 indexed repoId,
         uint256 indexed instanceId,
-        address indexed admin,
+        address indexed token,
+        address admin,
         uint256 amount
     );
 
