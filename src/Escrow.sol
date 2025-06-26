@@ -405,7 +405,7 @@ contract Escrow is Owned, IEscrow {
         
         ERC20(token).safeTransfer(msg.sender, amount);
         
-        emit ReclaimedRepoFunds(repoId, instanceId, msg.sender, amount);
+        emit ReclaimedRepoFunds(repoId, instanceId, token, msg.sender, amount);
     }
 
     /* -------------------------------------------------------------------------- */
