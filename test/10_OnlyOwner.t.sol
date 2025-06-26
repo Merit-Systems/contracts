@@ -485,6 +485,7 @@ contract OnlyOwner_Test is Base_Test {
 
     event WhitelistedToken(address indexed token);
     event FeeOnClaimSet(uint256 oldFee, uint256 newFee);
+    event FeeOnFundSet(uint256 oldFee, uint256 newFee);
     event FeeRecipientSet(address indexed oldRecipient, address indexed newRecipient);
     event SignerSet(address indexed oldSigner, address indexed newSigner);
     event BatchLimitSet(uint256 newBatchLimit);
@@ -933,5 +934,203 @@ contract OnlyOwner_Test is Base_Test {
                 assertGe(expectedNet, 1, "Recipient should get at least 1 wei");
             }
         }
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                            SET FEE ON FUND TESTS                           */
+    /* -------------------------------------------------------------------------- */
+
+    function test_setFeeOnFund_success() public {
+        uint256 newFee = 500; // 5%
+        assertEq(escrow.feeOnFund(), 0); // Initial fee from setup (should be 0)
+
+        vm.prank(owner);
+        escrow.setFeeOnFund(newFee);
+
+        assertEq(escrow.feeOnFund(), newFee);
+    }
+
+    function test_setFeeOnFund_zeroFee() public {
+        // First set to non-zero
+        vm.prank(owner);
+        escrow.setFeeOnFund(500);
+        
+        // Then set back to zero
+        vm.prank(owner);
+        escrow.setFeeOnFund(0);
+
+        assertEq(escrow.feeOnFund(), 0);
+    }
+
+    function test_setFeeOnFund_maxFee() public {
+        uint256 maxFee = escrow.MAX_FEE(); // 10%
+
+        vm.prank(owner);
+        escrow.setFeeOnFund(maxFee);
+
+        assertEq(escrow.feeOnFund(), maxFee);
+    }
+
+    function test_setFeeOnFund_revert_notOwner() public {
+        expectRevert("UNAUTHORIZED");
+        vm.prank(unauthorized);
+        escrow.setFeeOnFund(500);
+    }
+
+    function test_setFeeOnFund_revert_exceedsMaxFee() public {
+        uint256 invalidFee = escrow.MAX_FEE() + 1;
+
+        expectRevert(Errors.INVALID_FEE);
+        vm.prank(owner);
+        escrow.setFeeOnFund(invalidFee);
+    }
+
+    function test_setFeeOnFund_fuzz(uint256 fee) public {
+        vm.assume(fee <= escrow.MAX_FEE());
+
+        vm.prank(owner);
+        escrow.setFeeOnFund(fee);
+
+        assertEq(escrow.feeOnFund(), fee);
+    }
+
+    function test_setFeeOnFund_emitsEvent() public {
+        uint256 newFee = 500; // 5%
+        vm.expectEmit(true, true, true, true);
+        emit FeeOnFundSet(escrow.feeOnFund(), newFee);
+        vm.prank(owner);
+        escrow.setFeeOnFund(newFee);
+    }
+
+    function test_setFeeOnFund_multipleChanges() public {
+        uint256[] memory feeRates = new uint256[](5);
+        feeRates[0] = 100;  // 1%
+        feeRates[1] = 250;  // 2.5%
+        feeRates[2] = 500;  // 5%
+        feeRates[3] = 750;  // 7.5%
+        feeRates[4] = 1000; // 10%
+
+        for (uint i = 0; i < feeRates.length; i++) {
+            uint256 previousFee = escrow.feeOnFund();
+            
+            vm.expectEmit(true, true, true, true);
+            emit FeeOnFundSet(previousFee, feeRates[i]);
+            
+            vm.prank(owner);
+            escrow.setFeeOnFund(feeRates[i]);
+            
+            assertEq(escrow.feeOnFund(), feeRates[i]);
+        }
+    }
+
+    function test_setFeeOnFund_independentFromClaimFee() public {
+        // Set claim fee to one value
+        vm.prank(owner);
+        escrow.setFeeOnClaim(300); // 3%
+        
+        // Set fund fee to different value
+        vm.prank(owner);
+        escrow.setFeeOnFund(700); // 7%
+        
+        // Verify they are independent
+        assertEq(escrow.feeOnClaim(), 300);
+        assertEq(escrow.feeOnFund(), 700);
+        
+        // Change one, verify other is unchanged
+        vm.prank(owner);
+        escrow.setFeeOnClaim(100);
+        
+        assertEq(escrow.feeOnClaim(), 100);
+        assertEq(escrow.feeOnFund(), 700); // Should remain unchanged
+    }
+
+    function test_setFeeOnFund_immediateEffect() public {
+        // First set a fee rate
+        vm.prank(owner);
+        escrow.setFeeOnFund(200); // 2%
+        
+        // Create token and fund repo to test immediate effect
+        MockERC20 testToken = new MockERC20("Test", "TEST", 18);
+        vm.prank(owner);
+        escrow.whitelistToken(address(testToken));
+        
+        uint256 fundAmount = 1000e18;
+        address funder = makeAddr("funder");
+        
+        testToken.mint(funder, fundAmount);
+        vm.prank(funder);
+        testToken.approve(address(escrow), fundAmount);
+        
+        // Fund with 2% fee
+        vm.prank(funder);
+        escrow.fundRepo(1, 1, testToken, fundAmount, "");
+        
+        uint256 expectedNet1 = fundAmount - (fundAmount * 200) / 10_000; // 980e18
+        assertEq(escrow.getAccountBalance(1, 1, address(testToken)), expectedNet1);
+        
+        // Change fee immediately
+        vm.prank(owner);
+        escrow.setFeeOnFund(800); // 8%
+        
+        // Fund again with new fee rate
+        testToken.mint(funder, fundAmount);
+        vm.prank(funder);
+        testToken.approve(address(escrow), fundAmount);
+        
+        vm.prank(funder);
+        escrow.fundRepo(1, 1, testToken, fundAmount, "");
+        
+        uint256 expectedNet2 = fundAmount - (fundAmount * 800) / 10_000; // 920e18
+        uint256 totalExpected = expectedNet1 + expectedNet2;
+        
+        assertEq(escrow.getAccountBalance(1, 1, address(testToken)), totalExpected);
+    }
+
+    function test_setFeeOnFund_extremeValues() public {
+        // Test boundary values
+        uint256[] memory extremeFees = new uint256[](3);
+        extremeFees[0] = 0;    // 0%
+        extremeFees[1] = 1;    // 0.01%
+        extremeFees[2] = 1000; // 10%
+        
+        for (uint i = 0; i < extremeFees.length; i++) {
+            vm.prank(owner);
+            escrow.setFeeOnFund(extremeFees[i]);
+            assertEq(escrow.feeOnFund(), extremeFees[i]);
+        }
+    }
+
+    function test_setFeeOnFund_gasEfficiency() public {
+        // Measure gas for setting fee
+        vm.prank(owner);
+        uint256 gasBefore = gasleft();
+        escrow.setFeeOnFund(500);
+        uint256 gasUsed = gasBefore - gasleft();
+        
+        // Should be relatively low gas (similar to setting a storage variable)
+        // This is more of a benchmark than a hard assertion
+        assertTrue(gasUsed < 50000, "Fee setting should be gas efficient");
+    }
+
+    function test_bothFees_fuzz_independentOperations(uint16 claimFee, uint16 fundFee) public {
+        vm.assume(claimFee <= 1000 && fundFee <= 1000);
+        
+        // Set both fees
+        vm.prank(owner);
+        escrow.setFeeOnClaim(claimFee);
+        
+        vm.prank(owner);
+        escrow.setFeeOnFund(fundFee);
+        
+        // Verify both are set correctly
+        assertEq(escrow.feeOnClaim(), claimFee);
+        assertEq(escrow.feeOnFund(), fundFee);
+        
+        // Change one, verify independence
+        vm.prank(owner);
+        escrow.setFeeOnClaim(0);
+        
+        assertEq(escrow.feeOnClaim(), 0);
+        assertEq(escrow.feeOnFund(), fundFee); // Should remain unchanged
     }
 } 
