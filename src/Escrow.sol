@@ -494,16 +494,6 @@ contract Escrow is Owned, IEscrow {
         emit WhitelistedToken(token);
     }
 
-    function setFeeOnClaim(uint newFee) 
-        external 
-        onlyOwner 
-    {
-        require(newFee <= MAX_FEE, Errors.INVALID_FEE);
-        uint oldFee = feeOnClaim;
-        feeOnClaim = newFee;
-        emit FeeOnClaimSet(oldFee, newFee);
-    }
-
     function setFeeOnFund(uint newFee) 
         external 
         onlyOwner 
@@ -512,6 +502,16 @@ contract Escrow is Owned, IEscrow {
         uint oldFee = feeOnFund;
         feeOnFund = newFee;
         emit FeeOnFundSet(oldFee, newFee);
+    }
+
+    function setFeeOnClaim(uint newFee) 
+        external 
+        onlyOwner 
+    {
+        require(newFee <= MAX_FEE, Errors.INVALID_FEE);
+        uint oldFee = feeOnClaim;
+        feeOnClaim = newFee;
+        emit FeeOnClaimSet(oldFee, newFee);
     }
 
     function setFeeRecipient(address newRec) 
