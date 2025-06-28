@@ -313,7 +313,6 @@ contract Escrow is Owned, IEscrow {
         require(distribution.amount      > 0,                            Errors.INVALID_AMOUNT);
         require(whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
 
-        // Validate that after fees, recipient will receive at least 1 wei
         uint feeAmount = distribution.amount.mulDivUp(feeOnClaim, 10_000);
         require(distribution.amount > feeAmount, Errors.INVALID_AMOUNT);
 
