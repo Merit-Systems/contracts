@@ -13,7 +13,8 @@ interface IEscrow {
         uint256 indexed instanceId,
         address indexed token,
         address sender,
-        uint256 amount,
+        uint256 netAmount,
+        uint256 feeAmount,
         bytes data
     );
 
@@ -109,7 +110,8 @@ interface IEscrow {
     event AddedDistributor(uint256 indexed repoId, uint256 indexed instanceId, address indexed distributor);
     event RemovedDistributor(uint256 indexed repoId, uint256 indexed instanceId, address indexed distributor);
     event BatchLimitSet(uint256 newBatchLimit);
-    event FeeSet(uint256 oldFee, uint256 newFee);
+    event FeeOnClaimSet(uint256 oldFee, uint256 newFee);
+    event FeeOnFundSet(uint256 oldFee, uint256 newFee);
     event FeeRecipientSet(address indexed oldRecipient, address indexed newRecipient);
     event SignerSet(address indexed oldSigner, address indexed newSigner);
 } 

@@ -124,7 +124,7 @@ contract Claim_Test is Base_Test {
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
 
-        uint256 expectedFee = (DISTRIBUTION_AMOUNT * escrow.fee()) / 10000;
+        uint256 expectedFee = (DISTRIBUTION_AMOUNT * escrow.feeOnClaim()) / 10000;
         uint256 expectedNetAmount = DISTRIBUTION_AMOUNT - expectedFee;
 
         uint256 initialRecipientBalance = wETH.balanceOf(recipient);
@@ -166,7 +166,7 @@ contract Claim_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
 
         uint256 totalAmount = amount1 + amount2 + amount3;
-        uint256 expectedFee = (totalAmount * escrow.fee()) / 10000;
+        uint256 expectedFee = (totalAmount * escrow.feeOnClaim()) / 10000;
         uint256 expectedNetAmount = totalAmount - expectedFee;
 
         uint256 initialRecipientBalance = wETH.balanceOf(recipient);
@@ -187,7 +187,7 @@ contract Claim_Test is Base_Test {
     function test_claim_zeroFee() public {
         // Set fee to 0
         vm.prank(owner);
-        escrow.setFee(0);
+        escrow.setFeeOnClaim(0);
 
         uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
         uint[] memory distributionIds = new uint[](1);
@@ -356,7 +356,7 @@ contract Claim_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
 
         // Use the fee calculation logic from the contract
-        uint256 expectedFee = (amount * escrow.fee() + 9999) / 10000; // Round up like mulDivUp
+        uint256 expectedFee = (amount * escrow.feeOnClaim() + 9999) / 10000; // Round up like mulDivUp
         if (expectedFee >= amount) {
             expectedFee = amount - 1; // Cap fee to ensure recipient gets at least 1 wei
         }
@@ -430,13 +430,13 @@ contract Claim_Test is Base_Test {
         
         // Create distribution with 10% fee
         vm.prank(owner);
-        escrow.setFee(1000); // 10%
+        escrow.setFeeOnClaim(1000); // 10%
         
         uint256 distributionId = _createRepoDistribution(recipient, 100); // 100 wei
         
         // Try to change fee after distribution - this should NOT affect the claim
         vm.prank(owner);
-        escrow.setFee(250); // 2.5% - lower fee
+        escrow.setFeeOnClaim(250); // 2.5% - lower fee
         
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
@@ -463,13 +463,13 @@ contract Claim_Test is Base_Test {
         
         // Create a small distribution with a reasonable fee
         vm.prank(owner);
-        escrow.setFee(1000); // 10%
+        escrow.setFeeOnClaim(1000); // 10%
         
         uint256 distributionId = _createRepoDistribution(recipient, 20); // 20 wei
         
         // Try to change fee to a different value after distribution
         vm.prank(owner);
-        escrow.setFee(500); // 5% - this should NOT affect the claim
+        escrow.setFeeOnClaim(500); // 5% - this should NOT affect the claim
         
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
@@ -500,7 +500,7 @@ contract Claim_Test is Base_Test {
         for (uint i = 0; i < feeRates.length; i++) {
             // Set fee rate
             vm.prank(owner);
-            escrow.setFee(uint16(feeRates[i]));
+            escrow.setFeeOnClaim(uint16(feeRates[i]));
 
             uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
             uint[] memory distributionIds = new uint[](1);
@@ -567,13 +567,13 @@ contract Claim_Test is Base_Test {
         
         // Create distribution with maximum fee that still allows valid creation
         vm.prank(owner);
-        escrow.setFee(1000); // 10%
+        escrow.setFeeOnClaim(1000); // 10%
         
         uint256 distributionId = _createRepoDistribution(recipient, 10); // 10 wei
         
         // Try to change fee after distribution - should have no effect
         vm.prank(owner);
-        escrow.setFee(100); // 1%
+        escrow.setFeeOnClaim(100); // 1%
         
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
@@ -596,7 +596,7 @@ contract Claim_Test is Base_Test {
         // Ensure normal fee calculations work correctly with fee snapshotting
         
         vm.prank(owner);
-        escrow.setFee(250); // 2.5%
+        escrow.setFeeOnClaim(250); // 2.5%
         
         uint256 distributionId = _createRepoDistribution(recipient, 1000e18); // Large amount
         
@@ -625,17 +625,17 @@ contract Claim_Test is Base_Test {
         
         // Create first distribution with 1% fee
         vm.prank(owner);
-        escrow.setFee(100); // 1%
+        escrow.setFeeOnClaim(100); // 1%
         uint256 distributionId1 = _createRepoDistribution(recipient, 1000e18); // Large
         
         // Change fee and create second distribution
         vm.prank(owner);
-        escrow.setFee(1000); // 10%
+        escrow.setFeeOnClaim(1000); // 10%
         uint256 distributionId2 = _createRepoDistribution(recipient, 50); // Small - 50 wei
         
         // Try to change fee again - should not affect existing distributions
         vm.prank(owner);
-        escrow.setFee(500); // 5%
+        escrow.setFeeOnClaim(500); // 5%
         
         uint[] memory distributionIds = new uint[](2);
         distributionIds[0] = distributionId1;
@@ -665,13 +665,13 @@ contract Claim_Test is Base_Test {
         
         // Create distribution with the fuzzed fee rate
         vm.prank(owner);
-        escrow.setFee(feeRate);
+        escrow.setFeeOnClaim(feeRate);
         
         uint256 distributionId = _createRepoDistribution(recipient, distributionAmount);
         
         // Try to change fee after creation - should have no effect
         vm.prank(owner);
-        escrow.setFee(feeRate == 1000 ? 100 : 1000); // Set to different value
+        escrow.setFeeOnClaim(feeRate == 1000 ? 100 : 1000); // Set to different value
         
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
@@ -711,13 +711,13 @@ contract Claim_Test is Base_Test {
         
         // Create distribution with low fee (1%)
         vm.prank(owner);
-        escrow.setFee(100); // 1%
+        escrow.setFeeOnClaim(100); // 1%
         
         uint256 distributionId = _createRepoDistribution(recipient, 1000e18);
         
         // Malicious owner tries to increase fee to maximum before claim
         vm.prank(owner);
-        escrow.setFee(1000); // 10% - trying to extract 10x more fees
+        escrow.setFeeOnClaim(1000); // 10% - trying to extract 10x more fees
         
         uint[] memory distributionIds = new uint[](1);
         distributionIds[0] = distributionId;
@@ -949,13 +949,13 @@ contract Claim_Test is Base_Test {
     function test_claim_integration_afterFeeChange() public {
         // Create distribution with initial fee
         vm.prank(owner);
-        escrow.setFee(100); // 1%
+        escrow.setFeeOnClaim(100); // 1%
         
         uint256 distributionId = _createRepoDistribution(recipient, DISTRIBUTION_AMOUNT);
         
         // Change fee after distribution creation
         vm.prank(owner);
-        escrow.setFee(500); // 5%
+        escrow.setFeeOnClaim(500); // 5%
         
         // Claim should use original fee from distribution creation time
         uint[] memory distributionIds = new uint[](1);
@@ -1011,7 +1011,7 @@ contract Claim_Test is Base_Test {
         vm.prank(owner);
         escrow.setFeeRecipient(newFeeRecipient);
 
-        uint256 expectedFee = (DISTRIBUTION_AMOUNT * escrow.fee()) / 10000;
+        uint256 expectedFee = (DISTRIBUTION_AMOUNT * escrow.feeOnClaim()) / 10000;
 
         vm.prank(recipient);
         escrow.claim(distributionIds, deadline, v, r, s, "");
@@ -1036,7 +1036,7 @@ contract Claim_Test is Base_Test {
         (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);
 
         uint256 totalAmount = DISTRIBUTION_AMOUNT * batchSize;
-        uint256 expectedFee = (totalAmount * escrow.fee()) / 10000;
+        uint256 expectedFee = (totalAmount * escrow.feeOnClaim()) / 10000;
         uint256 expectedNetAmount = totalAmount - expectedFee;
 
         uint256 initialRecipientBalance = wETH.balanceOf(recipient);
@@ -1064,7 +1064,7 @@ contract Claim_Test is Base_Test {
         
         // We'll test the normal edge case scenario to show the defensive logic exists
         vm.prank(owner);
-        escrow.setFee(1000); // 10% fee (maximum allowed)
+        escrow.setFeeOnClaim(1000); // 10% fee (maximum allowed)
         
         // Create the smallest distribution that can pass validation with max fee
         // With 10% fee: for amount=11, fee = mulDivUp(11, 1000, 10000) = 2
@@ -1146,7 +1146,7 @@ contract Claim_Test is Base_Test {
             
             // Set fee for this distribution
             vm.prank(owner);
-            escrow.setFee(feeRates[i]);
+            escrow.setFeeOnClaim(feeRates[i]);
             
             // Create distribution with this fee rate
             distributionIds[i] = _createRepoDistribution(recipient, amounts[i]);
@@ -1216,7 +1216,7 @@ contract Claim_Test is Base_Test {
         feeRate = uint16(bound(feeRate, 1, 1000)); // 0.01% to 10%
         
         vm.prank(owner);
-        escrow.setFee(feeRate);
+        escrow.setFeeOnClaim(feeRate);
         
         uint256 distributionId = _createRepoDistribution(recipient, amount);
         uint256[] memory distributionIds = new uint256[](1);
@@ -1296,7 +1296,7 @@ contract Claim_Test is Base_Test {
         // Create distributions with different fee rates
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(owner);
-            escrow.setFee(uint16(feeRates[i]));
+            escrow.setFeeOnClaim(uint16(feeRates[i]));
             
             distributionIds[i] = _createRepoDistribution(recipient, 1000e18);
             
@@ -1307,7 +1307,7 @@ contract Claim_Test is Base_Test {
         
         // Change fee rate again (shouldn't affect existing distributions)
         vm.prank(owner);
-        escrow.setFee(750); // 7.5%
+        escrow.setFeeOnClaim(750); // 7.5%
         
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signClaim(distributionIds, recipient, deadline);

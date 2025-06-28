@@ -23,7 +23,7 @@ contract DeployBaseSepolia is Deploy {
             Params.BASESEPOLIA_OWNER,
             Params.BASESEPOLIA_SIGNER,
             initialWhitelistedTokens,
-            Params.BASESEPOLIA_FEE_BPS,
+            Params.BASESEPOLIA_FEE_ON_CLAIM_BPS,
             Params.BATCH_LIMIT
         );
 

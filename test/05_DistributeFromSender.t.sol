@@ -342,7 +342,7 @@ contract DistributeFromSender_Test is Base_Test {
         vm.assume(amount2 > 0 && amount2 <= maxAmount);
 
         // Add validation for fee edge case - ensure amounts are large enough
-        uint256 currentFee = escrow.fee();
+        uint256 currentFee = escrow.feeOnClaim();
         if (currentFee > 0) {
             // Ensure amounts are large enough to handle fees
             // For 10% max fee, amounts should be at least 100 to avoid fee >= amount
@@ -446,7 +446,7 @@ contract DistributeFromSender_Test is Base_Test {
     function test_distributeFromSender_revert_feeExceedsAmount_maxFee() public {
         // Set fee to maximum (10%)
         vm.prank(owner);
-        escrow.setFee(1000); // 10%
+        escrow.setFeeOnClaim(1000); // 10%
         
         // Create distribution where fee would equal or exceed amount
         Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
@@ -469,7 +469,7 @@ contract DistributeFromSender_Test is Base_Test {
     function test_distributeFromSender_revert_feeExceedsAmount_edgeCase() public {
         // Set fee to maximum (10%)
         vm.prank(owner);
-        escrow.setFee(1000); // 10%
+        escrow.setFeeOnClaim(1000); // 10%
         
         // Create distribution where mulDivUp would make fee >= amount
         // For amount = 1: fee = mulDivUp(1, 1000, 10000) = (1 * 1000 + 9999) / 10000 = 1
@@ -493,7 +493,7 @@ contract DistributeFromSender_Test is Base_Test {
     function test_distributeFromSender_revert_feeExceedsAmount_smallAmounts() public {
         // Set moderate fee (2.5%)
         vm.prank(owner);
-        escrow.setFee(250); // 2.5%
+        escrow.setFeeOnClaim(250); // 2.5%
         
         // Give distributor minimal tokens for this test
         wETH.mint(distributor, 1000);
@@ -535,7 +535,7 @@ contract DistributeFromSender_Test is Base_Test {
         
         // Set the fee rate
         vm.prank(owner);
-        escrow.setFee(feeRate);
+        escrow.setFeeOnClaim(feeRate);
         
         // Calculate expected fee using same logic as contract
         uint256 expectedFee = (amount * feeRate + 9999) / 10000; // mulDivUp equivalent
@@ -585,7 +585,7 @@ contract DistributeFromSender_Test is Base_Test {
         
         for (uint i = 0; i < feeRates.length; i++) {
             vm.prank(owner);
-            escrow.setFee(feeRates[i]);
+            escrow.setFeeOnClaim(feeRates[i]);
             
             Escrow.DistributionParams[] memory distributions = new Escrow.DistributionParams[](1);
             distributions[0] = Escrow.DistributionParams({
@@ -608,7 +608,7 @@ contract DistributeFromSender_Test is Base_Test {
     function test_distributeFromSender_feeSnapshotAtCreation() public {
         // Test that fee is correctly snapshotted at distribution creation time
         vm.prank(owner);
-        escrow.setFee(600); // 6%
+        escrow.setFeeOnClaim(600); // 6%
 
         wETH.mint(distributor, 1000e18);
 
@@ -634,7 +634,7 @@ contract DistributeFromSender_Test is Base_Test {
 
         // Create first distribution with 3% fee
         vm.prank(owner);
-        escrow.setFee(300);
+        escrow.setFeeOnClaim(300);
         
         Escrow.DistributionParams[] memory distributions1 = new Escrow.DistributionParams[](1);
         distributions1[0] = Escrow.DistributionParams({
@@ -649,7 +649,7 @@ contract DistributeFromSender_Test is Base_Test {
 
         // Change fee and create second distribution with 7% fee
         vm.prank(owner);
-        escrow.setFee(700);
+        escrow.setFeeOnClaim(700);
         
         Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
         distributions2[0] = Escrow.DistributionParams({
@@ -673,7 +673,7 @@ contract DistributeFromSender_Test is Base_Test {
     function test_distributeFromSender_zeroFeeSnapshot() public {
         // Test that zero fees are correctly snapshotted
         vm.prank(owner);
-        escrow.setFee(0); // 0% fee
+        escrow.setFeeOnClaim(0); // 0% fee
 
         wETH.mint(distributor, 1000e18);
 
@@ -695,7 +695,7 @@ contract DistributeFromSender_Test is Base_Test {
     function test_distributeFromSender_maxFeeSnapshot() public {
         // Test that maximum fees are correctly snapshotted
         vm.prank(owner);
-        escrow.setFee(1000); // 10% (maximum) fee
+        escrow.setFeeOnClaim(1000); // 10% (maximum) fee
 
         wETH.mint(distributor, 1000e18);
 
@@ -717,7 +717,7 @@ contract DistributeFromSender_Test is Base_Test {
     function test_distributeFromSender_batchDistributionsSameFeeSnapshot() public {
         // Test that all distributions in a batch get the same fee snapshot
         vm.prank(owner);
-        escrow.setFee(400); // 4%
+        escrow.setFeeOnClaim(400); // 4%
 
         wETH.mint(distributor, 5000e18);
 
@@ -754,7 +754,7 @@ contract DistributeFromSender_Test is Base_Test {
     function test_distributeFromSender_feeChangeAfterCreationDoesNotAffect() public {
         // Test that changing fee after creation doesn't affect existing distributions
         vm.prank(owner);
-        escrow.setFee(150); // 1.5%
+        escrow.setFeeOnClaim(150); // 1.5%
 
         wETH.mint(distributor, 1000e18);
 
@@ -771,14 +771,14 @@ contract DistributeFromSender_Test is Base_Test {
 
         // Change fee after creation
         vm.prank(owner);
-        escrow.setFee(850); // 8.5%
+        escrow.setFeeOnClaim(850); // 8.5%
 
         // Check that existing distribution still has original fee
         Escrow.Distribution memory distribution = escrow.getDistribution(distributionIds[0]);
         assertEq(distribution.fee, 150, "Existing distribution should retain original fee");
         
         // Verify global fee did change
-        assertEq(escrow.fee(), 850, "Global fee should have changed");
+        assertEq(escrow.feeOnClaim(), 850, "Global fee should have changed");
     }
 
     function test_distributeFromSender_multiplePayers_differentFees() public {
@@ -796,7 +796,7 @@ contract DistributeFromSender_Test is Base_Test {
 
         // Payer1 creates distribution with 2% fee
         vm.prank(owner);
-        escrow.setFee(200);
+        escrow.setFeeOnClaim(200);
         
         Escrow.DistributionParams[] memory distributions1 = new Escrow.DistributionParams[](1);
         distributions1[0] = Escrow.DistributionParams({
@@ -811,7 +811,7 @@ contract DistributeFromSender_Test is Base_Test {
 
         // Change fee, then payer2 creates distribution with 9% fee
         vm.prank(owner);
-        escrow.setFee(900);
+        escrow.setFeeOnClaim(900);
         
         Escrow.DistributionParams[] memory distributions2 = new Escrow.DistributionParams[](1);
         distributions2[0] = Escrow.DistributionParams({

@@ -16,7 +16,7 @@ contract DeployBase is Deploy {
             Params.BASE_OWNER,
             Params.BASE_SIGNER,
             initialWhitelistedTokens,
-            Params.BASE_FEE_BPS,
+            Params.BASE_FEE_ON_CLAIM_BPS,
             Params.BATCH_LIMIT
         );
 

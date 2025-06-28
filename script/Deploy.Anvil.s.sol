@@ -92,8 +92,11 @@ contract DeployAnvil is Script {
         MockERC20 token3 = new MockERC20("Test Token 3", "TKN3", 18);
         escrow.whitelistToken(address(token3));
         
-        // Test FeeSet event
-        escrow.setFee(300); // 3%
+        // Test FeeOnClaimSet event
+        escrow.setFeeOnClaim(300); // 3%
+        
+        // Test FeeOnFundSet event
+        escrow.setFeeOnFund(100); // 1%
         
         // Test FeeRecipientSet event
         escrow.setFeeRecipient(USER1);
@@ -1103,7 +1106,7 @@ contract DeployAnvil is Script {
         feeRates[4] = 250;  // Back to 2.5%
         
         for (uint i = 0; i < feeRates.length; i++) {
-            escrow.setFee(feeRates[i]);
+            escrow.setFeeOnClaim(feeRates[i]);
         }
         
         // Test different fee recipients
@@ -1461,7 +1464,7 @@ contract DeployAnvil is Script {
         extremeFees[7] = 250;  // Back to 2.5%
         
         for (uint i = 0; i < extremeFees.length; i++) {
-            escrow.setFee(extremeFees[i]);
+            escrow.setFeeOnClaim(extremeFees[i]);
         }
         
         // Test rotating fee recipients

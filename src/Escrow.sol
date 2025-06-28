@@ -85,7 +85,8 @@ contract Escrow is Owned, IEscrow {
     mapping(uint => mapping(uint => uint)) public repoSetAdminNonce;   // repoId → instanceId → nonce
     mapping(address => uint)               public recipientClaimNonce; // recipient → nonce
 
-    uint    public fee;
+    uint    public feeOnFund;
+    uint    public feeOnClaim;
     address public feeRecipient;
     uint    public batchLimit; 
 
@@ -125,14 +126,14 @@ contract Escrow is Owned, IEscrow {
         address          _owner,
         address          _signer,
         address[] memory _whitelistedTokens,
-        uint             _fee,
+        uint             _feeOnClaim,
         uint             _batchLimit
     ) Owned(_owner) {
-        require(_fee <= MAX_FEE, Errors.INVALID_FEE);
+        require(_feeOnClaim <= MAX_FEE, Errors.INVALID_FEE);
 
         signer                   = _signer;
         feeRecipient             = _owner;
-        fee                      = _fee;
+        feeOnClaim               = _feeOnClaim;
         batchLimit               = _batchLimit;
         INITIAL_CHAIN_ID         = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = _domainSeparator();
@@ -205,10 +206,17 @@ contract Escrow is Owned, IEscrow {
 
         token.safeTransferFrom(msg.sender, address(this), amount);
 
-        accounts[repoId][instanceId].balance[address(token)]     += amount;
-        fundings[repoId][instanceId][address(token)][msg.sender] += amount;
+        uint feeAmount = amount.mulDivUp(feeOnFund, 10_000);
+        require(amount > feeAmount, Errors.INVALID_AMOUNT);
 
-        emit FundedRepo(repoId, instanceId, address(token), msg.sender, amount, data);
+        if (feeAmount > 0) token.safeTransfer(feeRecipient, feeAmount);
+
+        uint netAmount = amount - feeAmount;
+
+        accounts[repoId][instanceId].balance[address(token)]     += netAmount;
+        fundings[repoId][instanceId][address(token)][msg.sender] += netAmount;
+
+        emit FundedRepo(repoId, instanceId, address(token), msg.sender, netAmount, feeAmount, data);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -305,8 +313,7 @@ contract Escrow is Owned, IEscrow {
         require(distribution.amount      > 0,                            Errors.INVALID_AMOUNT);
         require(whitelistedTokens.contains(address(distribution.token)), Errors.INVALID_TOKEN);
 
-        // Validate that after fees, recipient will receive at least 1 wei
-        uint feeAmount = distribution.amount.mulDivUp(fee, 10_000);
+        uint feeAmount = distribution.amount.mulDivUp(feeOnClaim, 10_000);
         require(distribution.amount > feeAmount, Errors.INVALID_AMOUNT);
 
         distributionId = distributionCount++;
@@ -320,7 +327,7 @@ contract Escrow is Owned, IEscrow {
             exists:        true,
             _type:         _type,
             payer:         _type == DistributionType.Solo ? msg.sender : address(0),
-            fee:           fee
+            fee:           feeOnClaim
         });
     }
 
@@ -486,14 +493,24 @@ contract Escrow is Owned, IEscrow {
         emit WhitelistedToken(token);
     }
 
-    function setFee(uint newFee) 
+    function setFeeOnFund(uint newFee) 
         external 
         onlyOwner 
     {
         require(newFee <= MAX_FEE, Errors.INVALID_FEE);
-        uint oldFee = fee;
-        fee = newFee;
-        emit FeeSet(oldFee, newFee);
+        uint oldFee = feeOnFund;
+        feeOnFund = newFee;
+        emit FeeOnFundSet(oldFee, newFee);
+    }
+
+    function setFeeOnClaim(uint newFee) 
+        external 
+        onlyOwner 
+    {
+        require(newFee <= MAX_FEE, Errors.INVALID_FEE);
+        uint oldFee = feeOnClaim;
+        feeOnClaim = newFee;
+        emit FeeOnClaimSet(oldFee, newFee);
     }
 
     function setFeeRecipient(address newRec) 
