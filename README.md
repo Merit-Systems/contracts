@@ -41,4 +41,4 @@ Multiple security audits have been conducted. See the [audits directory](audits/
 
 ## Deployment
 
-The Escrow Contract lives at [0x000000007bca2DC8F121B49457c726B51Adb667a](https://basescan.org/address/0x000000007bca2dc8f121b49457c726b51adb667a) on Base.
+The Escrow Contract is [0x000000007bca2DC8F121B49457c726B51Adb667a](https://basescan.org/address/0x000000007bca2dc8f121b49457c726b51adb667a) on Base.
