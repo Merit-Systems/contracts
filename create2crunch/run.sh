@@ -36,4 +36,5 @@ export CALLER=$CALLER
 export INIT_CODE_HASH=$INIT_CODE_HASH
 
 echo "Running create2 crunch..."
-cargo run --release $FACTORY $CALLER $INIT_CODE_HASH
+# Parameters: factory caller init_code_hash gpu_device(255=CPU) leading_zeros total_zeros(255=disabled)
+cargo run --release $FACTORY $CALLER $INIT_CODE_HASH 0 4 255
